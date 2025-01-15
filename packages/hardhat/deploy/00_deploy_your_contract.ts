@@ -1,44 +1,81 @@
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { DeployFunction } from "hardhat-deploy/types";
-import { Contract } from "ethers";
 
 /**
- * Deploys a contract named "YourContract" using the deployer account and
- * constructor arguments set to the deployer address
- *
- * @param hre HardhatRuntimeEnvironment object.
+ * Deploys the Stream contract and a Mock ERC-20 Token contract for testing.
  */
-const deployYourContract: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
-  /*
-    On localhost, the deployer account is the one that comes with Hardhat, which is already funded.
-
-    When deploying to live networks (e.g `yarn deploy --network sepolia`), the deployer account
-    should have sufficient balance to pay for the gas fees for contract creation.
-
-    You can generate a random account with `yarn generate` or `yarn account:import` to import your
-    existing PK which will fill DEPLOYER_PRIVATE_KEY_ENCRYPTED in the .env file (then used on hardhat.config.ts)
-    You can run the `yarn account` command to check your balance in every network.
-  */
+const deployStreamContract: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const { deployer } = await hre.getNamedAccounts();
   const { deploy } = hre.deployments;
 
-  await deploy("YourContract", {
-    from: deployer,
-    // Contract constructor arguments
-    args: [deployer],
-    log: true,
-    // autoMine: can be passed to the deploy function to make the deployment process faster on local networks by
-    // automatically mining the contract deployment transaction. There is no effect on live networks.
-    autoMine: true,
-  });
+  try {
+    let nowSeconds = Math.floor(Date.now() / 1000);
+    let waitSeconds = 3000;
+    let bootstrappingDuration = 6000;
+    let streamDuration = 6000;
 
-  // Get the deployed contract to interact with it after deploying.
-  const yourContract = await hre.ethers.getContract<Contract>("YourContract", deployer);
-  console.log("👋 Initial greeting:", await yourContract.greeting());
+    let bootstrappingStartTime = nowSeconds + waitSeconds;
+    let streamStartTime = bootstrappingStartTime + bootstrappingDuration;
+    let streamEndTime = streamStartTime + streamDuration;
+
+    // Step 1: Deploy the ERC-20 Token (Mock)
+    const erc20 = await deploy("ERC20Mock", {
+      from: deployer,
+      args: [], // Adjust if necessary
+      log: true,
+    });
+    console.log("ERC20 Mock Token deployed at:", erc20.address);
+
+    // Mint tokens for the deployer (1000 tokens in this case)
+    const erc20Contract = await hre.ethers.getContractAt("ERC20Mock", erc20.address);
+    await erc20Contract.mint(deployer, 1000);
+
+    // Step 2: Deploy the Stream contract, passing the address of the ERC-20 token
+    const stream = await deploy("Stream", {
+      from: deployer,
+      args: [],
+      log: true,
+    });
+    console.log("Stream contract deployed at:", stream.address);
+
+    // Step 3: Set up allowance for the stream contract to spend tokens
+    const amountToApprove = 1000; // Example: approve 1000 tokens for the Stream contract
+    const approveTx = await erc20Contract.approve(stream.address, amountToApprove);
+    await approveTx.wait();
+
+    // Step 4: Create the stream by calling the createStream function
+    const streamContract = await hre.ethers.getContractAt("Stream", stream.address);
+    const createStreamTx = await streamContract.createStream(
+      amountToApprove,
+      bootstrappingStartTime,
+      streamStartTime,
+      streamEndTime,
+      1000, // Example threshold
+      "Test Stream",
+      erc20.address
+    );
+    await createStreamTx.wait();
+    console.log(`Stream is created`);
+
+    // Query data 
+    const StreamFlag = await streamContract.streamCreated();
+    console.log(`Stream flag is ${StreamFlag}`);
+    // Query token balance of the stream contract
+    const tokenBalance = await erc20Contract.balanceOf(stream.address);
+    console.log(`Token balance of the stream contract is ${tokenBalance}`);
+
+    // Query stream out amount
+    const streamOutAmount = await streamContract.streamOutAmount();
+    console.log(`Stream out amount is ${streamOutAmount}`);
+
+  } catch (error: unknown) {
+    console.error("Error deploying contract:", error);
+    if (error instanceof Error) {
+      console.error("Revert reason:", error.message);
+    } else {
+      console.error("Unknown error occurred");
+    }
+  }
 };
 
-export default deployYourContract;
-
-// Tags are useful if you have multiple deploy files and only want to run one of them.
-// e.g. yarn deploy --tags YourContract
-deployYourContract.tags = ["YourContract"];
+export default deployStreamContract;
