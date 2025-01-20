@@ -1,21 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.0 <0.9.0;
 
-// IERC20 interface to interact with ERC-20 tokens
 interface IERC20 {
     function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
     function balanceOf(address account) external view returns (uint256);
 }
-
-error InvalidBootstrappingStartTime();
-error InvalidStreamStartTime();
-error InvalidStreamEndTime();
-error StreamDurationTooShort();
-error BootstrappingDurationTooShort();
-error WaitingDurationTooShort();
-error InsufficientETHPayment();
-error InsufficientTokenPayment(uint256 requiredTokenAmount, uint256 tokenBalance);
-error InvalidInDenom();
 
 contract PositionStorage {
     struct Position {
@@ -54,43 +43,75 @@ contract PositionStorage {
         positions[owner] = Position(inBalance, shares, index, block.timestamp, 0, 0, 0, "");
     }
 
-    function updatePosition(
-        address owner,
-        uint256 inBalance,
-        uint256 shares,
-        uint256 index
-    ) external onlySender {
-        positions[owner] = Position(inBalance, shares, index, block.timestamp, 0, 0, 0, "");
-    }
-
     function setExitDate(address owner, string memory exitDate) external onlySender {
         positions[owner].exitDate = exitDate;
     }
 }
 
+error InvalidBootstrappingStartTime();
+error InvalidStreamStartTime();
+error InvalidStreamEndTime();
+error StreamDurationTooShort();
+error BootstrappingDurationTooShort();
+error WaitingDurationTooShort();
+error InsufficientTokenPayment(uint256 requiredTokenAmount, uint256 tokenBalance);
+error InvalidStreamOutDenom();
 contract Stream {
     address public immutable owner;
-    string public inDenomRequired;
-    uint256 public streamOutAmount;
-    uint256 public bootstrappingStartTime;
-    uint256 public streamStartTime;
-    uint256 public streamEndTime;
-    uint256 public threshold;
-    uint256 public spentIn;
-    uint256 public shares;
-    uint256 public currentStreamedPrice;
-    uint256 public lastUpdated;
     address public positionStorageAddress;
     string public name;
     bool public streamCreated;
+
+    // Primary statuses of the stream
+    enum Status {
+        Waiting,
+        Bootstrapping,
+        Active,
+        Ended,
+        Finalized,
+        Cancelled
+    }
+
+    // Secondary statuses for Finalized state
+    enum FinalizedStatus {
+        None,
+        Streamed,
+        Refunded
+    }
+
+    struct StatusInfo {
+        Status mainStatus;
+        FinalizedStatus finalized;
+        uint256 lastUpdated;
+        uint256 bootstrappingStartTime;
+        uint256 streamStartTime;
+        uint256 streamEndTime;
+    }
+
+    struct StreamMetadata {
+        string name;
+    }
+
+    struct StreamState {
+        uint256 outRemaining;
+        uint256 distIndex;
+        uint256 spentIn;
+        uint256 shares;
+        uint256 currentStreamedPrice;
+        uint256 threshold;
+        uint256 inSupply;
+        string inDenom;
+        string streamOutDenom;
+    }
 
     uint256 private constant MIN_WAITING_DURATION = 5 minutes;
     uint256 private constant MIN_BOOTSTRAPPING_DURATION = 30 minutes;
     uint256 private constant MIN_STREAM_DURATION = 1 hours;
 
-    // ERC-20 Token contract address (can be set when deploying)
-    address public tokenAddress;
     IERC20 public token;
+    StreamState public streamState;
+    StreamMetadata public streamMetadata;
+    StatusInfo public streamStatus;
 
     event StreamCreated(
         uint256 indexed streamOutAmount,
@@ -99,13 +120,9 @@ contract Stream {
         uint256 streamEndTime
     );
 
-    // Constructor with no parameters
-    constructor(
-        string memory _inDenomRequired
-    ) {
+    constructor() {
         owner = msg.sender;
         streamCreated = false;
-        inDenomRequired = _inDenomRequired;
     }
 
     modifier isOwner() {
@@ -114,54 +131,49 @@ contract Stream {
     }
 
     modifier onlyOnce() {
-        require(!streamCreated, "Stream has already been created");
+        require(!streamCreated, "Stream already created");
         _;
     }
 
     function createStream(
         uint256 _streamOutAmount,
+        string memory _streamOutDenom,
         uint256 _bootstrappingStartTime,
         uint256 _streamStartTime,
         uint256 _streamEndTime,
         uint256 _threshold,
         string memory _name,
-        address _tokenAddress
+        string memory _inDenom
     ) external isOwner onlyOnce {
-        streamOutAmount = _streamOutAmount;
-        bootstrappingStartTime = _bootstrappingStartTime;
-        streamStartTime = _streamStartTime;
-        streamEndTime = _streamEndTime;
-        threshold = _threshold;
-        name = _name;
-        tokenAddress = _tokenAddress;
-        token = IERC20(_tokenAddress);
-        lastUpdated = block.timestamp;
-
-        // Require ERC-20 token payment during contract deployment
-        uint256 tokenBalance = token.balanceOf(msg.sender);
-        if (tokenBalance < streamOutAmount) {
-            revert InsufficientTokenPayment(streamOutAmount, tokenBalance);
-        }
-
-        // Validate stream times
         validateStreamTimes(block.timestamp, _bootstrappingStartTime, _streamStartTime, _streamEndTime);
 
-        // Deploy PositionStorage contract
         PositionStorage positionStorage = new PositionStorage();
         positionStorageAddress = address(positionStorage);
 
-        // Transfer ERC-20 tokens from the sender to this contract
-        token.transferFrom(msg.sender, address(this), streamOutAmount);
+        streamState = StreamState({
+            distIndex: 0,
+            outRemaining: _streamOutAmount,
+            inDenom: _inDenom,
+            streamOutDenom: _streamOutDenom,
+            inSupply: 0,
+            spentIn: 0,
+            shares: 0,
+            currentStreamedPrice: 0,
+            threshold: _threshold
+        });
 
-        // Set streamCreated flag to true to prevent re-creation
-        streamCreated = true;
+        streamMetadata = StreamMetadata({
+            name: _name
+        });
 
-        emit StreamCreated(
-            _streamOutAmount,
-            _bootstrappingStartTime,
-            _streamStartTime,
-            _streamEndTime
-        );
+        streamStatus = StatusInfo({
+            mainStatus: Status.Waiting,
+            finalized: FinalizedStatus.None,
+            lastUpdated: block.timestamp,
+            bootstrappingStartTime: _bootstrappingStartTime,
+            streamStartTime: _streamStartTime,
+            streamEndTime: _streamEndTime
+        });
     }
 
     function validateStreamTimes(
@@ -178,3 +190,4 @@ contract Stream {
         if (_bootstrappingStartTime - nowTime < MIN_WAITING_DURATION) revert WaitingDurationTooShort();
     }
 }
+
