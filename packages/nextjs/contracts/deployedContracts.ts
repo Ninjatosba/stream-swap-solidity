@@ -7,10 +7,21 @@ import { GenericContractsDeclaration } from "~~/utils/scaffold-eth/contract";
 const deployedContracts = {
   31337: {
     ERC20Mock: {
-      address: "0x9A9f2CCfdE556A7E9Ff0848998Aa4a0CFD8863AE",
+      address: "0x162A433068F51e18b7d13932F27e66a3f99E6890",
       abi: [
         {
-          inputs: [],
+          inputs: [
+            {
+              internalType: "string",
+              name: "_name",
+              type: "string",
+            },
+            {
+              internalType: "string",
+              name: "_symbol",
+              type: "string",
+            },
+          ],
           stateMutability: "nonpayable",
           type: "constructor",
         },
@@ -325,7 +336,7 @@ const deployedContracts = {
             },
             {
               internalType: "uint256",
-              name: "value",
+              name: "amount",
               type: "uint256",
             },
           ],
@@ -354,7 +365,7 @@ const deployedContracts = {
       },
     },
     Stream: {
-      address: "0x3Aa5ebB10DC797CAC828524e59A333d0A371443c",
+      address: "0x5081a39b8A5f0E35a8D959395a630b68B74Dd30f",
       abi: [
         {
           inputs: [],
@@ -390,6 +401,11 @@ const deployedContracts = {
         {
           inputs: [],
           name: "InvalidStreamEndTime",
+          type: "error",
+        },
+        {
+          inputs: [],
+          name: "InvalidStreamOutDenom",
           type: "error",
         },
         {
@@ -439,24 +455,16 @@ const deployedContracts = {
           type: "event",
         },
         {
-          inputs: [],
-          name: "bootstrappingStartTime",
-          outputs: [
-            {
-              internalType: "uint256",
-              name: "",
-              type: "uint256",
-            },
-          ],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
           inputs: [
             {
               internalType: "uint256",
               name: "_streamOutAmount",
               type: "uint256",
+            },
+            {
+              internalType: "address",
+              name: "_streamOutDenom",
+              type: "address",
             },
             {
               internalType: "uint256",
@@ -485,39 +493,13 @@ const deployedContracts = {
             },
             {
               internalType: "address",
-              name: "_tokenAddress",
+              name: "_inDenom",
               type: "address",
             },
           ],
           name: "createStream",
           outputs: [],
-          stateMutability: "nonpayable",
-          type: "function",
-        },
-        {
-          inputs: [],
-          name: "currentStreamedPrice",
-          outputs: [
-            {
-              internalType: "uint256",
-              name: "",
-              type: "uint256",
-            },
-          ],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [],
-          name: "lastUpdated",
-          outputs: [
-            {
-              internalType: "uint256",
-              name: "",
-              type: "uint256",
-            },
-          ],
-          stateMutability: "view",
+          stateMutability: "payable",
           type: "function",
         },
         {
@@ -561,32 +543,6 @@ const deployedContracts = {
         },
         {
           inputs: [],
-          name: "shares",
-          outputs: [
-            {
-              internalType: "uint256",
-              name: "",
-              type: "uint256",
-            },
-          ],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [],
-          name: "spentIn",
-          outputs: [
-            {
-              internalType: "uint256",
-              name: "",
-              type: "uint256",
-            },
-          ],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [],
           name: "streamCreated",
           outputs: [
             {
@@ -600,12 +556,12 @@ const deployedContracts = {
         },
         {
           inputs: [],
-          name: "streamEndTime",
+          name: "streamMetadata",
           outputs: [
             {
-              internalType: "uint256",
-              name: "",
-              type: "uint256",
+              internalType: "string",
+              name: "name",
+              type: "string",
             },
           ],
           stateMutability: "view",
@@ -613,50 +569,51 @@ const deployedContracts = {
         },
         {
           inputs: [],
-          name: "streamOutAmount",
+          name: "streamState",
           outputs: [
             {
               internalType: "uint256",
-              name: "",
+              name: "outRemaining",
               type: "uint256",
             },
-          ],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [],
-          name: "streamStartTime",
-          outputs: [
             {
               internalType: "uint256",
-              name: "",
+              name: "distIndex",
               type: "uint256",
             },
-          ],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [],
-          name: "threshold",
-          outputs: [
             {
               internalType: "uint256",
-              name: "",
+              name: "spentIn",
               type: "uint256",
             },
-          ],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [],
-          name: "token",
-          outputs: [
             {
-              internalType: "contract IERC20",
-              name: "",
+              internalType: "uint256",
+              name: "shares",
+              type: "uint256",
+            },
+            {
+              internalType: "uint256",
+              name: "currentStreamedPrice",
+              type: "uint256",
+            },
+            {
+              internalType: "uint256",
+              name: "threshold",
+              type: "uint256",
+            },
+            {
+              internalType: "uint256",
+              name: "inSupply",
+              type: "uint256",
+            },
+            {
+              internalType: "address",
+              name: "inDenom",
+              type: "address",
+            },
+            {
+              internalType: "address",
+              name: "streamOutDenom",
               type: "address",
             },
           ],
@@ -665,10 +622,55 @@ const deployedContracts = {
         },
         {
           inputs: [],
-          name: "tokenAddress",
+          name: "streamStatus",
           outputs: [
             {
-              internalType: "address",
+              internalType: "enum Stream.Status",
+              name: "mainStatus",
+              type: "uint8",
+            },
+            {
+              internalType: "enum Stream.FinalizedStatus",
+              name: "finalized",
+              type: "uint8",
+            },
+            {
+              internalType: "uint256",
+              name: "lastUpdated",
+              type: "uint256",
+            },
+            {
+              internalType: "uint256",
+              name: "bootstrappingStartTime",
+              type: "uint256",
+            },
+            {
+              internalType: "uint256",
+              name: "streamStartTime",
+              type: "uint256",
+            },
+            {
+              internalType: "uint256",
+              name: "streamEndTime",
+              type: "uint256",
+            },
+          ],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "syncStreamExternal",
+          outputs: [],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "token",
+          outputs: [
+            {
+              internalType: "contract IERC20",
               name: "",
               type: "address",
             },

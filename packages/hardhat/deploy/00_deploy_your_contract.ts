@@ -3,8 +3,7 @@ import { DeployFunction } from "hardhat-deploy/types";
 
 /**
  * Deploys the Stream contract and a Mock ERC-20 Token contract for testing.
- */
-const deployStreamContract: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
+ */const deployStreamContract: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const { deployer } = await hre.getNamedAccounts();
   const { deploy } = hre.deployments;
 
@@ -18,55 +17,92 @@ const deployStreamContract: DeployFunction = async function (hre: HardhatRuntime
     let streamStartTime = bootstrappingStartTime + bootstrappingDuration;
     let streamEndTime = streamStartTime + streamDuration;
 
-    // Step 1: Deploy the ERC-20 Token (Mock)
-    const erc20 = await deploy("ERC20Mock", {
+    let streamOutAmount = 1000;
+
+    // Deploy inDenom ERC20 Mock token
+    const inDenom = await deploy("ERC20Mock", {
       from: deployer,
-      args: [], // Adjust if necessary
+      args: ["InDenom Token", "IN"],
       log: true,
+      skipIfAlreadyDeployed: false,
+      deterministicDeployment: false,
     });
-    console.log("ERC20 Mock Token deployed at:", erc20.address);
+    console.log("InDenom Mock Token deployed at:", inDenom.address);
 
-    // Mint tokens for the deployer (1000 tokens in this case)
-    const erc20Contract = await hre.ethers.getContractAt("ERC20Mock", erc20.address);
-    await erc20Contract.mint(deployer, 1000);
+    // Deploy streamOutDenom ERC20 Mock token
+    const streamOutDenom = await deploy("ERC20Mock", {
+      from: deployer,
+      args: ["StreamOutDenom Token", "OUT"],
+      log: true,
+      skipIfAlreadyDeployed: false,
+      deterministicDeployment: false,
+    });
+    console.log("StreamOutDenom Mock Token deployed at:", streamOutDenom.address);
 
-    // Step 2: Deploy the Stream contract, passing the address of the ERC-20 token
+    // Ensure inDenom and streamOutDenom are not the same
+    if (inDenom.address === streamOutDenom.address) {
+      throw new Error("inDenom and streamOutDenom should not be the same address.");
+    }
+
+    // Mint tokens for the deployer as the streamOutAmount
+    const streamOutDenomContract = await hre.ethers.getContractAt("ERC20Mock", streamOutDenom.address);
+    await streamOutDenomContract.mint(deployer, streamOutAmount);
+    console.log(`Minted ${streamOutAmount} tokens for deployer`);
+
+    // Deploy Stream contract
     const stream = await deploy("Stream", {
       from: deployer,
       args: [],
       log: true,
+      skipIfAlreadyDeployed: false,
+      deterministicDeployment: false,
     });
     console.log("Stream contract deployed at:", stream.address);
 
-    // Step 3: Set up allowance for the stream contract to spend tokens
-    const amountToApprove = 1000; // Example: approve 1000 tokens for the Stream contract
-    const approveTx = await erc20Contract.approve(stream.address, amountToApprove);
+    // Set up allowance for the Stream contract to spend streamOutDenom tokens
+    const approveTx = await streamOutDenomContract.approve(stream.address, streamOutAmount);
     await approveTx.wait();
+    console.log(`Approved ${streamOutAmount} tokens for Stream contract`);
 
-    // Step 4: Create the stream by calling the createStream function
+    // Call createStream function
     const streamContract = await hre.ethers.getContractAt("Stream", stream.address);
+
+    console.log("createStream arguments:");
+    console.log({
+      streamOutAmount,
+      streamOutDenom: streamOutDenom.address,
+      bootstrappingStartTime,
+      streamStartTime,
+      streamEndTime,
+      threshold: 1000, // Example threshold
+      name: "Test Stream",
+      inDenom: inDenom.address,
+    });
     const createStreamTx = await streamContract.createStream(
-      amountToApprove,
+      streamOutAmount,
+      streamOutDenom.address, // streamOutDenom
       bootstrappingStartTime,
       streamStartTime,
       streamEndTime,
       1000, // Example threshold
       "Test Stream",
-      erc20.address
+      inDenom.address // inDenom
     );
     await createStreamTx.wait();
     console.log(`Stream is created`);
 
-    // Query data 
+    // Query stream data
     const StreamFlag = await streamContract.streamCreated();
     console.log(`Stream flag is ${StreamFlag}`);
-    // Query token balance of the stream contract
-    const tokenBalance = await erc20Contract.balanceOf(stream.address);
+
+    const tokenBalance = await streamOutDenomContract.balanceOf(stream.address);
     console.log(`Token balance of the stream contract is ${tokenBalance}`);
 
-    // Query stream out amount
-    const streamOutAmount = await streamContract.streamOutAmount();
-    console.log(`Stream out amount is ${streamOutAmount}`);
+    const streamState = await streamContract.streamState();
+    console.log(`Stream state is ${streamState}`);
+
+    const streamStatus = await streamContract.streamStatus();
+    console.log(`Stream status is ${streamStatus}`);
 
   } catch (error: unknown) {
     console.error("Error deploying contract:", error);

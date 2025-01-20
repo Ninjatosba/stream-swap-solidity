@@ -102,8 +102,8 @@ contract Stream {
         uint256 currentStreamedPrice;
         uint256 threshold;
         uint256 inSupply;
-        string inDenom;
-        string streamOutDenom;
+        address inDenom;
+        address streamOutDenom;
     }
 
     uint256 private constant MIN_WAITING_DURATION = 5 minutes;
@@ -137,47 +137,45 @@ contract Stream {
         _;
     }
 
+    function syncStreamExternal() external {
+        syncStream();
+        syncStreamStatus();
+    }
+
     function createStream(
         uint256 _streamOutAmount,
-        string memory _streamOutDenom,
+        address _streamOutDenom,
         uint256 _bootstrappingStartTime,
         uint256 _streamStartTime,
         uint256 _streamEndTime,
         uint256 _threshold,
         string memory _name,
-        string memory _inDenom
-    ) external isOwner onlyOnce {
+        address _inDenom
+    ) external isOwner onlyOnce payable {
         validateStreamTimes(block.timestamp, _bootstrappingStartTime, _streamStartTime, _streamEndTime);
 
         PositionStorage positionStorage = new PositionStorage();
         positionStorageAddress = address(positionStorage);
+// Validate _inDenom
+try IERC20(_inDenom).balanceOf(msg.sender) returns (uint256 ) {
+    token = IERC20(_inDenom);
+} catch {
+    revert InvalidStreamOutDenom();
+}
 
-        // If in denom is a token address, validate it's a valid ERC20
-        // Else revert
-        if (bytes(_inDenom).length > 0) {
-            try IERC20(abi.decode(abi.encodePacked(_inDenom), (address))).balanceOf(msg.sender) returns (uint256) {
-                token = IERC20(abi.decode(abi.encodePacked(_inDenom), (address)));
-            } catch {
-                revert InvalidStreamOutDenom();
-            }
-        }
-        else {
-            revert InvalidInDenom();
-        }
+// Validate _streamOutDenom
 
-        // If out denom is a token address, check the sender has enough tokens
-        // If yes, transfer tokens from sender to this contract
-        // Else revert
-        if (bytes(_streamOutDenom).length > 0) {
-            try IERC20(abi.decode(abi.encodePacked(_streamOutDenom), (address))).balanceOf(msg.sender) returns (uint256) {
-                token.transferFrom(msg.sender, address(this), _streamOutAmount);
-            } catch {
-                revert InsufficientTokenPayment(_streamOutAmount, token.balanceOf(msg.sender));
-            }
-        }
-        else {
-            revert InvalidStreamOutDenom();
-        }
+token = IERC20(_streamOutDenom);
+
+// Ensure sender has enough tokens
+uint256 balance = token.balanceOf(msg.sender);
+if (balance < _streamOutAmount) {
+    revert InsufficientTokenPayment(_streamOutAmount, balance);
+}
+
+// Transfer tokens
+token.transferFrom(msg.sender, address(this), _streamOutAmount);
+
         streamState = StreamState({
             distIndex: 0,
             outRemaining: _streamOutAmount,
