@@ -274,4 +274,41 @@ contract Stream {
             streamStatus.mainStatus = Status.Ended;
         }
     }
+
+    function computeSharesAmount(uint256 amountIn, bool roundUp) internal view returns (uint256) {
+        if (streamState.shares == 0 || amountIn == 0) {
+            return amountIn;
+        }
+        
+        uint256 shares = streamState.shares * amountIn;
+        if (roundUp) {
+            return (shares + streamState.inSupply - 1) / streamState.inSupply;
+        } else {
+            return shares / streamState.inSupply;
+        }
+    }
+
+    function syncStream() internal {
+        uint256 diff = calculateDiff();
+
+        if (streamState.shares > 0 && diff > 0) {
+            // Calculate new distribution balance and spent in amount
+            uint256 newDistributionBalance = (streamState.outRemaining * diff) / 1e18;
+            uint256 spentIn = (streamState.inSupply * diff) / 1e18;
+
+            // Update state variables
+            streamState.spentIn += spentIn;
+            streamState.inSupply -= spentIn;
+
+            if (newDistributionBalance > 0) {
+                streamState.outRemaining -= newDistributionBalance;
+                // Update distribution index (shares are in base units, multiply by 1e18 for precision)
+                streamState.distIndex += (newDistributionBalance * 1e18) / streamState.shares;
+                // Update current streamed price
+                streamState.currentStreamedPrice = (spentIn * 1e18) / newDistributionBalance;
+            }
+        }
+
+        streamStatus.lastUpdated = block.timestamp;
+    }
 }
