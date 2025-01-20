@@ -221,7 +221,7 @@ contract Stream {
         if (_bootstrappingStartTime - nowTime < MIN_WAITING_DURATION) revert WaitingDurationTooShort();
     }
 
-function calculateDiff() internal view returns (uint256) {
+    function calculateDiff() internal view returns (uint256) {
         // If the stream is not started yet or already ended, return 0
         if (block.timestamp < streamStatus.streamStartTime || streamStatus.lastUpdated >= streamStatus.streamEndTime) {
             return 0;
@@ -247,5 +247,31 @@ function calculateDiff() internal view returns (uint256) {
         }
         // Return ratio of time elapsed since last update compared to total remaining time
         return (numerator * 1e18) / denominator;
+    }
+
+    function syncStreamStatus() internal {
+        // Don't update if stream is in a final state
+        if (streamStatus.mainStatus == Status.Cancelled ||
+            (streamStatus.mainStatus == Status.Finalized && 
+            (streamStatus.finalized == FinalizedStatus.Streamed || 
+             streamStatus.finalized == FinalizedStatus.Refunded))) {
+            return;
+        }
+
+        // Update status based on current timestamp
+        if (block.timestamp < streamStatus.bootstrappingStartTime) {
+            streamStatus.mainStatus = Status.Waiting;
+        } 
+        else if (block.timestamp >= streamStatus.bootstrappingStartTime && 
+                 block.timestamp < streamStatus.streamStartTime) {
+            streamStatus.mainStatus = Status.Bootstrapping;
+        }
+        else if (block.timestamp >= streamStatus.streamStartTime && 
+                 block.timestamp < streamStatus.streamEndTime) {
+            streamStatus.mainStatus = Status.Active;
+        }
+        else if (block.timestamp >= streamStatus.streamEndTime) {
+            streamStatus.mainStatus = Status.Ended;
+        }
     }
 }
