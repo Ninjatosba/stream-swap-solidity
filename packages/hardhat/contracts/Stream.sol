@@ -56,6 +56,8 @@ error BootstrappingDurationTooShort();
 error WaitingDurationTooShort();
 error InsufficientTokenPayment(uint256 requiredTokenAmount, uint256 tokenBalance);
 error InvalidStreamOutDenom();
+error InvalidInDenom();
+error PaymentFailed();
 contract Stream {
     address public immutable owner;
     address public positionStorageAddress;
@@ -150,6 +152,32 @@ contract Stream {
         PositionStorage positionStorage = new PositionStorage();
         positionStorageAddress = address(positionStorage);
 
+        // If in denom is a token address, validate it's a valid ERC20
+        // Else revert
+        if (bytes(_inDenom).length > 0) {
+            try IERC20(abi.decode(abi.encodePacked(_inDenom), (address))).balanceOf(msg.sender) returns (uint256) {
+                token = IERC20(abi.decode(abi.encodePacked(_inDenom), (address)));
+            } catch {
+                revert InvalidStreamOutDenom();
+            }
+        }
+        else {
+            revert InvalidInDenom();
+        }
+
+        // If out denom is a token address, check the sender has enough tokens
+        // If yes, transfer tokens from sender to this contract
+        // Else revert
+        if (bytes(_streamOutDenom).length > 0) {
+            try IERC20(abi.decode(abi.encodePacked(_streamOutDenom), (address))).balanceOf(msg.sender) returns (uint256) {
+                token.transferFrom(msg.sender, address(this), _streamOutAmount);
+            } catch {
+                revert InsufficientTokenPayment(_streamOutAmount, token.balanceOf(msg.sender));
+            }
+        }
+        else {
+            revert InvalidStreamOutDenom();
+        }
         streamState = StreamState({
             distIndex: 0,
             outRemaining: _streamOutAmount,
@@ -174,6 +202,9 @@ contract Stream {
             streamStartTime: _streamStartTime,
             streamEndTime: _streamEndTime
         });
+
+        streamCreated = true;
+        emit StreamCreated(_streamOutAmount, _bootstrappingStartTime, _streamStartTime, _streamEndTime);
     }
 
     function validateStreamTimes(
@@ -189,5 +220,32 @@ contract Stream {
         if (_startTime - _bootstrappingStartTime < MIN_BOOTSTRAPPING_DURATION) revert BootstrappingDurationTooShort();
         if (_bootstrappingStartTime - nowTime < MIN_WAITING_DURATION) revert WaitingDurationTooShort();
     }
-}
 
+function calculateDiff() internal view returns (uint256) {
+        // If the stream is not started yet or already ended, return 0
+        if (block.timestamp < streamStatus.streamStartTime || streamStatus.lastUpdated >= streamStatus.streamEndTime) {
+            return 0;
+        }
+
+        // If lastUpdated is before start time, set it to start time
+        uint256 effectiveLastUpdated = streamStatus.lastUpdated;
+        if (effectiveLastUpdated < streamStatus.streamStartTime) {
+            effectiveLastUpdated = streamStatus.streamStartTime;
+        }
+
+        // If current time is past end time, use end time instead
+        uint256 effectiveNow = block.timestamp;
+        if (effectiveNow > streamStatus.streamEndTime) {
+            effectiveNow = streamStatus.streamEndTime;
+        }
+
+        uint256 numerator = effectiveNow - effectiveLastUpdated;
+        uint256 denominator = streamStatus.streamEndTime - effectiveLastUpdated;
+
+        if (denominator == 0 || numerator == 0) {
+            return 0;
+        }
+        // Return ratio of time elapsed since last update compared to total remaining time
+        return (numerator * 1e18) / denominator;
+    }
+}
