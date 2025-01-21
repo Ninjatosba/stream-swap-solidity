@@ -6,7 +6,8 @@ interface IERC20 {
     function balanceOf(address account) external view returns (uint256);
 }
 
-contract PositionStorage {
+
+library PositionTypes {
     struct Position {
         uint256 inBalance;
         uint256 shares;
@@ -17,15 +18,18 @@ contract PositionStorage {
         uint256 purchased;
         string exitDate;
     }
+}
 
+contract PositionStorage {
+    using PositionTypes for PositionTypes.Position;
+    mapping(address => PositionTypes.Position) private positions;
     address public immutable streamContractAddress;
-    mapping(address => Position) private positions;
 
     constructor() {
         streamContractAddress = msg.sender;
     }
 
-    function getPosition(address _owner) external view returns (Position memory) {
+    function getPosition(address _owner) external view returns (PositionTypes.Position memory) {
         return positions[_owner];
     }
 
@@ -40,7 +44,14 @@ contract PositionStorage {
         uint256 shares,
         uint256 index
     ) external onlySender {
-        positions[owner] = Position(inBalance, shares, index, block.timestamp, 0, 0, 0, "");
+        positions[owner] = PositionTypes.Position(inBalance, shares, index, block.timestamp, 0, 0, 0, "");
+    }
+
+    function updatePosition(
+        address owner,
+        PositionTypes.Position memory position
+    ) external onlySender {
+        positions[owner] = position;
     }
 
     function setExitDate(address owner, string memory exitDate) external onlySender {
@@ -58,6 +69,9 @@ error InsufficientTokenPayment(uint256 requiredTokenAmount, uint256 tokenBalance
 error InvalidStreamOutDenom();
 error InvalidInDenom();
 error PaymentFailed();
+error OperationNotAllowed();
+error Unauthorized();
+
 contract Stream {
     address public immutable owner;
     address public positionStorageAddress;
@@ -323,4 +337,100 @@ token.transferFrom(msg.sender, address(this), _streamOutAmount);
 
         streamStatus.lastUpdated = block.timestamp;
     }
+
+    function subscribe(uint256 amountIn) external payable {
+        // Get current status
+        syncStreamStatus();
+        if (streamStatus.mainStatus != Status.Bootstrapping && 
+            streamStatus.mainStatus != Status.Active) {
+            revert OperationNotAllowed();
+        }
+        // Validate if sender has enough tokens
+        IERC20 streamInDenom = IERC20(streamState.inDenom);
+        uint256 streamInDenomBalance = streamInDenom.balanceOf(msg.sender);
+        if (streamInDenomBalance < amountIn) {
+            revert InsufficientTokenPayment(amountIn, streamInDenomBalance);
+        }
+        // Transfer tokens from sender to this contract
+        streamInDenom.transferFrom(msg.sender, address(this), amountIn);
+
+        // Query position from PositionStorage contract
+        PositionStorage positionStorage = PositionStorage(positionStorageAddress);
+        PositionTypes.Position memory position = positionStorage.getPosition(msg.sender);
+
+        uint256 newShares = 0;
+
+        if (position.shares == 0) {
+            // New position case
+            // First sync the stream to ensure new tokens don't participate in previous distribution
+            syncStream();
+
+            // Calculate new shares (we'll implement this next)
+            newShares = computeSharesAmount(amountIn, false);
+            positionStorage.createPosition(msg.sender, amountIn, newShares, streamState.distIndex);
+        }
+        else {
+            // Sync stream to ensure new tokens don't participate in previous distribution
+            syncStream();
+            // Calculate new shares (we'll implement this next)
+            newShares = computeSharesAmount(amountIn, false);
+            position = syncPosition(position);
+            position.inBalance += amountIn;
+            position.shares += newShares;
+            // Save position to PositionStorage contract
+            positionStorage.updatePosition(msg.sender, position);
+        }
+
+        // Update StreamState
+        streamState.inSupply += amountIn;
+        streamState.shares += newShares;
+
+        // Emit event
+        emit Subscribed(msg.sender, amountIn, newShares);
+    }
+    event Subscribed(address indexed subscriber, uint256 amountIn, uint256 newShares);
+    
+    function syncPosition(PositionTypes.Position memory position) internal view returns (PositionTypes.Position memory) {
+        // Create a new position in memory to store the updated values
+        PositionTypes.Position memory updatedPosition = PositionTypes.Position({
+            inBalance: position.inBalance,
+            shares: position.shares,
+            index: position.index,
+            lastUpdateTime: position.lastUpdateTime,
+            pendingReward: position.pendingReward,
+            spentIn: position.spentIn,
+            purchased: position.purchased,
+            exitDate: position.exitDate
+        });
+
+        // Calculate index difference for distributions since last update
+        uint256 indexDiff = streamState.distIndex - updatedPosition.index;
+        uint256 spent = 0;
+        uint256 purchased = 0;
+
+        // Only process if there are shares in the stream
+        if (streamState.shares > 0) {
+            // Calculate purchased amount based on position shares and index difference
+            uint256 positionPurchased = (updatedPosition.shares * indexDiff) / 1e18 + updatedPosition.pendingReward;
+
+            // Calculate remaining balance based on current shares ratio
+            uint256 inRemaining = (streamState.inSupply * updatedPosition.shares) / streamState.shares;
+
+            // Calculate spent amount
+            spent = updatedPosition.inBalance - inRemaining;
+            updatedPosition.spentIn += spent;
+            updatedPosition.inBalance = inRemaining;
+
+            // Update purchased amount
+            purchased = positionPurchased;
+            updatedPosition.purchased += purchased;
+        }
+
+        // Update position tracking
+        updatedPosition.index = streamState.distIndex;
+        updatedPosition.lastUpdateTime = block.timestamp;
+
+        return updatedPosition;
+    }
 }
+

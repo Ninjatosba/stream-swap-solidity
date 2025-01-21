@@ -14,9 +14,6 @@ const deployStreamContract: DeployFunction = async function (hre: HardhatRuntime
     const { deployer } = await hre.getNamedAccounts();
     const { deploy } = hre.deployments;
 
-    // Get the current nonce from the network instead of tracking manually
-    const currentNonce = await hre.ethers.provider.getTransactionCount(deployer);
-
     // Set initial block time
     const nowSeconds = (await hre.ethers.provider.getBlock("latest"))?.timestamp ?? 0;
     console.log(`Starting time: ${nowSeconds}`);
