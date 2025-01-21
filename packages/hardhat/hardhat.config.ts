@@ -40,6 +40,9 @@ const config: HardhatUserConfig = {
     ],
   },
   defaultNetwork: "localhost",
+  mocha: {
+    timeout: 100000, // 100 seconds max for running tests
+  },
   namedAccounts: {
     deployer: {
       // By default, it will take the first Hardhat account as the deployer
@@ -54,10 +57,17 @@ const config: HardhatUserConfig = {
         url: `https://eth-mainnet.alchemyapi.io/v2/${providerApiKey}`,
         enabled: process.env.MAINNET_FORKING_ENABLED === "true",
       },
+      mining: {
+        auto: true,
+        interval: 1000  // Add a 1 second interval between blocks
+      }
     },
     mainnet: {
       url: `https://eth-mainnet.alchemyapi.io/v2/${providerApiKey}`,
       accounts: [deployerPrivateKey],
+      timeout: 1800000,
+      gas: "auto",
+      gasPrice: "auto",
     },
     sepolia: {
       url: `https://eth-sepolia.g.alchemy.com/v2/${providerApiKey}`,

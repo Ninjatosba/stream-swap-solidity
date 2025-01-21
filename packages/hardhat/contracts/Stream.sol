@@ -106,9 +106,9 @@ contract Stream {
         address streamOutDenom;
     }
 
-    uint256 private constant MIN_WAITING_DURATION = 5 minutes;
-    uint256 private constant MIN_BOOTSTRAPPING_DURATION = 30 minutes;
-    uint256 private constant MIN_STREAM_DURATION = 1 hours;
+    uint256 private constant MIN_WAITING_DURATION = 10 seconds;
+    uint256 private constant MIN_BOOTSTRAPPING_DURATION = 10 seconds;
+    uint256 private constant MIN_STREAM_DURATION = 50 seconds;
 
     IERC20 public token;
     StreamState public streamState;
@@ -140,7 +140,18 @@ contract Stream {
     function syncStreamExternal() external {
         syncStream();
         syncStreamStatus();
+        emit StreamSynced(
+            streamStatus.mainStatus,
+            streamStatus.finalized,
+            streamStatus.lastUpdated
+        );
     }
+
+    event StreamSynced(
+        Status mainStatus,
+        FinalizedStatus finalized,
+        uint256 lastUpdated
+    );
 
     function createStream(
         uint256 _streamOutAmount,
@@ -156,20 +167,23 @@ contract Stream {
 
         PositionStorage positionStorage = new PositionStorage();
         positionStorageAddress = address(positionStorage);
-// Validate _inDenom
-try IERC20(_inDenom).balanceOf(msg.sender) returns (uint256 ) {
-    token = IERC20(_inDenom);
-} catch {
-    revert InvalidStreamOutDenom();
-}
+        // Validate _inDenom
+        try IERC20(_inDenom).balanceOf(msg.sender) returns (uint256 balance) {
+            token = IERC20(_inDenom);
+        } catch {
+            revert InvalidStreamOutDenom();
+        }
 
-// Validate _streamOutDenom
+        // Validate _streamOutDenom
+        try IERC20(_streamOutDenom).balanceOf(msg.sender) returns (uint256 balance) {
+            token = IERC20(_streamOutDenom);
+        } catch {
+            revert InvalidStreamOutDenom();
+        }
 
-token = IERC20(_streamOutDenom);
-
-// Ensure sender has enough tokens
-uint256 balance = token.balanceOf(msg.sender);
-if (balance < _streamOutAmount) {
+        // Ensure sender has enough tokens
+        uint256 balance = token.balanceOf(msg.sender);
+            if (balance < _streamOutAmount) {
     revert InsufficientTokenPayment(_streamOutAmount, balance);
 }
 

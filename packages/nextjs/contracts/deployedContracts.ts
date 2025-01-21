@@ -7,7 +7,7 @@ import { GenericContractsDeclaration } from "~~/utils/scaffold-eth/contract";
 const deployedContracts = {
   31337: {
     ERC20Mock: {
-      address: "0x162A433068F51e18b7d13932F27e66a3f99E6890",
+      address: "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
       abi: [
         {
           inputs: [
@@ -365,7 +365,7 @@ const deployedContracts = {
       },
     },
     Stream: {
-      address: "0x5081a39b8A5f0E35a8D959395a630b68B74Dd30f",
+      address: "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9",
       abi: [
         {
           inputs: [],
@@ -452,6 +452,31 @@ const deployedContracts = {
             },
           ],
           name: "StreamCreated",
+          type: "event",
+        },
+        {
+          anonymous: false,
+          inputs: [
+            {
+              indexed: false,
+              internalType: "enum Stream.Status",
+              name: "mainStatus",
+              type: "uint8",
+            },
+            {
+              indexed: false,
+              internalType: "enum Stream.FinalizedStatus",
+              name: "finalized",
+              type: "uint8",
+            },
+            {
+              indexed: false,
+              internalType: "uint256",
+              name: "lastUpdated",
+              type: "uint256",
+            },
+          ],
+          name: "StreamSynced",
           type: "event",
         },
         {
