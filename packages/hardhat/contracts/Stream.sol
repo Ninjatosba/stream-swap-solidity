@@ -352,7 +352,10 @@ token.transferFrom(msg.sender, address(this), _streamOutAmount);
             revert InsufficientTokenPayment(amountIn, streamInDenomBalance);
         }
         // Transfer tokens from sender to this contract
-        streamInDenom.transferFrom(msg.sender, address(this), amountIn);
+        bool success = streamInDenom.transferFrom(msg.sender, address(this), amountIn);
+        if (!success) {
+            revert PaymentFailed();
+        }
 
         // Query position from PositionStorage contract
         PositionStorage positionStorage = PositionStorage(positionStorageAddress);
@@ -388,8 +391,9 @@ token.transferFrom(msg.sender, address(this), _streamOutAmount);
         // Emit event
         emit Subscribed(msg.sender, amountIn, newShares);
     }
+
     event Subscribed(address indexed subscriber, uint256 amountIn, uint256 newShares);
-    
+
     function syncPosition(PositionTypes.Position memory position) internal view returns (PositionTypes.Position memory) {
         // Create a new position in memory to store the updated values
         PositionTypes.Position memory updatedPosition = PositionTypes.Position({

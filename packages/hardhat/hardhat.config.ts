@@ -48,6 +48,9 @@ const config: HardhatUserConfig = {
       // By default, it will take the first Hardhat account as the deployer
       default: 0,
     },
+    subscriber1: {
+      default: 1,
+    },
   },
   networks: {
     // View the networks that are pre-configured.

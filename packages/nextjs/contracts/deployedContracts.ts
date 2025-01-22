@@ -415,6 +415,16 @@ const deployedContracts = {
         },
         {
           inputs: [],
+          name: "OperationNotAllowed",
+          type: "error",
+        },
+        {
+          inputs: [],
+          name: "PaymentFailed",
+          type: "error",
+        },
+        {
+          inputs: [],
           name: "StreamDurationTooShort",
           type: "error",
         },
@@ -477,6 +487,31 @@ const deployedContracts = {
             },
           ],
           name: "StreamSynced",
+          type: "event",
+        },
+        {
+          anonymous: false,
+          inputs: [
+            {
+              indexed: true,
+              internalType: "address",
+              name: "subscriber",
+              type: "address",
+            },
+            {
+              indexed: false,
+              internalType: "uint256",
+              name: "amountIn",
+              type: "uint256",
+            },
+            {
+              indexed: false,
+              internalType: "uint256",
+              name: "newShares",
+              type: "uint256",
+            },
+          ],
+          name: "Subscribed",
           type: "event",
         },
         {
@@ -681,6 +716,19 @@ const deployedContracts = {
             },
           ],
           stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              internalType: "uint256",
+              name: "amountIn",
+              type: "uint256",
+            },
+          ],
+          name: "subscribe",
+          outputs: [],
+          stateMutability: "payable",
           type: "function",
         },
         {

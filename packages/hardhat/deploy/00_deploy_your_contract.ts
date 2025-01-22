@@ -11,8 +11,11 @@ const deployStreamContract: DeployFunction = async function (hre: HardhatRuntime
     await hre.network.provider.send("hardhat_reset");
 
     // Keep automine enabled for deployments
-    const { deployer } = await hre.getNamedAccounts();
+    const { deployer, subscriber1 } = await hre.getNamedAccounts();
     const { deploy } = hre.deployments;
+
+    // Get the signer for subscriber1
+    const subscriber1Signer = await hre.ethers.getSigner(subscriber1);
 
     // Set initial block time
     const nowSeconds = (await hre.ethers.provider.getBlock("latest"))?.timestamp ?? 0;
@@ -20,7 +23,7 @@ const deployStreamContract: DeployFunction = async function (hre: HardhatRuntime
 
     let waitSeconds = 50;
     let bootstrappingDuration = 50;
-    let streamDuration = 60;
+    let streamDuration = 100
 
     let bootstrappingStartTime = nowSeconds + waitSeconds;
     let streamStartTime = bootstrappingStartTime + bootstrappingDuration;
@@ -120,7 +123,7 @@ const deployStreamContract: DeployFunction = async function (hre: HardhatRuntime
     }
 
     // For the second sync, explicitly set the time to streamStartTime
-    await mineBlock(streamStartTime);
+    await mineBlock(streamStartTime - 1);
 
     synchronizeStreamTx = await streamContract.syncStreamExternal();
     // Mine the transaction block
@@ -140,6 +143,55 @@ const deployStreamContract: DeployFunction = async function (hre: HardhatRuntime
       console.log(`- Last Sync Timestamp: ${lastSyncTimestamp}`);
       console.log(`- Last Sync Date: ${new Date(Number(lastSyncTimestamp) * 1000)}`);
     }
+
+    // Subscribe to the stream
+    // First give subscribeAmount approval to the stream contract
+    const subscribeAmount = 1000;
+    const inDenomContract = await hre.ethers.getContractAt("ERC20Mock", inDenom.address);
+    // First mint tokens for the subscriber
+    const mintTx = await inDenomContract.mint(subscriber1, subscribeAmount);
+    await mintTx.wait();
+    console.log(`Minted ${subscribeAmount} tokens for subscriber`);
+
+    // Then give subscribeAmount approval to the stream contract
+    const approveTx2 = await inDenomContract.approve(stream.address, subscribeAmount);
+    await approveTx2.wait();
+    console.log(`Approved ${subscribeAmount} tokens for Stream contract`);
+
+    // Subscribe to the stream
+    // set time to half way through the stream§
+    await mineBlock(streamStartTime - 1 + (streamDuration / 2));
+    const subscribeTx = await streamContract.connect(subscriber1Signer).subscribe(subscribeAmount);
+    await subscribeTx.wait();
+    console.log("Subscribed to the stream");
+
+    // Synchronize the stream at just before the stream end time
+    await mineBlock(streamEndTime - 2);
+    const synchronizeStreamTx2 = await streamContract.syncStreamExternal();
+    await mineBlock(streamEndTime);
+    await synchronizeStreamTx2.wait();
+    console.log("Stream synchronized");
+
+    // Get the logs
+    const filter3 = streamContract.filters.StreamSynced();
+    const logs3 = await streamContract.queryFilter(filter3);
+    if (logs3.length > 0) {
+      const [mainStatus, finalizedStatus, lastSyncTimestamp] = logs3[logs3.length - 1].args;
+      console.log("Stream Sync Details:");
+      console.log(`- Main Status: ${mainStatus}`);
+      console.log(`- Finalized Status: ${finalizedStatus}`);
+      console.log(`- Last Sync Timestamp: ${lastSyncTimestamp}`);
+    }
+
+    // Get stream state
+    const streamState = await streamContract.streamState();
+    // Parse streamState to get the stream details
+    const spentIn = streamState.spentIn;
+    console.log(`Spent in: ${spentIn}`);
+    const shares = streamState.shares;
+    console.log(`Shares: ${shares}`);
+    const distributionIndex = streamState.distIndex;
+    console.log(`Distribution index: ${distributionIndex}`);
 
     // Only disable automine after all contracts are deployed
     await hre.ethers.provider.send("evm_setAutomine", [false]);
