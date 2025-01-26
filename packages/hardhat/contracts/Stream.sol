@@ -17,7 +17,7 @@ library PositionTypes {
         uint256 pendingReward;
         uint256 spentIn;
         uint256 purchased;
-        string exitDate;
+        uint256 exitDate;
     }
 }
 
@@ -45,7 +45,7 @@ contract PositionStorage {
         uint256 shares,
         uint256 index
     ) external onlySender {
-        positions[owner] = PositionTypes.Position(inBalance, shares, index, block.timestamp, 0, 0, 0, "");
+        positions[owner] = PositionTypes.Position(inBalance, shares, index, block.timestamp, 0, 0, 0, 0);
     }
 
     function updatePosition(
@@ -55,7 +55,7 @@ contract PositionStorage {
         positions[owner] = position;
     }
 
-    function setExitDate(address owner, string memory exitDate) external onlySender {
+    function setExitDate(address owner, uint256 exitDate) external onlySender {
         positions[owner].exitDate = exitDate;
     }
 }
@@ -438,75 +438,6 @@ token.transferFrom(msg.sender, address(this), _streamOutAmount);
 
         return updatedPosition;
     }
-// pub fn execute_withdraw(
-//     deps: DepsMut,
-//     env: Env,
-//     info: MessageInfo,
-//     mut stream: StreamState,
-//     cap: Option<Uint256>,
-// ) -> Result<Response, ContractError> {
-//     sync_stream_status(&mut stream, env.block.time);
-//     if !(stream.is_active() || stream.is_bootstrapping()) {
-//         return Err(ContractError::OperationNotAllowed {
-//             current_status: stream.status_info.status.to_string(),
-//         });
-//     }
-
-//     let mut position = POSITIONS.load(deps.storage, &info.sender)?;
-
-//     sync_stream(&mut stream, env.block.time);
-//     sync_position(
-//         stream.dist_index,
-//         stream.shares,
-//         stream.status_info.last_updated,
-//         stream.in_supply,
-//         &mut position,
-//     )?;
-
-//     let withdraw_amount = cap.unwrap_or(position.in_balance);
-//     // if amount to withdraw more then deduced buy balance throw error
-//     if withdraw_amount > position.in_balance {
-//         return Err(ContractError::WithdrawAmountExceedsBalance(withdraw_amount));
-//     }
-
-//     if withdraw_amount.is_zero() {
-//         return Err(ContractError::InvalidWithdrawAmount {});
-//     }
-
-//     // decrease in supply and shares
-//     let shares_amount = if withdraw_amount == position.in_balance {
-//         position.shares
-//     } else {
-//         compute_shares_amount(&stream, withdraw_amount, true)
-//     };
-
-//     stream.in_supply = stream.in_supply.checked_sub(withdraw_amount)?;
-//     stream.shares = stream.shares.checked_sub(shares_amount)?;
-//     position.in_balance = position.in_balance.checked_sub(withdraw_amount)?;
-//     position.shares = position.shares.checked_sub(shares_amount)?;
-
-//     STREAM_STATE.save(deps.storage, &stream)?;
-//     POSITIONS.save(deps.storage, &position.owner, &position)?;
-
-//     let uint128_withdraw_amount = Uint128::try_from(withdraw_amount)?;
-//     let fund_transfer_msg: CosmosMsg = CosmosMsg::Bank(BankMsg::Send {
-//         to_address: info.sender.to_string(),
-//         amount: vec![Coin {
-//             denom: stream.in_denom,
-//             amount: uint128_withdraw_amount,
-//         }],
-//     });
-//     // send funds to withdraw address or to the sender
-//     let res = Response::new()
-//         .add_message(fund_transfer_msg)
-//         .add_attribute("action", "withdraw")
-//         .add_attribute("withdraw_amount", withdraw_amount)
-//         .add_attribute("shares_amount", shares_amount)
-//         .add_attribute("status_info", stream.status_info.status.to_string());
-
-//     Ok(res)
-// }
-
 
     function withdraw(uint256 cap) external {
         if (cap == 0) {
@@ -548,6 +479,37 @@ token.transferFrom(msg.sender, address(this), _streamOutAmount);
     }
 
     event Withdrawn(address indexed subscriber, uint256 amountIn);
-}
+
+    function exitStream() external {
+        PositionStorage positionStorage = PositionStorage(positionStorageAddress);
+        PositionTypes.Position memory position = positionStorage.getPosition(msg.sender);
+        if (position.shares == 0 || position.exitDate > 0) {
+            revert OperationNotAllowed();
+        }
+        // Sync stream
+        syncStream();
+        // Sync position
+        position = syncPosition(position);
+        // Check status
+        syncStreamStatus();
+        // Exit is only allowed if stream is ended or finalized
+        if (streamStatus.mainStatus != Status.Ended && streamStatus.mainStatus != Status.Finalized) {
+            revert OperationNotAllowed();
+        }
+        // Refund in_amount remaining if any in position
+        if (position.inBalance > 0) {
+            IERC20 streamInDenom = IERC20(streamState.inDenom);
+            streamInDenom.transfer(msg.sender, position.inBalance);
+        }
+        // send out_amount earned to msg.sender
+        IERC20 streamOutDenom = IERC20(streamState.streamOutDenom);
+        streamOutDenom.transfer(msg.sender, position.purchased);
+        // Set exit date
+        positionStorage.setExitDate(msg.sender, block.timestamp);
+        emit Exited(msg.sender, position.purchased);
+    }
+
+    event Exited(address indexed subscriber, uint256 purchased);
+    }
 
 
