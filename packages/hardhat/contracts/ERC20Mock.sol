@@ -18,4 +18,9 @@ contract ERC20Mock is ERC20 {
         _transfer(from, to, amount);
         return true;
     }
+
+    function transfer(address to, uint256 amount) public override returns (bool) {
+        _transfer(msg.sender, to, amount);
+        return true;
+    }
 }
