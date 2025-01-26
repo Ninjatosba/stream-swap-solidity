@@ -307,7 +307,7 @@ const deployedContracts = {
             },
             {
               internalType: "uint256",
-              name: "value",
+              name: "amount",
               type: "uint256",
             },
           ],
@@ -415,6 +415,11 @@ const deployedContracts = {
         },
         {
           inputs: [],
+          name: "InvalidWithdrawAmount",
+          type: "error",
+        },
+        {
+          inputs: [],
           name: "OperationNotAllowed",
           type: "error",
         },
@@ -430,8 +435,43 @@ const deployedContracts = {
         },
         {
           inputs: [],
+          name: "Unauthorized",
+          type: "error",
+        },
+        {
+          inputs: [],
           name: "WaitingDurationTooShort",
           type: "error",
+        },
+        {
+          inputs: [
+            {
+              internalType: "uint256",
+              name: "cap",
+              type: "uint256",
+            },
+          ],
+          name: "WithdrawAmountExceedsBalance",
+          type: "error",
+        },
+        {
+          anonymous: false,
+          inputs: [
+            {
+              indexed: true,
+              internalType: "address",
+              name: "subscriber",
+              type: "address",
+            },
+            {
+              indexed: false,
+              internalType: "uint256",
+              name: "purchased",
+              type: "uint256",
+            },
+          ],
+          name: "Exited",
+          type: "event",
         },
         {
           anonymous: false,
@@ -462,6 +502,31 @@ const deployedContracts = {
             },
           ],
           name: "StreamCreated",
+          type: "event",
+        },
+        {
+          anonymous: false,
+          inputs: [
+            {
+              indexed: true,
+              internalType: "address",
+              name: "creator",
+              type: "address",
+            },
+            {
+              indexed: false,
+              internalType: "uint256",
+              name: "spentIn",
+              type: "uint256",
+            },
+            {
+              indexed: false,
+              internalType: "uint256",
+              name: "outRemaining",
+              type: "uint256",
+            },
+          ],
+          name: "StreamFinalized",
           type: "event",
         },
         {
@@ -515,6 +580,25 @@ const deployedContracts = {
           type: "event",
         },
         {
+          anonymous: false,
+          inputs: [
+            {
+              indexed: true,
+              internalType: "address",
+              name: "subscriber",
+              type: "address",
+            },
+            {
+              indexed: false,
+              internalType: "uint256",
+              name: "amountIn",
+              type: "uint256",
+            },
+          ],
+          name: "Withdrawn",
+          type: "event",
+        },
+        {
           inputs: [
             {
               internalType: "uint256",
@@ -560,6 +644,33 @@ const deployedContracts = {
           name: "createStream",
           outputs: [],
           stateMutability: "payable",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "creator",
+          outputs: [
+            {
+              internalType: "address",
+              name: "",
+              type: "address",
+            },
+          ],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "exitStream",
+          outputs: [],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "finalizeStream",
+          outputs: [],
+          stateMutability: "nonpayable",
           type: "function",
         },
         {
@@ -749,6 +860,19 @@ const deployedContracts = {
             },
           ],
           stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              internalType: "uint256",
+              name: "cap",
+              type: "uint256",
+            },
+          ],
+          name: "withdraw",
+          outputs: [],
+          stateMutability: "nonpayable",
           type: "function",
         },
       ],

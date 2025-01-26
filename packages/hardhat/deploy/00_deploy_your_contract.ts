@@ -193,6 +193,17 @@ const deployStreamContract: DeployFunction = async function (hre: HardhatRuntime
     const distributionIndex = streamState.distIndex;
     console.log(`Distribution index: ${distributionIndex}`);
 
+    // Finalize the stream
+    const finalizeStreamTx = await streamContract.finalizeStream();
+    await finalizeStreamTx.wait();
+    console.log("Stream finalized");
+
+    // Exit the stream for subscriber1
+    const exitTx = await streamContract.connect(subscriber1Signer).exitStream(
+    );
+    await exitTx.wait();
+    console.log("Exited the stream");
+
     // Only disable automine after all contracts are deployed
     await hre.ethers.provider.send("evm_setAutomine", [false]);
   } catch (error: unknown) {

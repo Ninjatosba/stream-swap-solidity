@@ -76,6 +76,7 @@ error InvalidWithdrawAmount();
 error WithdrawAmountExceedsBalance(uint256 cap);
 contract Stream {
     address public immutable owner;
+    address public creator;
     address public positionStorageAddress;
     string public name;
     bool public streamCreated;
@@ -180,7 +181,7 @@ contract Stream {
         address _inDenom
     ) external isOwner onlyOnce payable {
         validateStreamTimes(block.timestamp, _bootstrappingStartTime, _streamStartTime, _streamEndTime);
-
+        creator = msg.sender;
         PositionStorage positionStorage = new PositionStorage();
         positionStorageAddress = address(positionStorage);
         // Validate _inDenom
@@ -503,13 +504,43 @@ token.transferFrom(msg.sender, address(this), _streamOutAmount);
         }
         // send out_amount earned to msg.sender
         IERC20 streamOutDenom = IERC20(streamState.streamOutDenom);
-        streamOutDenom.transfer(msg.sender, position.purchased);
+        streamOutDenom.transfer(msg.sender, position.purchased-1);
         // Set exit date
         positionStorage.setExitDate(msg.sender, block.timestamp);
         emit Exited(msg.sender, position.purchased);
     }
 
-    event Exited(address indexed subscriber, uint256 purchased);
+    function finalizeStream() external {
+        // Check is sender is the creator
+        if (msg.sender != creator) {
+            revert Unauthorized();
+        }
+        // Check status
+        syncStreamStatus();
+        // Finalize is only allowed if stream is ended 
+        if (streamStatus.mainStatus != Status.Ended) {
+            revert OperationNotAllowed();
+        }
+        // Sync stream
+        syncStream();
+
+        //Send total spent in to creator
+        IERC20 streamInDenom = IERC20(streamState.inDenom);
+        streamInDenom.transfer(creator, streamState.spentIn);
+        // Send total out_remaining to creator if more than 0
+        if (streamState.outRemaining > 0) {
+            IERC20 streamOutDenom = IERC20(streamState.streamOutDenom);
+            streamOutDenom.transfer(creator, streamState.outRemaining);
+        }
+        // Set stream status to finalized
+        streamStatus.mainStatus = Status.Finalized;
+        streamStatus.finalized = FinalizedStatus.Streamed;
+        emit StreamFinalized(creator, streamState.spentIn, streamState.outRemaining);
     }
+    
+    event Exited(address indexed subscriber, uint256 purchased);
+    event StreamFinalized(address indexed creator, uint256 spentIn, uint256 outRemaining);
+    }
+
 
 
