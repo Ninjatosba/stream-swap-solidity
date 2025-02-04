@@ -112,14 +112,14 @@ contract Stream is IStreamErrors, IStreamEvents {
         positionStorage = new PositionStorage();
         positionStorageAddress = address(positionStorage);
         // Validate _inDenom
-        try IERC20(_inDenom).balanceOf(msg.sender) returns (uint256 balance) {
+        try IERC20(_inDenom).balanceOf(msg.sender) returns ( balance) {
             token = IERC20(_inDenom);
         } catch {
             revert InvalidStreamOutDenom();
         }
 
         // Validate _streamOutDenom
-        try IERC20(_streamOutDenom).balanceOf(msg.sender) returns (uint256 balance) {
+        try IERC20(_streamOutDenom).balanceOf(msg.sender) returns ( balance) {
             token = IERC20(_streamOutDenom);
         } catch {
             revert InvalidStreamOutDenom();
