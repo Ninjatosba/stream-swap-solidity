@@ -3,29 +3,16 @@ pragma solidity >=0.8.0 <0.9.0;
 
 import "./PositionStorage.sol";
 import "./PositionTypes.sol";
+import "./StreamEvents.sol";
+import "./StreamErrors.sol";
+
 interface IERC20 {
     function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
     function balanceOf(address account) external view returns (uint256);
     function transfer(address to, uint256 amount) external returns (bool);
 }
 
-
-
-error InvalidBootstrappingStartTime();
-error InvalidStreamStartTime();
-error InvalidStreamEndTime();
-error StreamDurationTooShort();
-error BootstrappingDurationTooShort();
-error WaitingDurationTooShort();
-error InsufficientTokenPayment(uint256 requiredTokenAmount, uint256 tokenBalance);
-error InvalidStreamOutDenom();
-error InvalidInDenom();
-error PaymentFailed();
-error OperationNotAllowed();
-error Unauthorized();
-error InvalidWithdrawAmount();
-error WithdrawAmountExceedsBalance(uint256 cap);
-contract Stream {
+contract Stream is IStreamErrors, IStreamEvents {
     address public immutable owner;
     address public creator;
     address public positionStorageAddress;
@@ -85,13 +72,6 @@ contract Stream {
 
     PositionStorage public positionStorage;
 
-    event StreamCreated(
-        uint256 indexed streamOutAmount,
-        uint256 indexed bootstrappingStartTime,
-        uint256 streamStartTime,
-        uint256 streamEndTime
-    );
-
     constructor() {
         owner = msg.sender;
         streamCreated = false;
@@ -116,12 +96,6 @@ contract Stream {
             streamStatus.lastUpdated
         );
     }
-
-    event StreamSynced(
-        Status mainStatus,
-        FinalizedStatus finalized,
-        uint256 lastUpdated
-    );
 
     function createStream(
         uint256 _streamOutAmount,
@@ -346,10 +320,6 @@ token.transferFrom(msg.sender, address(this), _streamOutAmount);
         emit Subscribed(msg.sender, amountIn, newShares);
     }
 
-
-
-    event Subscribed(address indexed subscriber, uint256 amountIn, uint256 newShares);
-
     function syncPosition(PositionTypes.Position memory position) internal view returns (PositionTypes.Position memory) {
         // Create a new position in memory to store the updated values
         PositionTypes.Position memory updatedPosition = PositionTypes.Position({
@@ -431,8 +401,6 @@ token.transferFrom(msg.sender, address(this), _streamOutAmount);
         emit Withdrawn(msg.sender, cap);
     }
 
-    event Withdrawn(address indexed subscriber, uint256 amountIn);
-
     function exitStream() external {
         PositionTypes.Position memory position = positionStorage.getPosition(msg.sender);
         if (position.shares == 0 || position.exitDate > 0) {
@@ -488,9 +456,6 @@ token.transferFrom(msg.sender, address(this), _streamOutAmount);
         streamStatus.finalized = FinalizedStatus.Streamed;
         emit StreamFinalized(creator, streamState.spentIn, streamState.outRemaining);
     }
-    
-    event Exited(address indexed subscriber, uint256 purchased);
-    event StreamFinalized(address indexed creator, uint256 spentIn, uint256 outRemaining);
 }
 
 
