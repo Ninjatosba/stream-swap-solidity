@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.0 <0.9.0;
 
+import "./PositionStorage.sol";
+import "./PositionTypes.sol";
 interface IERC20 {
     function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
     function balanceOf(address account) external view returns (uint256);
@@ -8,57 +10,6 @@ interface IERC20 {
 }
 
 
-library PositionTypes {
-    struct Position {
-        uint256 inBalance;
-        uint256 shares;
-        uint256 index;
-        uint256 lastUpdateTime;
-        uint256 pendingReward;
-        uint256 spentIn;
-        uint256 purchased;
-        uint256 exitDate;
-    }
-}
-
-contract PositionStorage {
-    using PositionTypes for PositionTypes.Position;
-    mapping(address => PositionTypes.Position) private positions;
-    address public immutable streamContractAddress;
-
-    constructor() {
-        streamContractAddress = msg.sender;
-    }
-
-    function getPosition(address _owner) external view returns (PositionTypes.Position memory) {
-        return positions[_owner];
-    }
-
-    modifier onlySender() {
-        require(msg.sender == streamContractAddress, "Position can only be set by the stream contract");
-        _;
-    }
-
-    function createPosition(
-        address owner,
-        uint256 inBalance,
-        uint256 shares,
-        uint256 index
-    ) external onlySender {
-        positions[owner] = PositionTypes.Position(inBalance, shares, index, block.timestamp, 0, 0, 0, 0);
-    }
-
-    function updatePosition(
-        address owner,
-        PositionTypes.Position memory position
-    ) external onlySender {
-        positions[owner] = position;
-    }
-
-    function setExitDate(address owner, uint256 exitDate) external onlySender {
-        positions[owner].exitDate = exitDate;
-    }
-}
 
 error InvalidBootstrappingStartTime();
 error InvalidStreamStartTime();
@@ -132,6 +83,8 @@ contract Stream {
     StreamMetadata public streamMetadata;
     StatusInfo public streamStatus;
 
+    PositionStorage public positionStorage;
+
     event StreamCreated(
         uint256 indexed streamOutAmount,
         uint256 indexed bootstrappingStartTime,
@@ -182,7 +135,7 @@ contract Stream {
     ) external isOwner onlyOnce payable {
         validateStreamTimes(block.timestamp, _bootstrappingStartTime, _streamStartTime, _streamEndTime);
         creator = msg.sender;
-        PositionStorage positionStorage = new PositionStorage();
+        positionStorage = new PositionStorage();
         positionStorageAddress = address(positionStorage);
         // Validate _inDenom
         try IERC20(_inDenom).balanceOf(msg.sender) returns (uint256 balance) {
@@ -361,9 +314,7 @@ token.transferFrom(msg.sender, address(this), _streamOutAmount);
         }
 
         // Query position from PositionStorage contract
-        PositionStorage positionStorage = PositionStorage(positionStorageAddress);
         PositionTypes.Position memory position = positionStorage.getPosition(msg.sender);
-
         uint256 newShares = 0;
 
         if (position.shares == 0) {
@@ -394,6 +345,8 @@ token.transferFrom(msg.sender, address(this), _streamOutAmount);
         // Emit event
         emit Subscribed(msg.sender, amountIn, newShares);
     }
+
+
 
     event Subscribed(address indexed subscriber, uint256 amountIn, uint256 newShares);
 
@@ -444,7 +397,6 @@ token.transferFrom(msg.sender, address(this), _streamOutAmount);
         if (cap == 0) {
             revert InvalidWithdrawAmount();
         }
-        PositionStorage positionStorage = PositionStorage(positionStorageAddress);
         PositionTypes.Position memory position = positionStorage.getPosition(msg.sender);
         if (position.shares == 0) {
             revert OperationNotAllowed();
@@ -482,7 +434,6 @@ token.transferFrom(msg.sender, address(this), _streamOutAmount);
     event Withdrawn(address indexed subscriber, uint256 amountIn);
 
     function exitStream() external {
-        PositionStorage positionStorage = PositionStorage(positionStorageAddress);
         PositionTypes.Position memory position = positionStorage.getPosition(msg.sender);
         if (position.shares == 0 || position.exitDate > 0) {
             revert OperationNotAllowed();
@@ -540,7 +491,7 @@ token.transferFrom(msg.sender, address(this), _streamOutAmount);
     
     event Exited(address indexed subscriber, uint256 purchased);
     event StreamFinalized(address indexed creator, uint256 spentIn, uint256 outRemaining);
-    }
+}
 
 
 
