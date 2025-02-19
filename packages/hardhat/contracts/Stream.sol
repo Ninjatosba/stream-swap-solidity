@@ -5,7 +5,7 @@ import "./PositionStorage.sol";
 import "./PositionTypes.sol";
 import "./StreamEvents.sol";
 import "./StreamErrors.sol";
-
+import "./StreamTypes.sol";
 interface IERC20 {
     function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
     function balanceOf(address account) external view returns (uint256);
@@ -13,91 +13,27 @@ interface IERC20 {
 }
 
 contract Stream is IStreamErrors, IStreamEvents {
+    modifier onlyFactory() {
+        require(msg.sender == owner, "Only factory can call");
+        _;
+    }
+
     address public immutable owner;
     address public creator;
     address public positionStorageAddress;
     string public name;
-    bool public streamCreated;
-
-    // Primary statuses of the stream
-    enum Status {
-        Waiting,
-        Bootstrapping,
-        Active,
-        Ended,
-        Finalized,
-        Cancelled
-    }
-
-    // Secondary statuses for Finalized state
-    enum FinalizedStatus {
-        None,
-        Streamed,
-        Refunded
-    }
-
-    struct StatusInfo {
-        Status mainStatus;
-        FinalizedStatus finalized;
-        uint256 lastUpdated;
-        uint256 bootstrappingStartTime;
-        uint256 streamStartTime;
-        uint256 streamEndTime;
-    }
-
-    struct StreamMetadata {
-        string name;
-    }
-
-    struct StreamState {
-        uint256 outRemaining;
-        uint256 distIndex;
-        uint256 spentIn;
-        uint256 shares;
-        uint256 currentStreamedPrice;
-        uint256 threshold;
-        uint256 inSupply;
-        address inDenom;
-        address streamOutDenom;
-    }
-
     uint256 private constant MIN_WAITING_DURATION = 10 seconds;
     uint256 private constant MIN_BOOTSTRAPPING_DURATION = 10 seconds;
     uint256 private constant MIN_STREAM_DURATION = 50 seconds;
 
     IERC20 public token;
-    StreamState public streamState;
-    StreamMetadata public streamMetadata;
-    StatusInfo public streamStatus;
+    IStreamTypes.StreamState public streamState;
+    IStreamTypes.StreamMetadata public streamMetadata;
+    IStreamTypes.StatusInfo public streamStatus;
 
     PositionStorage public positionStorage;
 
-    constructor() {
-        owner = msg.sender;
-        streamCreated = false;
-    }
-
-    modifier isOwner() {
-        require(msg.sender == owner, "Not the Owner");
-        _;
-    }
-
-    modifier onlyOnce() {
-        require(!streamCreated, "Stream already created");
-        _;
-    }
-
-    function syncStreamExternal() external {
-        syncStream();
-        syncStreamStatus();
-        emit StreamSynced(
-            streamStatus.mainStatus,
-            streamStatus.finalized,
-            streamStatus.lastUpdated
-        );
-    }
-
-    function createStream(
+    constructor(
         uint256 _streamOutAmount,
         address _streamOutDenom,
         uint256 _bootstrappingStartTime,
@@ -105,36 +41,36 @@ contract Stream is IStreamErrors, IStreamEvents {
         uint256 _streamEndTime,
         uint256 _threshold,
         string memory _name,
-        address _inDenom
-    ) external isOwner onlyOnce payable {
+        address _inDenom,
+        address _creator
+    ) {
         validateStreamTimes(block.timestamp, _bootstrappingStartTime, _streamStartTime, _streamEndTime);
-        creator = msg.sender;
+
+        // Check if the factory sent required amount of out_amount
+        IERC20 streamOutDenom = IERC20(_streamOutDenom);
+        if (streamOutDenom.balanceOf(msg.sender) < _streamOutAmount) {
+            revert IStreamErrors.InsufficientOutAmount();
+        }
+        owner = msg.sender;
+        creator = _creator;
         positionStorage = new PositionStorage();
         positionStorageAddress = address(positionStorage);
+        
         // Validate _inDenom
-        try IERC20(_inDenom).balanceOf(msg.sender) returns ( balance) {
+        try IERC20(_inDenom).balanceOf(msg.sender) returns (uint256) {
             token = IERC20(_inDenom);
         } catch {
             revert InvalidStreamOutDenom();
         }
 
         // Validate _streamOutDenom
-        try IERC20(_streamOutDenom).balanceOf(msg.sender) returns ( balance) {
+        try IERC20(_streamOutDenom).balanceOf(msg.sender) returns (uint256) {
             token = IERC20(_streamOutDenom);
         } catch {
             revert InvalidStreamOutDenom();
         }
 
-        // Ensure sender has enough tokens
-        uint256 balance = token.balanceOf(msg.sender);
-            if (balance < _streamOutAmount) {
-    revert InsufficientTokenPayment(_streamOutAmount, balance);
-}
-
-// Transfer tokens
-token.transferFrom(msg.sender, address(this), _streamOutAmount);
-
-        streamState = StreamState({
+        streamState = IStreamTypes.StreamState({
             distIndex: 0,
             outRemaining: _streamOutAmount,
             inDenom: _inDenom,
@@ -146,20 +82,19 @@ token.transferFrom(msg.sender, address(this), _streamOutAmount);
             threshold: _threshold
         });
 
-        streamMetadata = StreamMetadata({
+        streamMetadata = IStreamTypes.StreamMetadata({
             name: _name
         });
 
-        streamStatus = StatusInfo({
-            mainStatus: Status.Waiting,
-            finalized: FinalizedStatus.None,
+        streamStatus = IStreamTypes.StatusInfo({
+            mainStatus: IStreamTypes.Status.Waiting,
+            finalized: IStreamTypes.FinalizedStatus.None,
             lastUpdated: block.timestamp,
             bootstrappingStartTime: _bootstrappingStartTime,
             streamStartTime: _streamStartTime,
             streamEndTime: _streamEndTime
         });
 
-        streamCreated = true;
         emit StreamCreated(_streamOutAmount, _bootstrappingStartTime, _streamStartTime, _streamEndTime);
     }
 
@@ -207,27 +142,27 @@ token.transferFrom(msg.sender, address(this), _streamOutAmount);
 
     function syncStreamStatus() internal {
         // Don't update if stream is in a final state
-        if (streamStatus.mainStatus == Status.Cancelled ||
-            (streamStatus.mainStatus == Status.Finalized && 
-            (streamStatus.finalized == FinalizedStatus.Streamed || 
-             streamStatus.finalized == FinalizedStatus.Refunded))) {
+        if (streamStatus.mainStatus == IStreamTypes.Status.Cancelled ||
+            (streamStatus.mainStatus == IStreamTypes.Status.Finalized && 
+            (streamStatus.finalized == IStreamTypes.FinalizedStatus.Streamed || 
+             streamStatus.finalized == IStreamTypes.FinalizedStatus.Refunded))) {
             return;
         }
 
         // Update status based on current timestamp
         if (block.timestamp < streamStatus.bootstrappingStartTime) {
-            streamStatus.mainStatus = Status.Waiting;
+            streamStatus.mainStatus = IStreamTypes.Status.Waiting;
         } 
         else if (block.timestamp >= streamStatus.bootstrappingStartTime && 
                  block.timestamp < streamStatus.streamStartTime) {
-            streamStatus.mainStatus = Status.Bootstrapping;
+            streamStatus.mainStatus = IStreamTypes.Status.Bootstrapping;
         }
         else if (block.timestamp >= streamStatus.streamStartTime && 
                  block.timestamp < streamStatus.streamEndTime) {
-            streamStatus.mainStatus = Status.Active;
+            streamStatus.mainStatus = IStreamTypes.Status.Active;
         }
         else if (block.timestamp >= streamStatus.streamEndTime) {
-            streamStatus.mainStatus = Status.Ended;
+            streamStatus.mainStatus = IStreamTypes.Status.Ended;
         }
     }
 
@@ -271,8 +206,8 @@ token.transferFrom(msg.sender, address(this), _streamOutAmount);
     function subscribe(uint256 amountIn) external payable {
         // Get current status
         syncStreamStatus();
-        if (streamStatus.mainStatus != Status.Bootstrapping && 
-            streamStatus.mainStatus != Status.Active) {
+        if (streamStatus.mainStatus != IStreamTypes.Status.Bootstrapping && 
+            streamStatus.mainStatus != IStreamTypes.Status.Active) {
             revert OperationNotAllowed();
         }
         // Validate if sender has enough tokens
@@ -377,7 +312,7 @@ token.transferFrom(msg.sender, address(this), _streamOutAmount);
         }
 
         syncStreamStatus();
-        if (streamStatus.mainStatus != Status.Active && streamStatus.mainStatus != Status.Bootstrapping) {
+        if (streamStatus.mainStatus != IStreamTypes.Status.Active && streamStatus.mainStatus != IStreamTypes.Status.Bootstrapping) {
             revert OperationNotAllowed();
         }
 
@@ -413,7 +348,7 @@ token.transferFrom(msg.sender, address(this), _streamOutAmount);
         // Check status
         syncStreamStatus();
         // Exit is only allowed if stream is ended or finalized
-        if (streamStatus.mainStatus != Status.Ended && streamStatus.mainStatus != Status.Finalized) {
+        if (streamStatus.mainStatus != IStreamTypes.Status.Ended && streamStatus.mainStatus != IStreamTypes.Status.Finalized) {
             revert OperationNotAllowed();
         }
         // Refund in_amount remaining if any in position
@@ -437,7 +372,7 @@ token.transferFrom(msg.sender, address(this), _streamOutAmount);
         // Check status
         syncStreamStatus();
         // Finalize is only allowed if stream is ended 
-        if (streamStatus.mainStatus != Status.Ended) {
+        if (streamStatus.mainStatus != IStreamTypes.Status.Ended) {
             revert OperationNotAllowed();
         }
         // Sync stream
@@ -452,8 +387,8 @@ token.transferFrom(msg.sender, address(this), _streamOutAmount);
             streamOutDenom.transfer(creator, streamState.outRemaining);
         }
         // Set stream status to finalized
-        streamStatus.mainStatus = Status.Finalized;
-        streamStatus.finalized = FinalizedStatus.Streamed;
+        streamStatus.mainStatus = IStreamTypes.Status.Finalized;
+        streamStatus.finalized = IStreamTypes.FinalizedStatus.Streamed;
         emit StreamFinalized(creator, streamState.spentIn, streamState.outRemaining);
     }
 }

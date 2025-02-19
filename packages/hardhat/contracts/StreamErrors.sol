@@ -16,4 +16,5 @@ interface IStreamErrors {
     error Unauthorized();
     error InvalidWithdrawAmount();
     error WithdrawAmountExceedsBalance(uint256 cap);
+    error InsufficientOutAmount();
 } 
