@@ -13,12 +13,6 @@ interface IERC20 {
 }
 
 contract Stream is IStreamErrors, IStreamEvents {
-    modifier onlyFactory() {
-        require(msg.sender == owner, "Only factory can call");
-        _;
-    }
-
-    address public immutable owner;
     address public creator;
     address public positionStorageAddress;
     string public name;
@@ -32,7 +26,7 @@ contract Stream is IStreamErrors, IStreamEvents {
     IStreamTypes.StatusInfo public streamStatus;
 
     PositionStorage public positionStorage;
-
+    // constructor should return its address
     constructor(
         uint256 _streamOutAmount,
         address _streamOutDenom,
@@ -48,10 +42,9 @@ contract Stream is IStreamErrors, IStreamEvents {
 
         // Check if the factory sent required amount of out_amount
         IERC20 streamOutDenom = IERC20(_streamOutDenom);
-        if (streamOutDenom.balanceOf(msg.sender) < _streamOutAmount) {
+        if (streamOutDenom.balanceOf(address(this)) < _streamOutAmount) {
             revert IStreamErrors.InsufficientOutAmount();
         }
-        owner = msg.sender;
         creator = _creator;
         positionStorage = new PositionStorage();
         positionStorageAddress = address(positionStorage);
@@ -94,8 +87,6 @@ contract Stream is IStreamErrors, IStreamEvents {
             streamStartTime: _streamStartTime,
             streamEndTime: _streamEndTime
         });
-
-        emit StreamCreated(_streamOutAmount, _bootstrappingStartTime, _streamStartTime, _streamEndTime);
     }
 
     function validateStreamTimes(
@@ -390,6 +381,10 @@ contract Stream is IStreamErrors, IStreamEvents {
         streamStatus.mainStatus = IStreamTypes.Status.Finalized;
         streamStatus.finalized = IStreamTypes.FinalizedStatus.Streamed;
         emit StreamFinalized(creator, streamState.spentIn, streamState.outRemaining);
+    }
+
+    function syncStreamExternal() external {
+        syncStream();
     }
 }
 

@@ -8,7 +8,8 @@ interface IStreamEvents {
         uint256 indexed streamOutAmount,
         uint256 indexed bootstrappingStartTime,
         uint256 streamStartTime,
-        uint256 streamEndTime
+        uint256 streamEndTime,
+        address indexed streamAddress
     );
     
     event StreamSynced(

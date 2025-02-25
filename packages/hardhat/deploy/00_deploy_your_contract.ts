@@ -3,7 +3,7 @@ import { DeployFunction } from "hardhat-deploy/types";
 import { assert } from "chai";
 
 /**
- * Deploys the Stream contract and a Mock ERC-20 Token contract for testing.
+ * Deploys the StreamFactory contract and uses it to create a Stream.
  */
 const deployStreamContract: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   try {
@@ -23,7 +23,7 @@ const deployStreamContract: DeployFunction = async function (hre: HardhatRuntime
 
     let waitSeconds = 50;
     let bootstrappingDuration = 50;
-    let streamDuration = 100
+    let streamDuration = 100;
 
     let bootstrappingStartTime = nowSeconds + waitSeconds;
     let streamStartTime = bootstrappingStartTime + bootstrappingDuration;
@@ -49,7 +49,6 @@ const deployStreamContract: DeployFunction = async function (hre: HardhatRuntime
     });
     console.log("InDenom Mock Token deployed at:", inDenom.address);
 
-    // Deploy streamOutDenom ERC20 Mock token with explicit nonce
     const streamOutDenom = await deploy("ERC20Mock", {
       from: deployer,
       args: ["StreamOutDenom Token", "OUT"],
@@ -64,25 +63,32 @@ const deployStreamContract: DeployFunction = async function (hre: HardhatRuntime
     await streamOutDenomContract.mint(deployer, streamOutAmount);
     console.log(`Minted ${streamOutAmount} tokens for deployer`);
 
-    // Deploy Stream contract with explicit nonce
-    const stream = await deploy("Stream", {
+    // Deploy StreamFactory contract
+    const streamFactory = await deploy("StreamFactory", {
       from: deployer,
-      args: [],
+      args: [100, "0x0000000000000000000000000000000000000000", 5, 1, 1, 1, [inDenom.address], deployer, deployer, "1.0.0"],
       log: true,
       skipIfAlreadyDeployed: false,
       deterministicDeployment: false,
     });
-    console.log("Stream contract deployed at:", stream.address);
+    console.log("StreamFactory contract deployed at:", streamFactory.address);
 
-    // Set up allowance for the Stream contract to spend streamOutDenom tokens
-    const approveTx = await streamOutDenomContract.approve(stream.address, streamOutAmount);
+    // Set up allowance for the StreamFactory to spend streamOutDenom tokens
+    const approveTx = await streamOutDenomContract.approve(streamFactory.address, streamOutAmount);
     await approveTx.wait();
-    console.log(`Approved ${streamOutAmount} tokens for Stream contract`);
+    console.log(`Approved ${streamOutAmount} tokens for StreamFactory contract`);
 
-    // Call createStream function
-    const streamContract = await hre.ethers.getContractAt("Stream", stream.address);
+    // Use StreamFactory to create a new Stream
+    const streamFactoryContract = await hre.ethers.getContractAt("StreamFactory", streamFactory.address);
+    // Log parameters
+    console.log(`streamOutAmount: ${streamOutAmount}`);
+    console.log(`streamOutDenom: ${streamOutDenom.address}`);
+    console.log(`bootstrappingStartTime: ${bootstrappingStartTime}`);
+    console.log(`streamStartTime: ${streamStartTime}`);
+    console.log(`streamEndTime: ${streamEndTime}`);
+    console.log(`inDenom: ${inDenom.address}`);
 
-    const createStreamTx = await streamContract.createStream(
+    const createStreamTx = await streamFactoryContract.createStream(
       streamOutAmount,
       streamOutDenom.address, // streamOutDenom
       bootstrappingStartTime,
@@ -90,16 +96,22 @@ const deployStreamContract: DeployFunction = async function (hre: HardhatRuntime
       streamEndTime,
       1000, // Example threshold
       "Test Stream",
-      inDenom.address // inDenom
+      inDenom.address,
+      "1.0.0",
+      { value: 100 }
     );
     await createStreamTx.wait();
-    console.log(`Stream is created`);
+    // // get event StreamCreated
+    // const filter = streamFactoryContract.filters.StreamCreated();
+    // const logs = await streamFactoryContract.queryFilter(filter);
+    // const streamAddress = logs[logs.length - 1].args[5];
+    // console.log(`Stream is created at ${streamAddress}`);
+    const streamAddress = "asd"
 
     // Query stream data
-    const StreamFlag = await streamContract.streamCreated();
-    console.log(`Stream flag is ${StreamFlag}`);
+    const streamContract = await hre.ethers.getContractAt("Stream", streamAddress as string);
 
-    const tokenBalance = await streamOutDenomContract.balanceOf(stream.address);
+    const tokenBalance = await streamOutDenomContract.balanceOf(streamAddress as string);
     console.log(`Token balance of the stream contract is ${tokenBalance}`);
 
     const streamStatus = await streamContract.streamStatus();
@@ -107,7 +119,7 @@ const deployStreamContract: DeployFunction = async function (hre: HardhatRuntime
 
     // Call synchronizeStream
     console.log("Synchronizing stream...");
-    let synchronizeStreamTx = await streamContract.syncStreamExternal();
+    let synchronizeStreamTx = await streamContract.syncStreamExternal()
     await synchronizeStreamTx.wait();
     console.log("Stream synchronized");
     // get logs
@@ -154,12 +166,12 @@ const deployStreamContract: DeployFunction = async function (hre: HardhatRuntime
     console.log(`Minted ${subscribeAmount} tokens for subscriber`);
 
     // Then give subscribeAmount approval to the stream contract
-    const approveTx2 = await inDenomContract.approve(stream.address, subscribeAmount);
+    const approveTx2 = await inDenomContract.approve(streamAddress as string, subscribeAmount);
     await approveTx2.wait();
     console.log(`Approved ${subscribeAmount} tokens for Stream contract`);
 
     // Subscribe to the stream
-    // set time to half way through the stream§
+    // set time to half way through the stream
     await mineBlock(streamStartTime - 1 + (streamDuration / 2));
     const subscribeTx = await streamContract.connect(subscriber1Signer).subscribe(subscribeAmount);
     await subscribeTx.wait();
@@ -199,8 +211,7 @@ const deployStreamContract: DeployFunction = async function (hre: HardhatRuntime
     console.log("Stream finalized");
 
     // Exit the stream for subscriber1
-    const exitTx = await streamContract.connect(subscriber1Signer).exitStream(
-    );
+    const exitTx = await streamContract.connect(subscriber1Signer).exitStream();
     await exitTx.wait();
     console.log("Exited the stream");
 

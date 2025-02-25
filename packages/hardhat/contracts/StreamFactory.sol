@@ -2,8 +2,9 @@
 pragma solidity >=0.8.0 <0.9.0;
 
 import "./Stream.sol";
+import "./StreamEvents.sol";
 
-contract StreamFactory {
+contract StreamFactory is IStreamEvents {
     struct Params {
         uint256 streamCreationFee;    // Fixed fee to create a stream
         address streamCreationFeeToken; // Token used for creation fee,
@@ -19,6 +20,8 @@ contract StreamFactory {
     mapping(address => bool) public acceptedTokens;
     
     address public constant NATIVE_TOKEN = address(0);
+
+    uint256 public streamId;
     
     Params public params;
     mapping(address => bool) public streams;
@@ -56,6 +59,7 @@ contract StreamFactory {
         for (uint i = 0; i < _acceptedTokens.length; i++) {
             acceptedTokens[_acceptedTokens[i]] = true;
         }
+        streamId = 0;
     }
 
     modifier onlyAdmin() {
@@ -78,19 +82,19 @@ contract StreamFactory {
         params.minStreamDuration = _minStreamDuration;
         params.tosVersion = _tosVersion;
         
-        emit IStreamEvents.ParamsUpdated();
+        emit ParamsUpdated();
     }
 
     function updateFeeCollector(address _feeCollector) external onlyAdmin {
         require(_feeCollector != address(0), "Invalid fee collector");
         params.feeCollector = _feeCollector;
-        emit IStreamEvents.FeeCollectorUpdated(_feeCollector);
+        emit FeeCollectorUpdated(_feeCollector);
     }
 
     function updateProtocolAdmin(address _protocolAdmin) external onlyAdmin {
         require(_protocolAdmin != address(0), "Invalid protocol admin");
         params.protocolAdmin = _protocolAdmin;
-        emit IStreamEvents.ProtocolAdminUpdated(_protocolAdmin);
+        emit ProtocolAdminUpdated(_protocolAdmin);
     }
 
     function updateAcceptedTokens(address[] calldata tokens_to_add, address[] calldata tokens_to_remove) external onlyAdmin {
@@ -116,7 +120,7 @@ contract StreamFactory {
         string memory _name,
         address _inDenom,
         string memory _tosVersion
-    ) external payable returns (address) {
+    ) external payable {
         // Check if contract is accepting new streams (not frozen)
         require(!frozen, "Contract is frozen");
         
@@ -141,9 +145,9 @@ contract StreamFactory {
         // Load creation fee
         uint256 creationFee = params.streamCreationFee;
         if (creationFee > 0) {
-            if (params.streamCreationFeeToken == NATIVE_TOKEN) {
+            if (params.streamCreationFeeToken == address(0)) {
                 // Native token
-                require(msg.value >= creationFee, "Insufficient native token");
+                require(msg.value <= creationFee, "Insufficient native token");
                 // Transfer fee to fee collector
                 (bool success, ) = payable(params.feeCollector).call{value: creationFee}("");
                 require(success, "Fee transfer failed");
@@ -152,6 +156,11 @@ contract StreamFactory {
                 require(IERC20(params.streamCreationFeeToken).transferFrom(msg.sender, address(params.feeCollector), creationFee), "Token transfer failed");
             }
         }
+        // Increment stream id
+        streamId++;
+        // Predict stream address
+        address predictedAddress = predictAddress(address(this), streamId);
+        require(IERC20(_streamOutDenom).transfer(predictedAddress, _streamOutAmount), "Token transfer failed");
 
         // Deploy new stream contract with all parameters
         Stream newStream = new Stream(
@@ -165,16 +174,16 @@ contract StreamFactory {
             _inDenom,
             msg.sender);
 
-        emit IStreamEvents.StreamCreated(
+        // Transfer out denom to stream contract
+        require(IERC20(_streamOutDenom).transfer(address(newStream), _streamOutAmount), "Token transfer failed");
+
+        emit StreamCreated(
             _streamOutAmount,
             _bootstrappingStartTime,
             _streamStartTime,
-            _streamEndTime
+            _streamEndTime,
+            address(newStream)
         );
-
-
-
-        return address(newStream);
     }
 
     function isStream(address streamAddress) external view returns (bool) {
@@ -189,6 +198,15 @@ contract StreamFactory {
 
     function setFrozen(bool _frozen) external onlyAdmin {
         frozen = _frozen;
-        emit IStreamEvents.FrozenStateUpdated(_frozen);
+        emit FrozenStateUpdated(_frozen);
+    }
+
+    function predictAddress(address creator, uint256 nonce) public pure returns (address) {
+        return address(uint160(uint(keccak256(abi.encodePacked(
+            bytes1(0xd6),
+            bytes1(0x94),
+            creator,
+            bytes1(uint8(nonce))
+        )))));
     }
 } 
