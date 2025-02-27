@@ -3,7 +3,6 @@ pragma solidity >=0.8.0 <0.9.0;
 
 import "./Stream.sol";
 import "./StreamEvents.sol";
-
 contract StreamFactory is IStreamEvents {
     struct Params {
         uint256 streamCreationFee;    // Fixed fee to create a stream
@@ -119,7 +118,8 @@ contract StreamFactory is IStreamEvents {
         uint256 _threshold,
         string memory _name,
         address _inDenom,
-        string memory _tosVersion
+        string memory _tosVersion,
+        bytes32 _salt
     ) external payable {
         // Check if contract is accepting new streams (not frozen)
         require(!frozen, "Contract is frozen");
@@ -147,23 +147,37 @@ contract StreamFactory is IStreamEvents {
         if (creationFee > 0) {
             if (params.streamCreationFeeToken == address(0)) {
                 // Native token
-                require(msg.value <= creationFee, "Insufficient native token");
+                require(msg.value >= creationFee, "Insufficient native token");
                 // Transfer fee to fee collector
-                (bool success, ) = payable(params.feeCollector).call{value: creationFee}("");
-                require(success, "Fee transfer failed");
+                require(payable(params.feeCollector).send(creationFee), "Fee transfer failed");
             } else {
                 // ERC20 token
                 require(IERC20(params.streamCreationFeeToken).transferFrom(msg.sender, address(params.feeCollector), creationFee), "Token transfer failed");
             }
         }
         // Increment stream id
-        streamId++;
         // Predict stream address
-        address predictedAddress = predictAddress(address(this), streamId);
-        require(IERC20(_streamOutDenom).transfer(predictedAddress, _streamOutAmount), "Token transfer failed");
+        streamId++;
+bytes32 bytecodeHash = keccak256(abi.encodePacked(
+    type(Stream).creationCode,
+    abi.encode(
+        _streamOutAmount,
+        _streamOutDenom,
+        _bootstrappingStartTime,
+        _streamStartTime,
+        _streamEndTime,
+        _threshold,
+        _name,
+        _inDenom,
+        msg.sender
+    )
+));
 
+        address predictedAddress = predictAddress(address(this), _salt, bytecodeHash);
+        // Transfer out denom to stream contract
+        require(IERC20(_streamOutDenom).transferFrom(msg.sender, predictedAddress, _streamOutAmount), "Token transfer failed");
         // Deploy new stream contract with all parameters
-        Stream newStream = new Stream(
+        Stream newStream = new Stream{salt: _salt}(
             _streamOutAmount,
             _streamOutDenom,
             _bootstrappingStartTime,
@@ -172,10 +186,11 @@ contract StreamFactory is IStreamEvents {
             _threshold,
             _name,
             _inDenom,
-            msg.sender);
+            msg.sender
+            );
 
-        // Transfer out denom to stream contract
-        require(IERC20(_streamOutDenom).transfer(address(newStream), _streamOutAmount), "Token transfer failed");
+        require(address(newStream) == predictedAddress, "Stream address prediction failed");
+            
 
         emit StreamCreated(
             _streamOutAmount,
@@ -201,12 +216,12 @@ contract StreamFactory is IStreamEvents {
         emit FrozenStateUpdated(_frozen);
     }
 
-    function predictAddress(address creator, uint256 nonce) public pure returns (address) {
+    function predictAddress(address creator, bytes32 _salt, bytes32 bytecodeHash) public pure returns (address) {
         return address(uint160(uint(keccak256(abi.encodePacked(
-            bytes1(0xd6),
-            bytes1(0x94),
+            bytes1(0xff),
             creator,
-            bytes1(uint8(nonce))
+            _salt,
+            bytecodeHash
         )))));
     }
 } 

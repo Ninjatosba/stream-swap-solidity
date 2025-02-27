@@ -43,7 +43,7 @@ contract Stream is IStreamErrors, IStreamEvents {
         // Check if the factory sent required amount of out_amount
         IERC20 streamOutDenom = IERC20(_streamOutDenom);
         if (streamOutDenom.balanceOf(address(this)) < _streamOutAmount) {
-            revert IStreamErrors.InsufficientOutAmount();
+            revert InsufficientOutAmount();
         }
         creator = _creator;
         positionStorage = new PositionStorage();
@@ -386,6 +386,7 @@ contract Stream is IStreamErrors, IStreamEvents {
     function syncStreamExternal() external {
         syncStream();
     }
+    
 }
 
 

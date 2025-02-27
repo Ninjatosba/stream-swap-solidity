@@ -1,6 +1,9 @@
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { DeployFunction } from "hardhat-deploy/types";
 import { assert } from "chai";
+import { ethers } from "ethers";
+import fs from "fs";
+import path from "path";
 
 /**
  * Deploys the StreamFactory contract and uses it to create a Stream.
@@ -62,7 +65,6 @@ const deployStreamContract: DeployFunction = async function (hre: HardhatRuntime
     const streamOutDenomContract = await hre.ethers.getContractAt("ERC20Mock", streamOutDenom.address);
     await streamOutDenomContract.mint(deployer, streamOutAmount);
     console.log(`Minted ${streamOutAmount} tokens for deployer`);
-
     // Deploy StreamFactory contract
     const streamFactory = await deploy("StreamFactory", {
       from: deployer,
@@ -98,20 +100,44 @@ const deployStreamContract: DeployFunction = async function (hre: HardhatRuntime
       "Test Stream",
       inDenom.address,
       "1.0.0",
+      ethers.getBytes("0x0000000000000000000000000000000000000000000000000000000000000000"),
       { value: 100 }
     );
+
+    // Wait for transaction confirmation
     await createStreamTx.wait();
-    // // get event StreamCreated
-    // const filter = streamFactoryContract.filters.StreamCreated();
-    // const logs = await streamFactoryContract.queryFilter(filter);
-    // const streamAddress = logs[logs.length - 1].args[5];
-    // console.log(`Stream is created at ${streamAddress}`);
-    const streamAddress = "asd"
+    const txReceipt = await hre.ethers.provider.getTransactionReceipt(createStreamTx.hash);
+
+    let streamAddress = "";
+
+    const streamFactoryInterface = new ethers.Interface([
+      "event StreamCreated(uint256 indexed streamOutAmount, uint256 indexed bootstrappingStartTime, uint256 streamStartTime, uint256 streamEndTime, address indexed streamAddress)"
+    ]);
+
+
+    // Find and parse the event
+    const parsedLog = txReceipt?.logs
+      .map((log: any) => {
+        try {
+          return streamFactoryInterface.parseLog(log);
+        } catch {
+          return null;
+        }
+      })
+      .find((log: any) => log !== null);
+    console.log("parsedLog", parsedLog);
+
+    if (parsedLog) {
+      const streamAddress = parsedLog.args[4]; // Can also use `parsedLog.args[4]`
+      console.log("New Stream Contract Address:", streamAddress);
+    } else {
+      console.error("StreamCreated event not found in transaction logs.");
+    }
 
     // Query stream data
-    const streamContract = await hre.ethers.getContractAt("Stream", streamAddress as string);
+    const streamContract = await hre.ethers.getContractAt("Stream", streamAddress);
 
-    const tokenBalance = await streamOutDenomContract.balanceOf(streamAddress as string);
+    const tokenBalance = await streamOutDenomContract.balanceOf(streamAddress);
     console.log(`Token balance of the stream contract is ${tokenBalance}`);
 
     const streamStatus = await streamContract.streamStatus();
