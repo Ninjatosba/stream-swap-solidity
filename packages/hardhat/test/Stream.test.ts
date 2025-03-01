@@ -14,5 +14,25 @@ describe("Stream Contract", function () {
         expect(status.mainStatus).to.equal(0);
     });
 
+    it("Should transition to bootstrapping phase", async function () {
+        const { contracts, timeParams } = await loadFixture(stream().build());
+
+        // Fast forward time to bootstrapping start
+        await ethers.provider.send("evm_setNextBlockTimestamp", [timeParams.bootstrappingStartTime + 1]);
+        await ethers.provider.send("evm_mine", []);
+
+
+        // Sync the stream
+        await contracts.stream.syncStreamExternal();
+
+        // get current time
+        let currentTime = await ethers.provider.getBlock("latest");
+        console.log(currentTime?.timestamp);
+
+        // Check status
+        const status = await contracts.stream.streamStatus();
+        console.log(status);
+        expect(status.mainStatus).to.equal(1); // Bootstrapping phase
+    });
     // Add more tests using the builder pattern...
 }); 

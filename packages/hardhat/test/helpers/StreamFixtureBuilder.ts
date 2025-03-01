@@ -15,7 +15,7 @@ export class StreamFixtureBuilder {
     private minBootstrappingDuration: number = 1;
     private minStreamDuration: number = 1;
     private nowSeconds?: number;
-    private streamCreationFee: number = 0;
+    private streamCreationFee: number = 100;
 
     // Method to set stream out amount
     public streamOut(amount: number): StreamFixtureBuilder {
@@ -95,117 +95,129 @@ export class StreamFixtureBuilder {
 
         // Return the fixture function
         return async function deployStreamFixture() {
-            // Reset the Hardhat Network
-            await ethers.provider.send("hardhat_reset", []);
+            try {
+                // Reset the Hardhat Network
+                await ethers.provider.send("hardhat_reset", []);
 
-            // Get signers
-            const [deployer, subscriber1, subscriber2] = await ethers.getSigners();
+                // Get signers
+                const [deployer, subscriber1, subscriber2] = await ethers.getSigners();
 
-            // Deploy token contracts
-            const InDenom = await ethers.getContractFactory("ERC20Mock");
-            const inDenom = await InDenom.deploy("InDenom Token", "IN");
+                // Deploy token contracts
+                const InDenom = await ethers.getContractFactory("ERC20Mock");
+                const inDenom = await InDenom.deploy("InDenom Token", "IN");
 
-            const OutDenom = await ethers.getContractFactory("ERC20Mock");
-            const outDenom = await OutDenom.deploy("StreamOutDenom Token", "OUT");
+                const OutDenom = await ethers.getContractFactory("ERC20Mock");
+                const outDenom = await OutDenom.deploy("StreamOutDenom Token", "OUT");
 
-            // Mint tokens
-            await outDenom.mint(deployer.address, config.streamOutAmount);
+                // Mint tokens
+                await outDenom.mint(deployer.address, config.streamOutAmount);
 
-            // Deploy StreamFactory
-            const StreamFactoryFactory = await ethers.getContractFactory("StreamFactory");
-            const streamFactory = await StreamFactoryFactory.deploy(
-                config.streamOutAmount,
-                deployer.address, // fee collector
-                config.exitFeePercent,
-                config.minWaitingDuration,
-                config.minBootstrappingDuration,
-                config.minStreamDuration,
-                [await inDenom.getAddress()], // allowed in denoms
-                deployer.address, // fee collector
-                deployer.address, // protocol admin
-                config.tosVersion
-            );
+                // Deploy StreamFactory
+                const StreamFactoryFactory = await ethers.getContractFactory("StreamFactory");
+                const streamFactory = await StreamFactoryFactory.deploy(
+                    config.streamCreationFee,
+                    ethers.ZeroAddress,
+                    config.exitFeePercent,
+                    config.minWaitingDuration,
+                    config.minBootstrappingDuration,
+                    config.minStreamDuration,
+                    [await inDenom.getAddress()],
+                    deployer.address,
+                    deployer.address,
+                    config.tosVersion
+                );
 
-            // Approve tokens
-            await outDenom.approve(await streamFactory.getAddress(), config.streamOutAmount);
+                // Approve tokens
+                await outDenom.approve(await streamFactory.getAddress(), config.streamOutAmount);
 
-            // Get current time
-            let nowSeconds: number;
-            if (config.nowSeconds) {
-                nowSeconds = config.nowSeconds;
-            } else {
-                const latestBlock = await ethers.provider.getBlock("latest");
-                nowSeconds = latestBlock?.timestamp ?? Math.floor(Date.now() / 1000);
-            }
+                // Get current time
+                let nowSeconds: number;
+                if (config.nowSeconds) {
+                    nowSeconds = config.nowSeconds;
+                } else {
+                    const latestBlock = await ethers.provider.getBlock("latest");
+                    nowSeconds = latestBlock?.timestamp ?? Math.floor(Date.now() / 1000);
+                }
 
-            // Set up stream times
-            const bootstrappingStartTime = nowSeconds + config.waitSeconds;
-            const streamStartTime = bootstrappingStartTime + config.bootstrappingDuration;
-            const streamEndTime = streamStartTime + config.streamDuration;
+                // Set up stream times
+                const bootstrappingStartTime = nowSeconds + config.waitSeconds;
+                const streamStartTime = bootstrappingStartTime + config.bootstrappingDuration;
+                const streamEndTime = streamStartTime + config.streamDuration;
 
-            // Create stream
-            const tx = await streamFactory.createStream(
-                config.streamOutAmount,
-                await outDenom.getAddress(),
-                bootstrappingStartTime,
-                streamStartTime,
-                streamEndTime,
-                config.threshold,
-                config.streamName,
-                await inDenom.getAddress(),
-                config.tosVersion,
-                ethers.randomBytes(32),
-                { value: config.streamCreationFee }
-            );
+                console.log("Creating stream with parameters:");
+                console.log("- Stream Out Amount:", config.streamOutAmount);
+                console.log("- Threshold:", config.threshold);
+                console.log("- Times:", nowSeconds, bootstrappingStartTime, streamStartTime, streamEndTime);
+                console.log("- Creation Fee:", config.streamCreationFee);
 
-            // Get stream address from event
-            const receipt = await tx.wait();
-            const streamFactoryInterface = new ethers.Interface([
-                "event StreamCreated(uint256 indexed streamOutAmount, uint256 indexed bootstrappingStartTime, uint256 streamStartTime, uint256 streamEndTime, address indexed streamAddress)"
-            ]);
-
-            const parsedLog = receipt?.logs
-                .map((log: any) => {
-                    try {
-                        return streamFactoryInterface.parseLog({
-                            topics: log.topics as string[],
-                            data: log.data
-                        });
-                    } catch {
-                        return null;
-                    }
-                })
-                .find((log: any) => log !== null);
-
-            const streamAddress = parsedLog ? ethers.getAddress(parsedLog.args[4]) : ethers.ZeroAddress;
-
-            // Connect to stream contract
-            const stream = await ethers.getContractAt("Stream", streamAddress);
-
-            return {
-                contracts: {
-                    stream,
-                    streamFactory,
-                    inDenom,
-                    outDenom
-                },
-                accounts: {
-                    deployer,
-                    subscriber1,
-                    subscriber2
-                },
-                timeParams: {
+                // Create stream
+                const tx = await streamFactory.createStream(
+                    config.streamOutAmount,
+                    await outDenom.getAddress(),
                     bootstrappingStartTime,
                     streamStartTime,
                     streamEndTime,
-                    nowSeconds
-                },
-                config: {
-                    streamOutAmount: config.streamOutAmount,
-                    threshold: config.threshold
-                    // Other config values you might need
-                }
-            };
+                    config.threshold,
+                    config.streamName,
+                    await inDenom.getAddress(),
+                    config.tosVersion,
+                    ethers.getBytes("0x0000000000000000000000000000000000000000000000000000000000000000"),
+                    { value: config.streamCreationFee }
+                );
+
+                // Get stream address from event
+                const receipt = await tx.wait();
+                const streamFactoryInterface = new ethers.Interface([
+                    "event StreamCreated(uint256 indexed streamOutAmount, uint256 indexed bootstrappingStartTime, uint256 streamStartTime, uint256 streamEndTime, address indexed streamAddress)"
+                ]);
+
+                const parsedLog = receipt?.logs
+                    .map((log: any) => {
+                        try {
+                            return streamFactoryInterface.parseLog({
+                                topics: log.topics as string[],
+                                data: log.data
+                            });
+                        } catch {
+                            return null;
+                        }
+                    })
+                    .find((log: any) => log !== null);
+
+                const streamAddress = parsedLog ? ethers.getAddress(parsedLog.args[4]) : ethers.ZeroAddress;
+                console.log("Stream created at:", streamAddress);
+
+                // Connect to stream contract
+                const stream = await ethers.getContractAt("Stream", streamAddress);
+
+                // Return structured result
+                return {
+                    contracts: {
+                        stream,
+                        streamFactory,
+                        inDenom,
+                        outDenom
+                    },
+                    accounts: {
+                        deployer,
+                        subscriber1,
+                        subscriber2
+                    },
+                    timeParams: {
+                        bootstrappingStartTime,
+                        streamStartTime,
+                        streamEndTime,
+                        nowSeconds
+                    },
+                    config: {
+                        streamOutAmount: config.streamOutAmount,
+                        threshold: config.threshold
+                    }
+                };
+            } catch (error) {
+                console.error("Error in fixture:", error);
+                throw error;
+            }
         };
     }
 }
