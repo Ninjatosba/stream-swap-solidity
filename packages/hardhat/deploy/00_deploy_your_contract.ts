@@ -125,126 +125,29 @@ const deployStreamContract: DeployFunction = async function (hre: HardhatRuntime
         }
       })
       .find((log: any) => log !== null);
-    console.log("parsedLog", parsedLog);
 
     if (parsedLog) {
-      const streamAddress = parsedLog.args[4]; // Can also use `parsedLog.args[4]`
+      streamAddress = ethers.getAddress(parsedLog.args[4]); // Normalize address
       console.log("New Stream Contract Address:", streamAddress);
+
     } else {
       console.error("StreamCreated event not found in transaction logs.");
     }
 
-    // Query stream data
-    const streamContract = await hre.ethers.getContractAt("Stream", streamAddress);
+    if (!ethers.isAddress(streamAddress)) {
+      console.error("Invalid contract address:", streamAddress);
+    }
 
-    const tokenBalance = await streamOutDenomContract.balanceOf(streamAddress);
-    console.log(`Token balance of the stream contract is ${tokenBalance}`);
+    // Query token contract for stream contract balance
+    const streamContractBalance = await streamOutDenomContract.balanceOf(streamAddress);
+    console.log(`Stream contract balance is ${streamContractBalance}`);
 
+
+    let streamContract = await hre.ethers.getContractAt("Stream", streamAddress);
     const streamStatus = await streamContract.streamStatus();
-    console.log(`Stream status is ${streamStatus}`);
+    console.log(`Stream status is ${streamStatus.mainStatus}`);
 
-    // Call synchronizeStream
-    console.log("Synchronizing stream...");
-    let synchronizeStreamTx = await streamContract.syncStreamExternal()
-    await synchronizeStreamTx.wait();
-    console.log("Stream synchronized");
-    // get logs
-    const filter1 = streamContract.filters.StreamSynced();
-    const logs1 = await streamContract.queryFilter(filter1);
-    if (logs1.length > 0) {
-      const [mainStatus, finalizedStatus, lastSyncTimestamp] = logs1[logs1.length - 1].args;
-      console.log("Stream Sync Details:");
-      console.log(`- Main Status: ${mainStatus}`);
-      console.log(`- Finalized Status: ${finalizedStatus}`);
-      console.log(`- Last Sync Timestamp: ${lastSyncTimestamp}`);
-      console.log(`- Last Sync Date: ${new Date(Number(lastSyncTimestamp) * 1000)}`);
-    }
-
-    // For the second sync, explicitly set the time to streamStartTime
-    await mineBlock(streamStartTime - 1);
-
-    synchronizeStreamTx = await streamContract.syncStreamExternal();
-    // Mine the transaction block
-    await mineBlock(streamStartTime + 12); // Assuming BLOCK_TIME is 12 seconds
-    await synchronizeStreamTx.wait();
-    console.log("Stream synchronized");
-
-    // get logs
-    const filter2 = streamContract.filters.StreamSynced();
-    const logs2 = await streamContract.queryFilter(filter2);
-    if (logs2.length > 0) {
-      const [mainStatus, finalizedStatus, lastSyncTimestamp] = logs2[logs2.length - 1].args;
-      // assert that the main status is 1
-      console.log("Stream Sync Details:");
-      console.log(`- Main Status: ${mainStatus}`);
-      console.log(`- Finalized Status: ${finalizedStatus}`);
-      console.log(`- Last Sync Timestamp: ${lastSyncTimestamp}`);
-      console.log(`- Last Sync Date: ${new Date(Number(lastSyncTimestamp) * 1000)}`);
-    }
-
-    // Subscribe to the stream
-    // First give subscribeAmount approval to the stream contract
-    const subscribeAmount = 1000;
-    const inDenomContract = await hre.ethers.getContractAt("ERC20Mock", inDenom.address);
-    // First mint tokens for the subscriber
-    const mintTx = await inDenomContract.mint(subscriber1, subscribeAmount);
-    await mintTx.wait();
-    console.log(`Minted ${subscribeAmount} tokens for subscriber`);
-
-    // Then give subscribeAmount approval to the stream contract
-    const approveTx2 = await inDenomContract.approve(streamAddress as string, subscribeAmount);
-    await approveTx2.wait();
-    console.log(`Approved ${subscribeAmount} tokens for Stream contract`);
-
-    // Subscribe to the stream
-    // set time to half way through the stream
-    await mineBlock(streamStartTime - 1 + (streamDuration / 2));
-    const subscribeTx = await streamContract.connect(subscriber1Signer).subscribe(subscribeAmount);
-    await subscribeTx.wait();
-    console.log("Subscribed to the stream");
-
-    // Synchronize the stream at just before the stream end time
-    await mineBlock(streamEndTime - 2);
-    const synchronizeStreamTx2 = await streamContract.syncStreamExternal();
-    await mineBlock(streamEndTime);
-    await synchronizeStreamTx2.wait();
-    console.log("Stream synchronized");
-
-    // Get the logs
-    const filter3 = streamContract.filters.StreamSynced();
-    const logs3 = await streamContract.queryFilter(filter3);
-    if (logs3.length > 0) {
-      const [mainStatus, finalizedStatus, lastSyncTimestamp] = logs3[logs3.length - 1].args;
-      console.log("Stream Sync Details:");
-      console.log(`- Main Status: ${mainStatus}`);
-      console.log(`- Finalized Status: ${finalizedStatus}`);
-      console.log(`- Last Sync Timestamp: ${lastSyncTimestamp}`);
-    }
-
-    // Get stream state
-    const streamState = await streamContract.streamState();
-    // Parse streamState to get the stream details
-    const spentIn = streamState.spentIn;
-    console.log(`Spent in: ${spentIn}`);
-    const shares = streamState.shares;
-    console.log(`Shares: ${shares}`);
-    const distributionIndex = streamState.distIndex;
-    console.log(`Distribution index: ${distributionIndex}`);
-
-    // Finalize the stream
-    const finalizeStreamTx = await streamContract.finalizeStream();
-    await finalizeStreamTx.wait();
-    console.log("Stream finalized");
-
-    // Exit the stream for subscriber1
-    const exitTx = await streamContract.connect(subscriber1Signer).exitStream();
-    await exitTx.wait();
-    console.log("Exited the stream");
-
-    // Only disable automine after all contracts are deployed
-    await hre.ethers.provider.send("evm_setAutomine", [false]);
   } catch (error: unknown) {
-    await hre.ethers.provider.send("evm_setAutomine", [true]);
     console.error("Deployment failed:", error instanceof Error ? error.message : error);
     throw error;
   }

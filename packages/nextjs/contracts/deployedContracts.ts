@@ -364,95 +364,64 @@ const deployedContracts = {
         transferFrom: "@openzeppelin/contracts/token/ERC20/ERC20.sol",
       },
     },
-    Stream: {
+    StreamFactory: {
       address: "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9",
       abi: [
         {
-          inputs: [],
+          inputs: [
+            {
+              internalType: "uint256",
+              name: "_streamCreationFee",
+              type: "uint256",
+            },
+            {
+              internalType: "address",
+              name: "_streamCreationFeeToken",
+              type: "address",
+            },
+            {
+              internalType: "uint256",
+              name: "_exitFeePercent",
+              type: "uint256",
+            },
+            {
+              internalType: "uint256",
+              name: "_minWaitingDuration",
+              type: "uint256",
+            },
+            {
+              internalType: "uint256",
+              name: "_minBootstrappingDuration",
+              type: "uint256",
+            },
+            {
+              internalType: "uint256",
+              name: "_minStreamDuration",
+              type: "uint256",
+            },
+            {
+              internalType: "address[]",
+              name: "_acceptedTokens",
+              type: "address[]",
+            },
+            {
+              internalType: "address",
+              name: "_feeCollector",
+              type: "address",
+            },
+            {
+              internalType: "address",
+              name: "_protocolAdmin",
+              type: "address",
+            },
+            {
+              internalType: "string",
+              name: "_tosVersion",
+              type: "string",
+            },
+          ],
           stateMutability: "nonpayable",
           type: "constructor",
-        },
-        {
-          inputs: [],
-          name: "BootstrappingDurationTooShort",
-          type: "error",
-        },
-        {
-          inputs: [
-            {
-              internalType: "uint256",
-              name: "requiredTokenAmount",
-              type: "uint256",
-            },
-            {
-              internalType: "uint256",
-              name: "tokenBalance",
-              type: "uint256",
-            },
-          ],
-          name: "InsufficientTokenPayment",
-          type: "error",
-        },
-        {
-          inputs: [],
-          name: "InvalidBootstrappingStartTime",
-          type: "error",
-        },
-        {
-          inputs: [],
-          name: "InvalidStreamEndTime",
-          type: "error",
-        },
-        {
-          inputs: [],
-          name: "InvalidStreamOutDenom",
-          type: "error",
-        },
-        {
-          inputs: [],
-          name: "InvalidStreamStartTime",
-          type: "error",
-        },
-        {
-          inputs: [],
-          name: "InvalidWithdrawAmount",
-          type: "error",
-        },
-        {
-          inputs: [],
-          name: "OperationNotAllowed",
-          type: "error",
-        },
-        {
-          inputs: [],
-          name: "PaymentFailed",
-          type: "error",
-        },
-        {
-          inputs: [],
-          name: "StreamDurationTooShort",
-          type: "error",
-        },
-        {
-          inputs: [],
-          name: "Unauthorized",
-          type: "error",
-        },
-        {
-          inputs: [],
-          name: "WaitingDurationTooShort",
-          type: "error",
-        },
-        {
-          inputs: [
-            {
-              internalType: "uint256",
-              name: "cap",
-              type: "uint256",
-            },
-          ],
-          name: "WithdrawAmountExceedsBalance",
-          type: "error",
         },
         {
           anonymous: false,
@@ -471,6 +440,51 @@ const deployedContracts = {
             },
           ],
           name: "Exited",
+          type: "event",
+        },
+        {
+          anonymous: false,
+          inputs: [
+            {
+              indexed: false,
+              internalType: "address",
+              name: "newFeeCollector",
+              type: "address",
+            },
+          ],
+          name: "FeeCollectorUpdated",
+          type: "event",
+        },
+        {
+          anonymous: false,
+          inputs: [
+            {
+              indexed: false,
+              internalType: "bool",
+              name: "frozen",
+              type: "bool",
+            },
+          ],
+          name: "FrozenStateUpdated",
+          type: "event",
+        },
+        {
+          anonymous: false,
+          inputs: [],
+          name: "ParamsUpdated",
+          type: "event",
+        },
+        {
+          anonymous: false,
+          inputs: [
+            {
+              indexed: false,
+              internalType: "address",
+              name: "newProtocolAdmin",
+              type: "address",
+            },
+          ],
+          name: "ProtocolAdminUpdated",
           type: "event",
         },
         {
@@ -499,6 +513,12 @@ const deployedContracts = {
               internalType: "uint256",
               name: "streamEndTime",
               type: "uint256",
+            },
+            {
+              indexed: true,
+              internalType: "address",
+              name: "streamAddress",
+              type: "address",
             },
           ],
           name: "StreamCreated",
@@ -534,13 +554,13 @@ const deployedContracts = {
           inputs: [
             {
               indexed: false,
-              internalType: "enum Stream.Status",
+              internalType: "enum IStreamTypes.Status",
               name: "mainStatus",
               type: "uint8",
             },
             {
               indexed: false,
-              internalType: "enum Stream.FinalizedStatus",
+              internalType: "enum IStreamTypes.FinalizedStatus",
               name: "finalized",
               type: "uint8",
             },
@@ -599,6 +619,38 @@ const deployedContracts = {
           type: "event",
         },
         {
+          inputs: [],
+          name: "NATIVE_TOKEN",
+          outputs: [
+            {
+              internalType: "address",
+              name: "",
+              type: "address",
+            },
+          ],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              internalType: "address",
+              name: "",
+              type: "address",
+            },
+          ],
+          name: "acceptedTokens",
+          outputs: [
+            {
+              internalType: "bool",
+              name: "",
+              type: "bool",
+            },
+          ],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
           inputs: [
             {
               internalType: "uint256",
@@ -640,6 +692,16 @@ const deployedContracts = {
               name: "_inDenom",
               type: "address",
             },
+            {
+              internalType: "string",
+              name: "_tosVersion",
+              type: "string",
+            },
+            {
+              internalType: "bytes32",
+              name: "_salt",
+              type: "bytes32",
+            },
           ],
           name: "createStream",
           outputs: [],
@@ -648,73 +710,45 @@ const deployedContracts = {
         },
         {
           inputs: [],
-          name: "creator",
+          name: "frozen",
           outputs: [
             {
-              internalType: "address",
+              internalType: "bool",
               name: "",
+              type: "bool",
+            },
+          ],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              internalType: "address",
+              name: "token",
               type: "address",
             },
           ],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [],
-          name: "exitStream",
-          outputs: [],
-          stateMutability: "nonpayable",
-          type: "function",
-        },
-        {
-          inputs: [],
-          name: "finalizeStream",
-          outputs: [],
-          stateMutability: "nonpayable",
-          type: "function",
-        },
-        {
-          inputs: [],
-          name: "name",
+          name: "isAcceptedToken",
           outputs: [
             {
-              internalType: "string",
+              internalType: "bool",
               name: "",
-              type: "string",
+              type: "bool",
             },
           ],
           stateMutability: "view",
           type: "function",
         },
         {
-          inputs: [],
-          name: "owner",
-          outputs: [
+          inputs: [
             {
               internalType: "address",
-              name: "",
+              name: "streamAddress",
               type: "address",
             },
           ],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [],
-          name: "positionStorageAddress",
-          outputs: [
-            {
-              internalType: "address",
-              name: "",
-              type: "address",
-            },
-          ],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [],
-          name: "streamCreated",
+          name: "isStream",
           outputs: [
             {
               internalType: "bool",
@@ -727,11 +761,51 @@ const deployedContracts = {
         },
         {
           inputs: [],
-          name: "streamMetadata",
+          name: "params",
           outputs: [
             {
+              internalType: "uint256",
+              name: "streamCreationFee",
+              type: "uint256",
+            },
+            {
+              internalType: "address",
+              name: "streamCreationFeeToken",
+              type: "address",
+            },
+            {
+              internalType: "uint256",
+              name: "exitFeePercent",
+              type: "uint256",
+            },
+            {
+              internalType: "uint256",
+              name: "minWaitingDuration",
+              type: "uint256",
+            },
+            {
+              internalType: "uint256",
+              name: "minBootstrappingDuration",
+              type: "uint256",
+            },
+            {
+              internalType: "uint256",
+              name: "minStreamDuration",
+              type: "uint256",
+            },
+            {
+              internalType: "address",
+              name: "feeCollector",
+              type: "address",
+            },
+            {
+              internalType: "address",
+              name: "protocolAdmin",
+              type: "address",
+            },
+            {
               internalType: "string",
-              name: "name",
+              name: "tosVersion",
               type: "string",
             },
           ],
@@ -739,124 +813,55 @@ const deployedContracts = {
           type: "function",
         },
         {
-          inputs: [],
-          name: "streamState",
-          outputs: [
-            {
-              internalType: "uint256",
-              name: "outRemaining",
-              type: "uint256",
-            },
-            {
-              internalType: "uint256",
-              name: "distIndex",
-              type: "uint256",
-            },
-            {
-              internalType: "uint256",
-              name: "spentIn",
-              type: "uint256",
-            },
-            {
-              internalType: "uint256",
-              name: "shares",
-              type: "uint256",
-            },
-            {
-              internalType: "uint256",
-              name: "currentStreamedPrice",
-              type: "uint256",
-            },
-            {
-              internalType: "uint256",
-              name: "threshold",
-              type: "uint256",
-            },
-            {
-              internalType: "uint256",
-              name: "inSupply",
-              type: "uint256",
-            },
+          inputs: [
             {
               internalType: "address",
-              name: "inDenom",
+              name: "creator",
               type: "address",
             },
             {
+              internalType: "bytes32",
+              name: "_salt",
+              type: "bytes32",
+            },
+            {
+              internalType: "bytes32",
+              name: "bytecodeHash",
+              type: "bytes32",
+            },
+          ],
+          name: "predictAddress",
+          outputs: [
+            {
               internalType: "address",
-              name: "streamOutDenom",
+              name: "",
               type: "address",
             },
           ],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [],
-          name: "streamStatus",
-          outputs: [
-            {
-              internalType: "enum Stream.Status",
-              name: "mainStatus",
-              type: "uint8",
-            },
-            {
-              internalType: "enum Stream.FinalizedStatus",
-              name: "finalized",
-              type: "uint8",
-            },
-            {
-              internalType: "uint256",
-              name: "lastUpdated",
-              type: "uint256",
-            },
-            {
-              internalType: "uint256",
-              name: "bootstrappingStartTime",
-              type: "uint256",
-            },
-            {
-              internalType: "uint256",
-              name: "streamStartTime",
-              type: "uint256",
-            },
-            {
-              internalType: "uint256",
-              name: "streamEndTime",
-              type: "uint256",
-            },
-          ],
-          stateMutability: "view",
+          stateMutability: "pure",
           type: "function",
         },
         {
           inputs: [
             {
-              internalType: "uint256",
-              name: "amountIn",
-              type: "uint256",
+              internalType: "bool",
+              name: "_frozen",
+              type: "bool",
             },
           ],
-          name: "subscribe",
-          outputs: [],
-          stateMutability: "payable",
-          type: "function",
-        },
-        {
-          inputs: [],
-          name: "syncStreamExternal",
+          name: "setFrozen",
           outputs: [],
           stateMutability: "nonpayable",
           type: "function",
         },
         {
           inputs: [],
-          name: "token",
+          name: "streamId",
           outputs: [
             {
-              internalType: "contract IERC20",
+              internalType: "uint256",
               name: "",
-              type: "address",
+              type: "uint256",
             },
           ],
           stateMutability: "view",
@@ -865,12 +870,113 @@ const deployedContracts = {
         {
           inputs: [
             {
-              internalType: "uint256",
-              name: "cap",
-              type: "uint256",
+              internalType: "address",
+              name: "",
+              type: "address",
             },
           ],
-          name: "withdraw",
+          name: "streams",
+          outputs: [
+            {
+              internalType: "bool",
+              name: "",
+              type: "bool",
+            },
+          ],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              internalType: "address",
+              name: "newOwner",
+              type: "address",
+            },
+          ],
+          name: "transferOwnership",
+          outputs: [],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              internalType: "address[]",
+              name: "tokens_to_add",
+              type: "address[]",
+            },
+            {
+              internalType: "address[]",
+              name: "tokens_to_remove",
+              type: "address[]",
+            },
+          ],
+          name: "updateAcceptedTokens",
+          outputs: [],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              internalType: "address",
+              name: "_feeCollector",
+              type: "address",
+            },
+          ],
+          name: "updateFeeCollector",
+          outputs: [],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              internalType: "uint256",
+              name: "_streamCreationFee",
+              type: "uint256",
+            },
+            {
+              internalType: "uint256",
+              name: "_exitFeePercent",
+              type: "uint256",
+            },
+            {
+              internalType: "uint256",
+              name: "_minWaitingDuration",
+              type: "uint256",
+            },
+            {
+              internalType: "uint256",
+              name: "_minBootstrappingDuration",
+              type: "uint256",
+            },
+            {
+              internalType: "uint256",
+              name: "_minStreamDuration",
+              type: "uint256",
+            },
+            {
+              internalType: "string",
+              name: "_tosVersion",
+              type: "string",
+            },
+          ],
+          name: "updateParams",
+          outputs: [],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              internalType: "address",
+              name: "_protocolAdmin",
+              type: "address",
+            },
+          ],
+          name: "updateProtocolAdmin",
           outputs: [],
           stateMutability: "nonpayable",
           type: "function",

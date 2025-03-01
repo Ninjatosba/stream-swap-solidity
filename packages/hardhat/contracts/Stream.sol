@@ -386,7 +386,6 @@ contract Stream is IStreamErrors, IStreamEvents {
     function syncStreamExternal() external {
         syncStream();
     }
-    
 }
 
 

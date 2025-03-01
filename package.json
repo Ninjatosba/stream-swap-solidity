@@ -46,6 +46,7 @@
     "verify": "yarn hardhat:verify"
   },
   "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
     "hardhat-console": "^1.0.0",
     "husky": "~8.0.3",
     "lint-staged": "~13.2.2"
