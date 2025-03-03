@@ -10,7 +10,7 @@ export class StreamFixtureBuilder {
     private threshold: number = 1000;
     private streamName: string = "Test Stream";
     private tosVersion: string = "1.0.0";
-    private exitFeePercent: number = 5;
+    private exitFeePercent: number = 1e5;
     private minWaitingDuration: number = 1;
     private minBootstrappingDuration: number = 1;
     private minStreamDuration: number = 1;
@@ -109,8 +109,12 @@ export class StreamFixtureBuilder {
                 const OutDenom = await ethers.getContractFactory("ERC20Mock");
                 const outDenom = await OutDenom.deploy("StreamOutDenom Token", "OUT");
 
-                // Mint tokens
+                // Mint tokens for stream creator
                 await outDenom.mint(deployer.address, config.streamOutAmount);
+                // Mint tokens for subscribers
+                await inDenom.mint(subscriber1.address, 100_000_000);
+                await inDenom.mint(subscriber2.address, 100_000_000);
+
 
                 // Deploy StreamFactory
                 const StreamFactoryFactory = await ethers.getContractFactory("StreamFactory");
@@ -143,12 +147,6 @@ export class StreamFixtureBuilder {
                 const bootstrappingStartTime = nowSeconds + config.waitSeconds;
                 const streamStartTime = bootstrappingStartTime + config.bootstrappingDuration;
                 const streamEndTime = streamStartTime + config.streamDuration;
-
-                console.log("Creating stream with parameters:");
-                console.log("- Stream Out Amount:", config.streamOutAmount);
-                console.log("- Threshold:", config.threshold);
-                console.log("- Times:", nowSeconds, bootstrappingStartTime, streamStartTime, streamEndTime);
-                console.log("- Creation Fee:", config.streamCreationFee);
 
                 // Create stream
                 const tx = await streamFactory.createStream(
@@ -185,7 +183,6 @@ export class StreamFixtureBuilder {
                     .find((log: any) => log !== null);
 
                 const streamAddress = parsedLog ? ethers.getAddress(parsedLog.args[4]) : ethers.ZeroAddress;
-                console.log("Stream created at:", streamAddress);
 
                 // Connect to stream contract
                 const stream = await ethers.getContractAt("Stream", streamAddress);

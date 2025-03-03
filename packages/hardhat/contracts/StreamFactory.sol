@@ -205,6 +205,10 @@ bytes32 bytecodeHash = keccak256(abi.encodePacked(
         return streams[streamAddress];
     }
 
+    function getParams() external view returns (Params memory) {
+        return params;
+    }
+
     // Optional: Add ability to transfer ownership
     function transferOwnership(address newOwner) external onlyAdmin {
         require(newOwner != address(0), "Invalid new owner");

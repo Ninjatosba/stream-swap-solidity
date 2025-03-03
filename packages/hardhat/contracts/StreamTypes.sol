@@ -40,5 +40,6 @@ interface IStreamTypes {
         uint256 inSupply;
         address inDenom;
         address streamOutDenom;
+        uint256 outSupply;
     }
 }
