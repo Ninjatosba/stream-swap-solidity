@@ -16,7 +16,7 @@ contract StreamFactory is IStreamEvents {
         string tosVersion;          // Terms of service version
     }
 
-    mapping(address => bool) public acceptedTokens;
+    mapping(address => bool) public acceptedInSupplyTokens;
     
     address public constant NATIVE_TOKEN = address(0);
 
@@ -34,7 +34,7 @@ contract StreamFactory is IStreamEvents {
         uint256 _minWaitingDuration,
         uint256 _minBootstrappingDuration,
         uint256 _minStreamDuration,
-        address[] memory _acceptedTokens,
+        address[] memory _acceptedInSupplyTokens,
         address _feeCollector,
         address _protocolAdmin,
         string memory _tosVersion
@@ -55,8 +55,8 @@ contract StreamFactory is IStreamEvents {
         });
 
         // Set accepted tokens
-        for (uint i = 0; i < _acceptedTokens.length; i++) {
-            acceptedTokens[_acceptedTokens[i]] = true;
+        for (uint i = 0; i < _acceptedInSupplyTokens.length; i++) {
+            acceptedInSupplyTokens[_acceptedInSupplyTokens[i]] = true;
         }
         streamId = 0;
     }
@@ -111,13 +111,13 @@ contract StreamFactory is IStreamEvents {
 
     function createStream(
         uint256 _streamOutAmount,
-        address _streamOutDenom,
+        address _outSupplyToken,
         uint256 _bootstrappingStartTime,
         uint256 _streamStartTime,
         uint256 _streamEndTime,
         uint256 _threshold,
         string memory _name,
-        address _inDenom,
+        address _inSupplyToken,
         string memory _tosVersion,
         bytes32 _salt
     ) external payable {
@@ -126,7 +126,7 @@ contract StreamFactory is IStreamEvents {
         
         // Validate input parameters
         require(_streamOutAmount > 0, "Zero out supply not allowed");
-        require(acceptedTokens[_inDenom], "Stream in denom not accepted");
+        require(acceptedInSupplyTokens[_inSupplyToken], "Stream input token not accepted");
         
         // Validate time parameters
         require(_bootstrappingStartTime >= block.timestamp, "Invalid bootstrapping start time");
@@ -162,30 +162,30 @@ bytes32 bytecodeHash = keccak256(abi.encodePacked(
     type(Stream).creationCode,
     abi.encode(
         _streamOutAmount,
-        _streamOutDenom,
+        _outSupplyToken,
         _bootstrappingStartTime,
         _streamStartTime,
         _streamEndTime,
         _threshold,
         _name,
-        _inDenom,
+        _inSupplyToken,
         msg.sender
     )
 ));
 
         address predictedAddress = predictAddress(address(this), _salt, bytecodeHash);
         // Transfer out denom to stream contract
-        require(IERC20(_streamOutDenom).transferFrom(msg.sender, predictedAddress, _streamOutAmount), "Token transfer failed");
+        require(IERC20(_outSupplyToken).transferFrom(msg.sender, predictedAddress, _streamOutAmount), "Token transfer failed");
         // Deploy new stream contract with all parameters
         Stream newStream = new Stream{salt: _salt}(
             _streamOutAmount,
-            _streamOutDenom,
+            _outSupplyToken,
             _bootstrappingStartTime,
             _streamStartTime,
             _streamEndTime,
             _threshold,
             _name,
-            _inDenom,
+            _inSupplyToken,
             msg.sender
             );
 

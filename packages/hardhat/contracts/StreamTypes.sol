@@ -38,8 +38,8 @@ interface IStreamTypes {
         uint256 currentStreamedPrice;
         uint256 threshold;
         uint256 inSupply;
-        address inDenom;
-        address streamOutDenom;
+        address inSupplyToken;
+        address outSupplyToken;
         uint256 outSupply;
     }
 }

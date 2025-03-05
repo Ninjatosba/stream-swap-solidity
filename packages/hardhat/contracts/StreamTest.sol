@@ -10,23 +10,23 @@ import "./Stream.sol";
 contract StreamTest is Stream {
     constructor(
         uint256 _streamOutAmount,
-        address _streamOutDenom,
+        address _outSupplyToken,
         uint256 _bootstrappingStartTime,
         uint256 _streamStartTime,
         uint256 _streamEndTime,
         uint256 _threshold,
         string memory _name,
-        address _inDenom,
+        address _inSupplyToken,
         address _creator
     ) Stream(
         _streamOutAmount,
-        _streamOutDenom,
+        _outSupplyToken,
         _bootstrappingStartTime,
         _streamStartTime,
         _streamEndTime,
         _threshold,
         _name,
-        _inDenom,
+        _inSupplyToken,
         _creator
     ) {}
 
@@ -50,7 +50,7 @@ contract StreamTest is Stream {
     }
 
     function test_syncPosition(PositionTypes.Position memory position) public view returns (PositionTypes.Position memory) {
-        return syncPosition(position);
+        return syncPosition(position, streamState.distIndex, streamState.shares, streamState.inSupply, block.timestamp);
     }
 
     // Test functions for the new internal functions

@@ -9,9 +9,8 @@ interface IStreamErrors {
     error BootstrappingDurationTooShort();
     error WaitingDurationTooShort();
     error InsufficientTokenPayment(uint256 requiredTokenAmount, uint256 tokenBalance);
-    error InvalidStreamOutDenom();
-    error InvalidStreamInDenom();
-    error InvalidInDenom();
+    error InvalidOutSupplyToken();
+    error InvalidInSupplyToken();
     error PaymentFailed();
     error OperationNotAllowed();
     error Unauthorized();
