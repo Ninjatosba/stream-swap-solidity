@@ -30,9 +30,9 @@ export const createFactoryConfig = (deployer: string, acceptedInDenoms: AddressL
 
 export const createTestnetFactoryConfig = (deployer: string, inDenom: string): FactoryConfig => ({
     ...createFactoryConfig(deployer, [inDenom]),
-    minWaitingDuration: 300, // 5 minutes
-    minBootstrappingDuration: 600, // 10 minutes
-    minStreamDuration: 1800, // 30 minutes
+    minWaitingDuration: 1, // 5 minutes
+    minBootstrappingDuration: 1, // 10 minutes
+    minStreamDuration: 1, // 30 minutes
 });
 
 export const createProductionFactoryConfig = (deployer: string, inDenom: string): FactoryConfig => ({

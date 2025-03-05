@@ -8,14 +8,12 @@ import { defaultStreamConfig, StreamConfig } from "./config/stream-config";
  */
 const deployTokens: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     try {
-        // Load appropriate stream config
-        // Token deployment is only required for local or testnet deployments
-        let streamConfig: StreamConfig;
-        streamConfig = defaultStreamConfig;
-
         // Get deployer account
         const { deployer } = await hre.getNamedAccounts();
         console.log(`Deployer address: ${deployer}`);
+
+        let deployerBalance = await hre.ethers.provider.getBalance(deployer);
+        console.log(`Deployer balance: ${deployerBalance}`);
 
         const { deploy } = hre.deployments;
 
