@@ -6,7 +6,7 @@ import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
 import { Contract } from "ethers";
 import { stream, StreamFixtureBuilder } from "./helpers/StreamFixtureBuilder";
 
-describe("Stream Contract Status", function () {
+describe("Stream Status", function () {
     // Basic test with default parameters
     it("Should have start with status WAITING", async function () {
         const { contracts } = await loadFixture(stream().build());
@@ -69,7 +69,7 @@ describe("Stream Contract Status", function () {
 });
 
 // Test threshold feature
-describe("Stream Contract Threshold", function () {
+describe("Stream Threshold", function () {
     it("Should refund to creator if threshold is not reached", async function () {
         const { contracts, timeParams, accounts, config } = await loadFixture(stream().setThreshold(100).build());
 
@@ -201,15 +201,8 @@ describe("Stream Contract Threshold", function () {
         // Check balance of the creator
         let creatorInDenomBalanceAfter = await contracts.inDenom.balanceOf(accounts.deployer);
         expect(creatorInDenomBalanceAfter).to.equal(creatorInDenomBalanceBefore + BigInt(threshold));
-
-
-
-
-
-
-
-
-
     });
+
+
 
 });

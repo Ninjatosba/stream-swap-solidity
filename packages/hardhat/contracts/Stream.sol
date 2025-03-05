@@ -60,7 +60,7 @@ contract Stream is IStreamErrors, IStreamEvents {
         try IERC20(_inDenom).balanceOf(msg.sender) returns (uint256) {
             token = IERC20(_inDenom);
         } catch {
-            revert InvalidStreamOutDenom();
+            revert InvalidStreamInDenom();
         }
 
         // Validate _streamOutDenom
@@ -205,13 +205,180 @@ contract Stream is IStreamErrors, IStreamEvents {
         streamStatus.lastUpdated = block.timestamp;
     }
 
+    /**
+     * @dev Validates if an operation is allowed based on the current stream status
+     * @param allowedStatuses Array of allowed statuses for the operation
+     * @return bool True if the operation is allowed, false otherwise
+     */
+    function isOperationAllowed(IStreamTypes.Status[] memory allowedStatuses) internal view returns (bool) {
+        for (uint256 i = 0; i < allowedStatuses.length; i++) {
+            if (streamStatus.mainStatus == allowedStatuses[i]) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * @dev Safely transfers tokens from the contract to a recipient
+     * @param tokenAddress Address of the token to transfer
+     * @param recipient Address of the recipient
+     * @param amount Amount of tokens to transfer
+     * @return bool True if the transfer was successful
+     */
+    function safeTokenTransfer(address tokenAddress, address recipient, uint256 amount) internal returns (bool) {
+        if (amount == 0 || recipient == address(0)) {
+            return true;
+        }
+        
+        IERC20 token = IERC20(tokenAddress);
+        bool success = token.transfer(recipient, amount);
+        if (!success) {
+            revert PaymentFailed();
+        }
+        return true;
+    }
+
+    /**
+     * @dev Calculates the exit fee amount based on the spent in amount
+     * @param spentInAmount Amount of tokens spent in the stream
+     * @return feeAmount The calculated fee amount
+     * @return remainingAmount The remaining amount after fee deduction
+     */
+    function calculateExitFee(uint256 spentInAmount) internal view returns (uint256 feeAmount, uint256 remainingAmount) {
+        StreamFactory factoryContract = StreamFactory(factory);
+        StreamFactory.Params memory params = factoryContract.getParams();
+        uint256 decimalExitFee = params.exitFeePercent;
+        
+        // Calculate exit fee amount using DecimalMath
+        uint256 decimalSpentIn = DecimalMath.fromNumber(spentInAmount);
+        uint256 exitFeeAmount = DecimalMath.mul(decimalSpentIn, decimalExitFee);
+        feeAmount = DecimalMath.floor(exitFeeAmount);
+        remainingAmount = spentInAmount - feeAmount;
+        
+        return (feeAmount, remainingAmount);
+    }
+
+    /**
+     * @dev Checks if the threshold has been reached for stream finalization
+     * @return bool True if the threshold has been reached, false otherwise
+     */
+    function isThresholdReached() internal view returns (bool) {
+        return streamState.spentIn >= streamState.threshold;
+    }
+
+    /**
+     * @dev Validates a position exists and is active
+     * @param position The position to validate
+     * @return bool True if the position is valid and active
+     */
+    function isValidActivePosition(PositionTypes.Position memory position) internal pure returns (bool) {
+        return position.shares > 0 && position.exitDate == 0;
+    }
+
+    function syncPosition(
+        PositionTypes.Position memory position,
+        uint256 distIndex,
+        uint256 shares,
+        uint256 inSupply,
+        uint256 nowTime
+
+    ) internal pure returns (PositionTypes.Position memory) {
+        // Create a new position in memory to store the updated values
+        PositionTypes.Position memory updatedPosition = PositionTypes.Position({
+            inBalance: position.inBalance,
+            shares: position.shares,
+            index: position.index,
+            lastUpdateTime: position.lastUpdateTime,
+            pendingReward: position.pendingReward,
+            spentIn: position.spentIn,
+            purchased: position.purchased,
+            exitDate: position.exitDate
+        });
+
+        // Calculate index difference for distributions since last update
+        uint256 indexDiff = distIndex - updatedPosition.index;
+        uint256 spent = 0;
+        uint256 purchased = 0;
+
+        // Only process if there are shares in the stream
+        if (shares > 0) {
+            // Calculate purchased amount based on position shares and index difference
+            uint256 positionPurchased = (updatedPosition.shares * indexDiff) / 1e18 + updatedPosition.pendingReward;
+            // Calculate remaining balance based on current shares ratio
+            uint256 inRemaining = (inSupply * updatedPosition.shares) / shares;
+            // Calculate spent amount
+            spent = updatedPosition.inBalance - inRemaining;
+            updatedPosition.spentIn += spent;
+            updatedPosition.inBalance = inRemaining;
+
+            // Update purchased amount
+            purchased = positionPurchased;
+            updatedPosition.purchased += purchased;
+        }
+
+        // Update position tracking
+        updatedPosition.index = distIndex;
+        updatedPosition.lastUpdateTime = nowTime;
+
+        return updatedPosition;
+    }
+
+    function withdraw(uint256 cap) external {
+        if (cap == 0) {
+            revert InvalidWithdrawAmount();
+        }
+        PositionTypes.Position memory position = positionStorage.getPosition(msg.sender);
+        if (position.shares == 0) {
+            revert OperationNotAllowed();
+        }
+
+        if (cap > position.inBalance) {
+            revert WithdrawAmountExceedsBalance(cap);
+        }
+
+        syncStreamStatus();
+        
+        // Use the new internal function to check if operation is allowed
+        IStreamTypes.Status[] memory allowedStatuses = new IStreamTypes.Status[](2);
+        allowedStatuses[0] = IStreamTypes.Status.Active;
+        allowedStatuses[1] = IStreamTypes.Status.Bootstrapping;
+        if (!isOperationAllowed(allowedStatuses)) {
+            revert OperationNotAllowed();
+        }
+
+        syncStream();
+        position = syncPosition(position, streamState.distIndex, streamState.shares, streamState.inSupply, block.timestamp);
+
+        if (cap == position.inBalance) {
+            position.shares = 0;
+            position.inBalance = 0;
+        } else {
+            position.shares = position.shares - computeSharesAmount(cap, true);
+            position.inBalance = position.inBalance - cap;
+        }
+
+        positionStorage.updatePosition(msg.sender, position);
+        streamState.inSupply = streamState.inSupply - cap;
+        streamState.shares = streamState.shares - computeSharesAmount(cap, true);
+        
+        // Use the new safeTokenTransfer function
+        safeTokenTransfer(streamState.inDenom, msg.sender, cap);
+        emit Withdrawn(msg.sender, cap);
+    }
+
     function subscribe(uint256 amountIn) external payable {
         // Get current status
         syncStreamStatus();
-        if (streamStatus.mainStatus != IStreamTypes.Status.Bootstrapping && 
-            streamStatus.mainStatus != IStreamTypes.Status.Active) {
+        
+        // Use the new internal function to check if operation is allowed
+        IStreamTypes.Status[] memory allowedStatuses = new IStreamTypes.Status[](2);
+        allowedStatuses[0] = IStreamTypes.Status.Bootstrapping;
+        allowedStatuses[1] = IStreamTypes.Status.Active;
+        if (!isOperationAllowed(allowedStatuses)) {
             revert OperationNotAllowed();
         }
+        
         // Validate if sender has enough tokens
         IERC20 streamInDenom = IERC20(streamState.inDenom);
         uint256 streamInDenomBalance = streamInDenom.balanceOf(msg.sender);
@@ -242,7 +409,7 @@ contract Stream is IStreamErrors, IStreamEvents {
             syncStream();
             // Calculate new shares (we'll implement this next)
             newShares = computeSharesAmount(amountIn, false);
-            position = syncPosition(position);
+            position = syncPosition(position, streamState.distIndex, streamState.shares, streamState.inSupply, block.timestamp);
             position.inBalance += amountIn;
             position.shares += newShares;
             // Save position to PositionStorage contract
@@ -257,123 +424,43 @@ contract Stream is IStreamErrors, IStreamEvents {
         emit Subscribed(msg.sender, amountIn, newShares);
     }
 
-    function syncPosition(PositionTypes.Position memory position) internal view returns (PositionTypes.Position memory) {
-        // Create a new position in memory to store the updated values
-        PositionTypes.Position memory updatedPosition = PositionTypes.Position({
-            inBalance: position.inBalance,
-            shares: position.shares,
-            index: position.index,
-            lastUpdateTime: position.lastUpdateTime,
-            pendingReward: position.pendingReward,
-            spentIn: position.spentIn,
-            purchased: position.purchased,
-            exitDate: position.exitDate
-        });
-
-        // Calculate index difference for distributions since last update
-        uint256 indexDiff = streamState.distIndex - updatedPosition.index;
-        uint256 spent = 0;
-        uint256 purchased = 0;
-
-        // Only process if there are shares in the stream
-        if (streamState.shares > 0) {
-            // Calculate purchased amount based on position shares and index difference
-            uint256 positionPurchased = (updatedPosition.shares * indexDiff) / 1e18 + updatedPosition.pendingReward;
-            console.log("positionPurchased", positionPurchased);
-            // Calculate remaining balance based on current shares ratio
-            uint256 inRemaining = (streamState.inSupply * updatedPosition.shares) / streamState.shares;
-            console.log("inRemaining", inRemaining);
-            // Calculate spent amount
-            spent = updatedPosition.inBalance - inRemaining;
-            console.log("spent", spent);
-            updatedPosition.spentIn += spent;
-            updatedPosition.inBalance = inRemaining;
-
-            // Update purchased amount
-            purchased = positionPurchased;
-            updatedPosition.purchased += purchased;
-        }
-
-        // Update position tracking
-        updatedPosition.index = streamState.distIndex;
-        updatedPosition.lastUpdateTime = block.timestamp;
-
-        return updatedPosition;
-    }
-
-    function withdraw(uint256 cap) external {
-        if (cap == 0) {
-            revert InvalidWithdrawAmount();
-        }
-        PositionTypes.Position memory position = positionStorage.getPosition(msg.sender);
-        if (position.shares == 0) {
-            revert OperationNotAllowed();
-        }
-
-        if (cap > position.inBalance) {
-            revert WithdrawAmountExceedsBalance(cap);
-        }
-
-        syncStreamStatus();
-        if (streamStatus.mainStatus != IStreamTypes.Status.Active && streamStatus.mainStatus != IStreamTypes.Status.Bootstrapping) {
-            revert OperationNotAllowed();
-        }
-
-        syncStream();
-        position = syncPosition(position);
-
-        if (cap == position.inBalance) {
-            position.shares = 0;
-            position.inBalance = 0;
-        } else {
-            position.shares = position.shares - computeSharesAmount(cap, true);
-            position.inBalance = position.inBalance - cap;
-        }
-
-        positionStorage.updatePosition(msg.sender, position);
-        streamState.inSupply = streamState.inSupply - cap;
-        streamState.shares = streamState.shares - computeSharesAmount(cap, true);
-        IERC20 streamInDenom = IERC20(streamState.inDenom);
-        bool success = streamInDenom.transfer(msg.sender, cap);
-        require(success, "Transfer failed");
-        emit Withdrawn(msg.sender, cap);
-    }
-
     function exitStream() external {
         PositionTypes.Position memory position = positionStorage.getPosition(msg.sender);
-        if (position.shares == 0 || position.exitDate > 0) {
+        
+        // Use the new isValidActivePosition function
+        if (!isValidActivePosition(position)) {
             revert OperationNotAllowed();
         }
+        
         // Sync stream
         syncStream();
         // Sync position
-        position = syncPosition(position);
+        position = syncPosition(position, streamState.distIndex, streamState.shares, streamState.inSupply, block.timestamp);
         // Check status
         syncStreamStatus();
 
-
-        if (streamStatus.mainStatus == IStreamTypes.Status.Ended && streamState.spentIn >= streamState.threshold || streamStatus.mainStatus == IStreamTypes.Status.Finalized && streamStatus.finalized == IStreamTypes.FinalizedStatus.Streamed) {
+        // Use the new isThresholdReached function
+        if (streamStatus.mainStatus == IStreamTypes.Status.Ended && isThresholdReached() || 
+            streamStatus.mainStatus == IStreamTypes.Status.Finalized && streamStatus.finalized == IStreamTypes.FinalizedStatus.Streamed) {
             // Normal exit
             // Refund in_amount remaining if any in position
             if (position.inBalance > 0) {
-                IERC20 streamInDenom = IERC20(streamState.inDenom);
-                streamInDenom.transfer(msg.sender, position.inBalance);
-
+                // Use the new safeTokenTransfer function
+                safeTokenTransfer(streamState.inDenom, msg.sender, position.inBalance);
             }
             // send out_amount earned to position owner
-            IERC20 streamOutDenom = IERC20(streamState.streamOutDenom);
-            streamOutDenom.transfer(msg.sender, position.purchased);
+            safeTokenTransfer(streamState.streamOutDenom, msg.sender, position.purchased);
         }
         else {
             // Refund total in_amount
             uint256 total_amount = position.inBalance + position.spentIn;
-            IERC20 streamInDenom = IERC20(streamState.inDenom);
-            streamInDenom.transfer(msg.sender, total_amount);
+            // Use the new safeTokenTransfer function
+            safeTokenTransfer(streamState.inDenom, msg.sender, total_amount);
         }
-            // Set exit date
-            positionStorage.setExitDate(msg.sender, block.timestamp);
-            emit Exited(msg.sender, position.purchased);
-            positionStorage.updatePosition(msg.sender, position);
+        // Set exit date
+        positionStorage.setExitDate(msg.sender, block.timestamp);
+        emit Exited(msg.sender, position.purchased);
+        positionStorage.updatePosition(msg.sender, position);
     }
 
     function finalizeStream() external {
@@ -390,45 +477,37 @@ contract Stream is IStreamErrors, IStreamEvents {
         // Sync stream
         syncStream();
 
-        IERC20 streamInDenom = IERC20(streamState.inDenom);
-        IERC20 streamOutDenom = IERC20(streamState.streamOutDenom);
-
-        // Match if threshold is reached
-        if (streamState.spentIn >= streamState.threshold) {
-            //Get exit fee percent and fee collector from factory
+        // Use the new isThresholdReached function
+        if (isThresholdReached()) {
+            // Get fee collector from factory
             StreamFactory factoryContract = StreamFactory(factory);
             StreamFactory.Params memory params = factoryContract.getParams();
-            uint256 decimalExitFee = params.exitFeePercent;
             address feeCollector = params.feeCollector;
 
-            // Calculate exit fee amount using DecimalMath
-            uint256 spentIn = streamState.spentIn;
-            uint256 decimalSpentIn = DecimalMath.fromNumber(spentIn);
-            uint256 exitFeeAmount = DecimalMath.mul(decimalSpentIn, decimalExitFee);
-            uint256 flooredExitFeeAmount = DecimalMath.floor(exitFeeAmount);
-            uint256 creatorRevenue = spentIn-flooredExitFeeAmount;
+            // Use the new calculateExitFee function
+            (uint256 feeAmount, uint256 creatorRevenue) = calculateExitFee(streamState.spentIn);
+            
             // Transfer fee to fee collector if needed
-            if (flooredExitFeeAmount > 0) {
-                streamInDenom.transfer(feeCollector, flooredExitFeeAmount);
+            if (feeAmount > 0) {
+                safeTokenTransfer(streamState.inDenom, feeCollector, feeAmount);
             }
 
             // Send revenue to creator
-            streamInDenom.transfer(creator, creatorRevenue);
-
+            safeTokenTransfer(streamState.inDenom, creator, creatorRevenue);
 
             streamStatus.finalized = IStreamTypes.FinalizedStatus.Streamed;
             streamStatus.mainStatus = IStreamTypes.Status.Finalized;
 
             // Refund out tokens to creator if left any
             if (streamState.outRemaining > 0) {
-                streamOutDenom.transfer(creator, streamState.outRemaining);
+                safeTokenTransfer(streamState.streamOutDenom, creator, streamState.outRemaining);
             }
         }
         else {
             streamStatus.finalized = IStreamTypes.FinalizedStatus.Refunded;
             streamStatus.mainStatus = IStreamTypes.Status.Finalized;
             // Refund out tokens to creator
-            streamOutDenom.transfer(creator, streamState.outSupply);
+            safeTokenTransfer(streamState.streamOutDenom, creator, streamState.outSupply);
         }
 
         emit StreamFinalized(creator, streamState.spentIn, streamState.outRemaining, streamStatus.finalized);
@@ -437,7 +516,6 @@ contract Stream is IStreamErrors, IStreamEvents {
     function syncStreamExternal() external {
         syncStream();
         syncStreamStatus();
-        
     }
 }
 
