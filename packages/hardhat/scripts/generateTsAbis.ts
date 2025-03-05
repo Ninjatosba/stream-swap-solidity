@@ -30,7 +30,7 @@ function getDirectories(path: string) {
 function getContractNames(path: string) {
   return fs
     .readdirSync(path, { withFileTypes: true })
-    .filter(dirent => dirent.isFile() && dirent.name.endsWith(".json"))
+    .filter(dirent => dirent.isFile() && dirent.name.endsWith(".json") && dirent.name !== ".json" && dirent.name.length > 5)
     .map(dirent => dirent.name.split(".")[0]);
 }
 
@@ -81,16 +81,63 @@ function getContractDataFromDeployments() {
   }
   const output = {} as Record<string, any>;
   for (const chainName of getDirectories(DEPLOYMENTS_DIR)) {
-    const chainId = fs.readFileSync(`${DEPLOYMENTS_DIR}/${chainName}/.chainId`).toString();
-    const contracts = {} as Record<string, any>;
-    for (const contractName of getContractNames(`${DEPLOYMENTS_DIR}/${chainName}`)) {
-      const { abi, address, metadata } = JSON.parse(
-        fs.readFileSync(`${DEPLOYMENTS_DIR}/${chainName}/${contractName}.json`).toString(),
-      );
-      const inheritedFunctions = metadata ? getInheritedFunctions(JSON.parse(metadata).sources, contractName) : {};
-      contracts[contractName] = { address, abi, inheritedFunctions };
+    try {
+      // Skip if .chainId file doesn't exist
+      if (!fs.existsSync(`${DEPLOYMENTS_DIR}/${chainName}/.chainId`)) {
+        console.warn(`Warning: No .chainId file found in ${DEPLOYMENTS_DIR}/${chainName}, skipping...`);
+        continue;
+      }
+
+      const chainId = fs.readFileSync(`${DEPLOYMENTS_DIR}/${chainName}/.chainId`).toString();
+      const contracts = {} as Record<string, any>;
+
+      for (const contractName of getContractNames(`${DEPLOYMENTS_DIR}/${chainName}`)) {
+        try {
+          // Skip empty contract names
+          if (!contractName || contractName.trim() === "") {
+            console.warn(`Warning: Empty contract name found in ${DEPLOYMENTS_DIR}/${chainName}, skipping...`);
+            continue;
+          }
+
+          const contractPath = `${DEPLOYMENTS_DIR}/${chainName}/${contractName}.json`;
+          if (!fs.existsSync(contractPath)) {
+            console.warn(`Warning: Contract file ${contractPath} does not exist, skipping...`);
+            continue;
+          }
+
+          const contractData = JSON.parse(fs.readFileSync(contractPath).toString());
+          const { abi, address, metadata } = contractData;
+
+          // Skip if missing required fields
+          if (!abi || !address) {
+            console.warn(`Warning: Contract ${contractName} is missing required fields (abi or address), skipping...`);
+            continue;
+          }
+
+          let inheritedFunctions = {};
+          if (metadata) {
+            try {
+              inheritedFunctions = getInheritedFunctions(JSON.parse(metadata).sources, contractName);
+            } catch (error) {
+              console.warn(`Warning: Error parsing metadata for ${contractName}, skipping inheritance: ${error}`);
+            }
+          }
+
+          contracts[contractName] = { address, abi, inheritedFunctions };
+        } catch (error) {
+          console.warn(`Warning: Error processing contract ${contractName}: ${error}`);
+          continue;
+        }
+      }
+
+      // Only add to output if we have contracts
+      if (Object.keys(contracts).length > 0) {
+        output[chainId] = contracts;
+      }
+    } catch (error) {
+      console.warn(`Warning: Error processing chain ${chainName}: ${error}`);
+      continue;
     }
-    output[chainId] = contracts;
   }
   return output;
 }
