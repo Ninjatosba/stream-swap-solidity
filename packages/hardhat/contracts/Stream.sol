@@ -9,8 +9,6 @@ import "./StreamTypes.sol";
 import "./StreamFactory.sol";
 import "./DecimalMath.sol";
 
-import "hardhat/console.sol";
-
 interface IERC20 {
     function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
     function balanceOf(address account) external view returns (uint256);
@@ -21,11 +19,7 @@ contract Stream is IStreamErrors, IStreamEvents {
     address public creator;
     address public positionStorageAddress;
     string public name;
-    uint256 private constant MIN_WAITING_DURATION = 10 seconds;
-    uint256 private constant MIN_BOOTSTRAPPING_DURATION = 10 seconds;
-    uint256 private constant MIN_STREAM_DURATION = 50 seconds;
 
-    IERC20 public token;
     IStreamTypes.StreamState public streamState;
     IStreamTypes.StreamMetadata public streamMetadata;
     IStreamTypes.StatusInfo public streamStatus;
@@ -49,8 +43,8 @@ contract Stream is IStreamErrors, IStreamEvents {
             revert InvalidOutSupplyToken();
         }
         
-        // Check if the contract has sufficient balance of output token
-        if (!hasSufficientBalance(_outSupplyToken, address(this), _streamOutAmount)) {
+        // Check if the contract has enough balance of output token
+        if (!hasEnoughBalance(_outSupplyToken, address(this), _streamOutAmount)) {
             revert InsufficientOutAmount();
         }
         
@@ -62,9 +56,6 @@ contract Stream is IStreamErrors, IStreamEvents {
         creator = _creator;
         positionStorage = new PositionStorage();
         positionStorageAddress = address(positionStorage);
-        
-        // Set token (assuming this is for inSupplyToken)
-        token = IERC20(_inSupplyToken);
         
         streamState = IStreamTypes.StreamState({
             distIndex: 0,
@@ -95,33 +86,39 @@ contract Stream is IStreamErrors, IStreamEvents {
         // Store the factory address
         factory = msg.sender;
     }
-    function calculateDiff() internal view returns (uint256) {
-        // If the stream is not started yet or already ended, return 0
-        if (block.timestamp < streamStatus.streamStartTime || streamStatus.lastUpdated >= streamStatus.streamEndTime) {
-            return 0;
-        }
-
-        // If lastUpdated is before start time, set it to start time
-        uint256 effectiveLastUpdated = streamStatus.lastUpdated;
-        if (effectiveLastUpdated < streamStatus.streamStartTime) {
-            effectiveLastUpdated = streamStatus.streamStartTime;
-        }
-
-        // If current time is past end time, use end time instead
-        uint256 effectiveNow = block.timestamp;
-        if (effectiveNow > streamStatus.streamEndTime) {
-            effectiveNow = streamStatus.streamEndTime;
-        }
-
-        uint256 numerator = effectiveNow - effectiveLastUpdated;
-        uint256 denominator = streamStatus.streamEndTime - effectiveLastUpdated;
-
-        if (denominator == 0 || numerator == 0) {
-            return 0;
-        }
-        // Return ratio of time elapsed since last update compared to total remaining time
-        return (numerator * 1e18) / denominator;
+function calculateDiff(
+    uint256 currentTimestamp,
+    uint256 streamStartTime,
+    uint256 streamEndTime,
+    uint256 lastUpdated
+) internal pure returns (uint256) {
+    // If the stream is not started yet or already ended, return 0
+    if (currentTimestamp < streamStartTime || lastUpdated >= streamEndTime) {
+        return 0;
     }
+
+    // If lastUpdated is before start time, set it to start time
+    uint256 effectiveLastUpdated = lastUpdated;
+    if (effectiveLastUpdated < streamStartTime) {
+        effectiveLastUpdated = streamStartTime;
+    }
+
+    // If current time is past end time, use end time instead
+    uint256 effectiveNow = currentTimestamp;
+    if (effectiveNow > streamEndTime) {
+        effectiveNow = streamEndTime;
+    }
+
+    uint256 numerator = effectiveNow - effectiveLastUpdated;
+    uint256 denominator = streamEndTime - effectiveLastUpdated;
+
+    if (denominator == 0 || numerator == 0) {
+        return 0;
+    }
+    // Return ratio of time elapsed since last update compared to total remaining time
+    return (numerator * 1e18) / denominator;
+}
+
 
     /**
      * @dev Calculates the stream status based on the current state and timestamp
@@ -183,21 +180,21 @@ contract Stream is IStreamErrors, IStreamEvents {
         );
     }
 
-    function computeSharesAmount(uint256 amountIn, bool roundUp) internal view returns (uint256) {
-        if (streamState.shares == 0 || amountIn == 0) {
+    function computeSharesAmount(uint256 amountIn, bool roundUp, uint256 inSupply, uint256 totalShares ) internal pure returns (uint256) {
+        if (totalShares == 0 || amountIn == 0) {
             return amountIn;
         }
         
-        uint256 shares = streamState.shares * amountIn;
+        uint256 totalSharesIn = totalShares * amountIn;
         if (roundUp) {
-            return (shares + streamState.inSupply - 1) / streamState.inSupply;
+            return (totalSharesIn + inSupply - 1) / inSupply;
         } else {
-            return shares / streamState.inSupply;
+            return totalSharesIn / inSupply;
         }
     }
 
     function syncStream() internal {
-        uint256 diff = calculateDiff();
+        uint256 diff = calculateDiff(block.timestamp, streamStatus.streamStartTime, streamStatus.streamEndTime, streamStatus.lastUpdated);
 
         if (streamState.shares > 0 && diff > 0) {
             // Calculate new distribution balance and spent in amount
@@ -369,13 +366,13 @@ contract Stream is IStreamErrors, IStreamEvents {
             position.shares = 0;
             position.inBalance = 0;
         } else {
-            position.shares = position.shares - computeSharesAmount(cap, true);
+            position.shares = position.shares - computeSharesAmount(cap, true, streamState.inSupply, position.shares);
             position.inBalance = position.inBalance - cap;
         }
 
         positionStorage.updatePosition(msg.sender, position);
         streamState.inSupply = streamState.inSupply - cap;
-        streamState.shares = streamState.shares - computeSharesAmount(cap, true);
+        streamState.shares = streamState.shares - computeSharesAmount(cap, true, streamState.inSupply, streamState.shares);
         
         // Use the new safeTokenTransfer function
         safeTokenTransfer(streamState.inSupplyToken, msg.sender, cap);
@@ -416,14 +413,14 @@ contract Stream is IStreamErrors, IStreamEvents {
             syncStream();
 
             // Calculate new shares (we'll implement this next)
-            newShares = computeSharesAmount(amountIn, false);
+            newShares = computeSharesAmount(amountIn, false, streamState.inSupply, streamState.shares);
             positionStorage.createPosition(msg.sender, amountIn, newShares, streamState.distIndex);
         }
         else {
             // Sync stream to ensure new tokens don't participate in previous distribution
             syncStream();
             // Calculate new shares (we'll implement this next)
-            newShares = computeSharesAmount(amountIn, false);
+            newShares = computeSharesAmount(amountIn, false, streamState.inSupply, streamState.shares);
             position = syncPosition(position, streamState.distIndex, streamState.shares, streamState.inSupply, block.timestamp);
             position.inBalance += amountIn;
             position.shares += newShares;
@@ -532,44 +529,6 @@ contract Stream is IStreamErrors, IStreamEvents {
         syncStream();
         syncStreamStatus();
     }
-
-    /**
-     * @dev Checks if a token address has sufficient balance for a given account
-     * @param tokenAddress The ERC20 token address to check
-     * @param account The account whose balance to check
-     * @param requiredAmount The minimum required balance
-     * @return hasBalance True if the account has sufficient balance
-     * @return balance The actual balance of the account
-     */
-    function checkTokenBalance(
-        address tokenAddress,
-        address account,
-        uint256 requiredAmount
-    ) internal view returns (bool hasBalance, uint256 balance) {
-        IERC20 token = IERC20(tokenAddress);
-        balance = token.balanceOf(account);
-        hasBalance = balance >= requiredAmount;
-        return (hasBalance, balance);
-    }
-
-    /**
-     * @dev Validates if an address is a valid ERC20 token
-     * @param tokenAddress The address to validate
-     * @param caller The address that will be used to check balanceOf
-     * @return isValid True if the address is a valid ERC20 token
-     */
-    function validateERC20Token(address tokenAddress, address caller) internal view returns (bool isValid) {
-        if (tokenAddress == address(0)) {
-            return false;
-        }
-        
-        try IERC20(tokenAddress).balanceOf(caller) returns (uint256) {
-            return true;
-        } catch {
-            return false;
-        }
-    }
-
     /**
      * @dev Checks if an address is a valid ERC20 token
      * @param tokenAddress The token address to validate
@@ -593,13 +552,13 @@ contract Stream is IStreamErrors, IStreamEvents {
      * @param tokenAddress The ERC20 token address
      * @param account The account to check balance for
      * @param requiredAmount The minimum required balance
-     * @return hasSufficientBalance True if the account has sufficient balance
+     * @return hasEnoughBalance True if the account has sufficient balance
      */
-    function hasSufficientBalance(
+    function hasEnoughBalance(
         address tokenAddress,
         address account,
         uint256 requiredAmount
-    ) internal view returns (bool hasSufficientBalance) {
+    ) internal view returns (bool hasEnoughBalance) {
         IERC20 token = IERC20(tokenAddress);
         uint256 balance = token.balanceOf(account);
         return balance >= requiredAmount;
