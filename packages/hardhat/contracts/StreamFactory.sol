@@ -3,7 +3,9 @@ pragma solidity >=0.8.0 <0.9.0;
 
 import "./Stream.sol";
 import "./StreamEvents.sol";
-contract StreamFactory is IStreamEvents {
+import "./StreamErrors.sol";
+
+contract StreamFactory is IStreamEvents, IStreamErrors {
     struct Params {
         uint256 streamCreationFee;    // Fixed fee to create a stream
         address streamCreationFeeToken; // Token used for creation fee,
@@ -20,10 +22,10 @@ contract StreamFactory is IStreamEvents {
     
     address public constant NATIVE_TOKEN = address(0);
 
-    uint256 public streamId;
+    uint16 public currentStreamId;
     
     Params public params;
-    mapping(address => bool) public streams;
+    mapping( uint16 => address) public streamAddresses;
 
     bool public frozen;
 
@@ -39,8 +41,8 @@ contract StreamFactory is IStreamEvents {
         address _protocolAdmin,
         string memory _tosVersion
     ) {
-        require(_feeCollector != address(0), "Invalid fee collector");
-        require(_protocolAdmin != address(0), "Invalid protocol admin");
+        if (_feeCollector == address(0)) revert InvalidFeeCollector();
+        if (_protocolAdmin == address(0)) revert InvalidProtocolAdmin();
         
         params = Params({
             streamCreationFee: _streamCreationFee,
@@ -58,11 +60,11 @@ contract StreamFactory is IStreamEvents {
         for (uint i = 0; i < _acceptedInSupplyTokens.length; i++) {
             acceptedInSupplyTokens[_acceptedInSupplyTokens[i]] = true;
         }
-        streamId = 0;
+        currentStreamId = 0;
     }
 
     modifier onlyAdmin() {
-        require(msg.sender == params.protocolAdmin, "Not the admin");
+        if (msg.sender != params.protocolAdmin) revert NotAdmin();
         _;
     }
 
@@ -85,28 +87,28 @@ contract StreamFactory is IStreamEvents {
     }
 
     function updateFeeCollector(address _feeCollector) external onlyAdmin {
-        require(_feeCollector != address(0), "Invalid fee collector");
+        if (_feeCollector == address(0)) revert InvalidFeeCollector();
         params.feeCollector = _feeCollector;
         emit FeeCollectorUpdated(_feeCollector);
     }
 
     function updateProtocolAdmin(address _protocolAdmin) external onlyAdmin {
-        require(_protocolAdmin != address(0), "Invalid protocol admin");
+        if (_protocolAdmin == address(0)) revert InvalidProtocolAdmin();
         params.protocolAdmin = _protocolAdmin;
         emit ProtocolAdminUpdated(_protocolAdmin);
     }
 
     function updateAcceptedTokens(address[] calldata tokens_to_add, address[] calldata tokens_to_remove) external onlyAdmin {
         for (uint i = 0; i < tokens_to_add.length; i++) {
-            acceptedTokens[tokens_to_add[i]] = true;
+            acceptedInSupplyTokens[tokens_to_add[i]] = true;
         }
         for (uint i = 0; i < tokens_to_remove.length; i++) {
-            acceptedTokens[tokens_to_remove[i]] = false;
+            acceptedInSupplyTokens[tokens_to_remove[i]] = false;
         }
     }
 
-    function isAcceptedToken(address token) public view returns (bool) {
-        return acceptedTokens[token];
+    function isAcceptedInSupplyToken(address token) public view returns (bool) {
+        return acceptedInSupplyTokens[token];
     }
 
     function createStream(
@@ -122,42 +124,40 @@ contract StreamFactory is IStreamEvents {
         bytes32 _salt
     ) external payable {
         // Check if contract is accepting new streams (not frozen)
-        require(!frozen, "Contract is frozen");
+        if (frozen) revert ContractFrozen();
         
         // Validate input parameters
-        require(_streamOutAmount > 0, "Zero out supply not allowed");
-        require(acceptedInSupplyTokens[_inSupplyToken], "Stream input token not accepted");
+        if (_streamOutAmount == 0) revert ZeroOutSupplyNotAllowed();
+        if (!acceptedInSupplyTokens[_inSupplyToken]) revert StreamInputTokenNotAccepted();
         
-        // Validate time parameters
-        require(_bootstrappingStartTime >= block.timestamp, "Invalid bootstrapping start time");
-        require(_streamStartTime > _bootstrappingStartTime, "Stream start must be after bootstrapping");
-        require(_streamEndTime > _streamStartTime, "Stream end must be after start");
-        
-        // Validate durations against minimum requirements
-        require(_streamStartTime - _bootstrappingStartTime >= params.minBootstrappingDuration, 
-            "Bootstrapping duration too short");
-        require(_streamEndTime - _streamStartTime >= params.minStreamDuration,
-            "Stream duration too short");
+        // Validate time parameters using validateStreamTimes
+        validateStreamTimes(
+            block.timestamp,
+            _bootstrappingStartTime,
+            _streamStartTime,
+            _streamEndTime
+        );
         
         // Validate TOS version
-        require(keccak256(abi.encodePacked(_tosVersion)) == keccak256(abi.encodePacked(params.tosVersion)), "Invalid ToS version");
+        if (keccak256(abi.encodePacked(_tosVersion)) != keccak256(abi.encodePacked(params.tosVersion)))
+            revert InvalidToSVersion();
 
         // Load creation fee
         uint256 creationFee = params.streamCreationFee;
         if (creationFee > 0) {
             if (params.streamCreationFeeToken == address(0)) {
                 // Native token
-                require(msg.value >= creationFee, "Insufficient native token");
+                if (msg.value < creationFee) revert InsufficientNativeToken();
                 // Transfer fee to fee collector
-                require(payable(params.feeCollector).send(creationFee), "Fee transfer failed");
+                if (!payable(params.feeCollector).send(creationFee)) revert FeeTransferFailed();
             } else {
                 // ERC20 token
-                require(IERC20(params.streamCreationFeeToken).transferFrom(msg.sender, address(params.feeCollector), creationFee), "Token transfer failed");
+                if (!IERC20(params.streamCreationFeeToken).transferFrom(msg.sender, address(params.feeCollector), creationFee)) revert TokenTransferFailed();
             }
         }
         // Increment stream id
+        currentStreamId++;
         // Predict stream address
-        streamId++;
 bytes32 bytecodeHash = keccak256(abi.encodePacked(
     type(Stream).creationCode,
     abi.encode(
@@ -171,11 +171,11 @@ bytes32 bytecodeHash = keccak256(abi.encodePacked(
         _inSupplyToken,
         msg.sender
     )
-));
+        ));
 
         address predictedAddress = predictAddress(address(this), _salt, bytecodeHash);
         // Transfer out denom to stream contract
-        require(IERC20(_outSupplyToken).transferFrom(msg.sender, predictedAddress, _streamOutAmount), "Token transfer failed");
+        if (!IERC20(_outSupplyToken).transferFrom(msg.sender, predictedAddress, _streamOutAmount)) revert TokenTransferFailed();
         // Deploy new stream contract with all parameters
         Stream newStream = new Stream{salt: _salt}(
             _streamOutAmount,
@@ -189,7 +189,7 @@ bytes32 bytecodeHash = keccak256(abi.encodePacked(
             msg.sender
             );
 
-        require(address(newStream) == predictedAddress, "Stream address prediction failed");
+        if (address(newStream) != predictedAddress) revert StreamAddressPredictionFailed();
             
 
         emit StreamCreated(
@@ -201,8 +201,25 @@ bytes32 bytecodeHash = keccak256(abi.encodePacked(
         );
     }
 
-    function isStream(address streamAddress) external view returns (bool) {
-        return streams[streamAddress];
+    function getStreams() external view returns (address[] memory) {
+        address[] memory streams = new address[](currentStreamId);
+        for (uint16 i = 0; i < currentStreamId; i++) {
+            streams[i] = streamAddresses[i];
+        }
+        return streams;
+    }
+
+    function getStream(uint16 _streamId) external view returns (address) {
+        return streamAddresses[_streamId];
+    }
+
+    function isStream(address _streamAddress) external view returns (bool) {
+        for (uint16 i = 0; i < currentStreamId; i++) {
+            if (streamAddresses[i] == _streamAddress) {
+                return true;
+            }
+        }
+        return false;
     }
 
     function getParams() external view returns (Params memory) {
@@ -211,7 +228,7 @@ bytes32 bytecodeHash = keccak256(abi.encodePacked(
 
     // Optional: Add ability to transfer ownership
     function transferOwnership(address newOwner) external onlyAdmin {
-        require(newOwner != address(0), "Invalid new owner");
+        if (newOwner == address(0)) revert InvalidProtocolAdmin();
         params.protocolAdmin = newOwner;
     }
 
@@ -228,4 +245,19 @@ bytes32 bytecodeHash = keccak256(abi.encodePacked(
             bytecodeHash
         )))));
     }
+
+    function validateStreamTimes(
+        uint256 nowTime,
+        uint256 _bootstrappingStartTime,
+        uint256 _startTime,
+        uint256 _endTime
+    ) internal view {
+        if (nowTime > _bootstrappingStartTime) revert InvalidBootstrappingStartTime();
+        if (_bootstrappingStartTime > _startTime) revert InvalidStreamStartTime();
+        if (_startTime > _endTime) revert InvalidStreamEndTime();
+        if (_endTime - _startTime < params.minStreamDuration) revert StreamDurationTooShort();
+        if (_startTime - _bootstrappingStartTime < params.minBootstrappingDuration) revert BootstrappingDurationTooShort();
+        if (_bootstrappingStartTime - nowTime < params.minWaitingDuration) revert WaitingDurationTooShort();
+    }
+
 } 

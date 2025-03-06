@@ -2,6 +2,7 @@
 pragma solidity >=0.8.0 <0.9.0;
 
 interface IStreamErrors {
+    // Stream errors
     error InvalidBootstrappingStartTime();
     error InvalidStreamStartTime();
     error InvalidStreamEndTime();
@@ -17,4 +18,19 @@ interface IStreamErrors {
     error InvalidWithdrawAmount();
     error WithdrawAmountExceedsBalance(uint256 cap);
     error InsufficientOutAmount();
+    // StreamFactory errors
+    error ContractFrozen();
+    error ZeroOutSupplyNotAllowed();
+    error StreamInputTokenNotAccepted();
+    error InvalidBootstrappingTime();
+    error StreamStartMustBeAfterBootstrapping();
+    error StreamEndMustBeAfterStart();
+    error InvalidToSVersion();
+    error InsufficientNativeToken();
+    error FeeTransferFailed();
+    error TokenTransferFailed();
+    error StreamAddressPredictionFailed();
+    error InvalidFeeCollector();
+    error InvalidProtocolAdmin();
+    error NotAdmin();
 } 

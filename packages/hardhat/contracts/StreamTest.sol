@@ -3,11 +3,13 @@ pragma solidity >=0.8.0 <0.9.0;
 
 import "./Stream.sol";
 
+import { StreamFactory } from "./StreamFactory.sol";
+
 /**
  * @title StreamTest
  * @dev This contract is used for testing internal functions of the Stream contract
  */
-contract StreamTest is Stream {
+contract StreamTest is Stream{
     constructor(
         uint256 _streamOutAmount,
         address _outSupplyToken,
@@ -30,17 +32,6 @@ contract StreamTest is Stream {
         _creator
     ) {}
 
-    // Expose internal functions as public for testing
-
-    function test_validateStreamTimes(
-        uint256 nowTime,
-        uint256 _bootstrappingStartTime,
-        uint256 _startTime,
-        uint256 _endTime
-    ) public pure {
-        validateStreamTimes(nowTime, _bootstrappingStartTime, _startTime, _endTime);
-    }
-
     function test_calculateDiff() public view returns (uint256) {
         return calculateDiff();
     }
@@ -49,8 +40,7 @@ contract StreamTest is Stream {
         return computeSharesAmount(amountIn, roundUp);
     }
 
-    function test_syncPosition(PositionTypes.Position memory position) public view returns (PositionTypes.Position memory) {
-        return syncPosition(position, streamState.distIndex, streamState.shares, streamState.inSupply, block.timestamp);
+    function test_syncPosition(PositionTypes.Position memory position , uint256 distIndex, uint256 shares, address inSupply, uint256 timestamp) public view returns (PositionTypes.Position memory) {
     }
 
     // Test functions for the new internal functions

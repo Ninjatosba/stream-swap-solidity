@@ -44,8 +44,6 @@ contract Stream is IStreamErrors, IStreamEvents {
         address _inSupplyToken,
         address _creator
     ) {
-        validateStreamTimes(block.timestamp, _bootstrappingStartTime, _streamStartTime, _streamEndTime);
-
         // Validate that output token is a valid ERC20
         if (!isValidERC20(_outSupplyToken, msg.sender)) {
             revert InvalidOutSupplyToken();
@@ -97,21 +95,6 @@ contract Stream is IStreamErrors, IStreamEvents {
         // Store the factory address
         factory = msg.sender;
     }
-
-    function validateStreamTimes(
-        uint256 nowTime,
-        uint256 _bootstrappingStartTime,
-        uint256 _startTime,
-        uint256 _endTime
-    ) internal pure {
-        if (nowTime > _bootstrappingStartTime) revert InvalidBootstrappingStartTime();
-        if (_bootstrappingStartTime > _startTime) revert InvalidStreamStartTime();
-        if (_startTime > _endTime) revert InvalidStreamEndTime();
-        if (_endTime - _startTime < MIN_STREAM_DURATION) revert StreamDurationTooShort();
-        if (_startTime - _bootstrappingStartTime < MIN_BOOTSTRAPPING_DURATION) revert BootstrappingDurationTooShort();
-        if (_bootstrappingStartTime - nowTime < MIN_WAITING_DURATION) revert WaitingDurationTooShort();
-    }
-
     function calculateDiff() internal view returns (uint256) {
         // If the stream is not started yet or already ended, return 0
         if (block.timestamp < streamStatus.streamStartTime || streamStatus.lastUpdated >= streamStatus.streamEndTime) {
@@ -140,30 +123,64 @@ contract Stream is IStreamErrors, IStreamEvents {
         return (numerator * 1e18) / denominator;
     }
 
-    function syncStreamStatus() internal {
+    /**
+     * @dev Calculates the stream status based on the current state and timestamp
+     * @param currentStatus Current status of the stream
+     * @param currentFinalized Current finalized status
+     * @param currentTime Current timestamp to check against
+     * @param bootstrappingStartTime Timestamp when bootstrapping phase starts
+     * @param streamStartTime Timestamp when active streaming starts
+     * @param streamEndTime Timestamp when streaming ends
+     * @return IStreamTypes.Status The calculated stream status
+     */
+    function calculateStreamStatus(
+        IStreamTypes.Status currentStatus,
+        IStreamTypes.FinalizedStatus currentFinalized,
+        uint256 currentTime,
+        uint256 bootstrappingStartTime,
+        uint256 streamStartTime,
+        uint256 streamEndTime
+    ) internal pure returns (IStreamTypes.Status) {
         // Don't update if stream is in a final state
-        if (streamStatus.mainStatus == IStreamTypes.Status.Cancelled ||
-            (streamStatus.mainStatus == IStreamTypes.Status.Finalized && 
-            (streamStatus.finalized == IStreamTypes.FinalizedStatus.Streamed || 
-             streamStatus.finalized == IStreamTypes.FinalizedStatus.Refunded))) {
-            return;
+        if (currentStatus == IStreamTypes.Status.Cancelled ||
+            (currentStatus == IStreamTypes.Status.Finalized && 
+            (currentFinalized == IStreamTypes.FinalizedStatus.Streamed || 
+             currentFinalized == IStreamTypes.FinalizedStatus.Refunded))) {
+            return currentStatus;
         }
 
         // Update status based on current timestamp
-        if (block.timestamp < streamStatus.bootstrappingStartTime) {
-            streamStatus.mainStatus = IStreamTypes.Status.Waiting;
+        if (currentTime < bootstrappingStartTime) {
+            return IStreamTypes.Status.Waiting;
         } 
-        else if (block.timestamp >= streamStatus.bootstrappingStartTime && 
-                 block.timestamp < streamStatus.streamStartTime) {
-            streamStatus.mainStatus = IStreamTypes.Status.Bootstrapping;
+        else if (currentTime >= bootstrappingStartTime && 
+                 currentTime < streamStartTime) {
+            return IStreamTypes.Status.Bootstrapping;
         }
-        else if (block.timestamp >= streamStatus.streamStartTime && 
-                 block.timestamp < streamStatus.streamEndTime) {
-            streamStatus.mainStatus = IStreamTypes.Status.Active;
+        else if (currentTime >= streamStartTime && 
+                 currentTime < streamEndTime) {
+            return IStreamTypes.Status.Active;
         }
-        else if (block.timestamp >= streamStatus.streamEndTime) {
-            streamStatus.mainStatus = IStreamTypes.Status.Ended;
+        else if (currentTime >= streamEndTime) {
+            return IStreamTypes.Status.Ended;
         }
+        
+        // This should never be reached, but return current status as fallback
+        return currentStatus;
+    }
+
+    /**
+     * @dev Updates the stream status based on the current timestamp
+     */
+    function syncStreamStatus() internal {
+        streamStatus.mainStatus = calculateStreamStatus(
+            streamStatus.mainStatus,
+            streamStatus.finalized,
+            block.timestamp,
+            streamStatus.bootstrappingStartTime,
+            streamStatus.streamStartTime,
+            streamStatus.streamEndTime
+        );
     }
 
     function computeSharesAmount(uint256 amountIn, bool roundUp) internal view returns (uint256) {
@@ -514,6 +531,43 @@ contract Stream is IStreamErrors, IStreamEvents {
     function syncStreamExternal() external {
         syncStream();
         syncStreamStatus();
+    }
+
+    /**
+     * @dev Checks if a token address has sufficient balance for a given account
+     * @param tokenAddress The ERC20 token address to check
+     * @param account The account whose balance to check
+     * @param requiredAmount The minimum required balance
+     * @return hasBalance True if the account has sufficient balance
+     * @return balance The actual balance of the account
+     */
+    function checkTokenBalance(
+        address tokenAddress,
+        address account,
+        uint256 requiredAmount
+    ) internal view returns (bool hasBalance, uint256 balance) {
+        IERC20 token = IERC20(tokenAddress);
+        balance = token.balanceOf(account);
+        hasBalance = balance >= requiredAmount;
+        return (hasBalance, balance);
+    }
+
+    /**
+     * @dev Validates if an address is a valid ERC20 token
+     * @param tokenAddress The address to validate
+     * @param caller The address that will be used to check balanceOf
+     * @return isValid True if the address is a valid ERC20 token
+     */
+    function validateERC20Token(address tokenAddress, address caller) internal view returns (bool isValid) {
+        if (tokenAddress == address(0)) {
+            return false;
+        }
+        
+        try IERC20(tokenAddress).balanceOf(caller) returns (uint256) {
+            return true;
+        } catch {
+            return false;
+        }
     }
 
     /**
