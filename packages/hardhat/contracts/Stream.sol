@@ -24,6 +24,7 @@ contract Stream is IStreamErrors, IStreamEvents {
     IStreamTypes.StreamMetadata public streamMetadata;
     IStreamTypes.StatusInfo public streamStatus;
     IStreamTypes.StreamTimes public streamTimes;
+    IStreamTypes.StreamTokens public streamTokens;
     address public factory;
 
     PositionStorage public positionStorage;
@@ -61,8 +62,6 @@ contract Stream is IStreamErrors, IStreamEvents {
         streamState = IStreamTypes.StreamState({
             distIndex: 0,
             outRemaining: _streamOutAmount,
-            inSupplyToken: _inSupplyToken,
-            outSupplyToken: _outSupplyToken,
             inSupply: 0,
             spentIn: 0,
             shares: 0,
@@ -70,6 +69,11 @@ contract Stream is IStreamErrors, IStreamEvents {
             threshold: _threshold,
             outSupply: _streamOutAmount,
             lastUpdated: block.timestamp
+        });
+
+        streamTokens = IStreamTypes.StreamTokens({
+            inSupplyToken: _inSupplyToken,
+            outSupplyToken: _outSupplyToken
         });
 
         streamMetadata = IStreamTypes.StreamMetadata({
@@ -288,7 +292,7 @@ contract Stream is IStreamErrors, IStreamEvents {
         streamState.shares = streamState.shares - computeSharesAmount(cap, true, streamState.inSupply, streamState.shares);
         
         // Use the new safeTokenTransfer function
-        safeTokenTransfer(streamState.inSupplyToken, msg.sender, cap);
+        safeTokenTransfer(streamTokens.inSupplyToken, msg.sender, cap);
         emit Withdrawn(msg.sender, cap);
     }
 
@@ -305,7 +309,7 @@ contract Stream is IStreamErrors, IStreamEvents {
         }
         
         // Validate if sender has enough tokens
-        IERC20 streamInToken = IERC20(streamState.inSupplyToken);
+        IERC20 streamInToken = IERC20(streamTokens.inSupplyToken);
         uint256 streamInTokenBalance = streamInToken.balanceOf(msg.sender);
         if (streamInTokenBalance < amountIn) {
             revert InsufficientTokenPayment(amountIn, streamInTokenBalance);
@@ -371,16 +375,16 @@ contract Stream is IStreamErrors, IStreamEvents {
             // Refund in_amount remaining if any in position
             if (position.inBalance > 0) {
                 // Use the new safeTokenTransfer function
-                safeTokenTransfer(streamState.inSupplyToken, msg.sender, position.inBalance);
+                safeTokenTransfer(streamTokens.inSupplyToken, msg.sender, position.inBalance);
             }
             // send out_amount earned to position owner
-            safeTokenTransfer(streamState.outSupplyToken, msg.sender, position.purchased);
+            safeTokenTransfer(streamTokens.outSupplyToken, msg.sender, position.purchased);
         }
         else {
             // Refund total in_amount
             uint256 total_amount = position.inBalance + position.spentIn;
             // Use the new safeTokenTransfer function
-            safeTokenTransfer(streamState.inSupplyToken, msg.sender, total_amount);
+            safeTokenTransfer(streamTokens.inSupplyToken, msg.sender, total_amount);
         }
         // Set exit date
         positionStorage.setExitDate(msg.sender, block.timestamp);
@@ -414,25 +418,25 @@ contract Stream is IStreamErrors, IStreamEvents {
             
             // Transfer fee to fee collector if needed
             if (feeAmount > 0) {
-                safeTokenTransfer(streamState.inSupplyToken, feeCollector, feeAmount);
+                safeTokenTransfer(streamTokens.inSupplyToken, feeCollector, feeAmount);
             }
 
             // Send revenue to creator
-            safeTokenTransfer(streamState.inSupplyToken, creator, creatorRevenue);
+            safeTokenTransfer(streamTokens.inSupplyToken, creator, creatorRevenue);
 
             streamStatus.subStatus[IStreamTypes.Status.Finalized] = IStreamTypes.Substatus.Streamed;
             streamStatus.mainStatus = IStreamTypes.Status.Finalized;
 
             // Refund out tokens to creator if left any
             if (streamState.outRemaining > 0) {
-                safeTokenTransfer(streamState.outSupplyToken, creator, streamState.outRemaining);
+                safeTokenTransfer(streamTokens.outSupplyToken, creator, streamState.outRemaining);
             }
         }
         else {
             streamStatus.subStatus[IStreamTypes.Status.Finalized] = IStreamTypes.Substatus.Refunded;
             streamStatus.mainStatus = IStreamTypes.Status.Finalized;
             // Refund out tokens to creator
-            safeTokenTransfer(streamState.outSupplyToken, creator, streamState.outSupply);
+            safeTokenTransfer(streamTokens.outSupplyToken, creator, streamState.outSupply);
         }
 
         emit StreamFinalized(creator, streamState.spentIn, streamState.outRemaining, streamStatus.subStatus[IStreamTypes.Status.Finalized]);

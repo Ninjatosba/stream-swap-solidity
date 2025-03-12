@@ -40,9 +40,12 @@ interface IStreamTypes {
         uint256 currentStreamedPrice;
         uint256 threshold;
         uint256 inSupply;
-        address inSupplyToken;
-        address outSupplyToken;
         uint256 outSupply;
         uint256 lastUpdated;
+    }
+
+    struct StreamTokens {
+        address inSupplyToken;
+        address outSupplyToken;
     }
 }
