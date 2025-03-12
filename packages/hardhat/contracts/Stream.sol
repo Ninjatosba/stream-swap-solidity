@@ -8,7 +8,7 @@ import "./StreamErrors.sol";
 import "./StreamTypes.sol";
 import "./StreamFactory.sol";
 import "./DecimalMath.sol";
-
+import "./StreamMathLib.sol";
 interface IERC20 {
     function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
     function balanceOf(address account) external view returns (uint256);
@@ -23,6 +23,7 @@ contract Stream is IStreamErrors, IStreamEvents {
     IStreamTypes.StreamState public streamState;
     IStreamTypes.StreamMetadata public streamMetadata;
     IStreamTypes.StatusInfo public streamStatus;
+    IStreamTypes.StreamTimes public streamTimes;
     address public factory;
 
     PositionStorage public positionStorage;
@@ -67,17 +68,17 @@ contract Stream is IStreamErrors, IStreamEvents {
             shares: 0,
             currentStreamedPrice: 0,
             threshold: _threshold,
-            outSupply: _streamOutAmount
+            outSupply: _streamOutAmount,
+            lastUpdated: block.timestamp
         });
 
         streamMetadata = IStreamTypes.StreamMetadata({
             name: _name
         });
 
-        streamStatus = IStreamTypes.StatusInfo({
-            mainStatus: IStreamTypes.Status.Waiting,
-            finalized: IStreamTypes.FinalizedStatus.None,
-            lastUpdated: block.timestamp,
+        streamStatus.mainStatus = IStreamTypes.Status.Waiting;
+
+        streamTimes = IStreamTypes.StreamTimes({
             bootstrappingStartTime: _bootstrappingStartTime,
             streamStartTime: _streamStartTime,
             streamEndTime: _streamEndTime
@@ -86,97 +87,16 @@ contract Stream is IStreamErrors, IStreamEvents {
         // Store the factory address
         factory = msg.sender;
     }
-function calculateDiff(
-    uint256 currentTimestamp,
-    uint256 streamStartTime,
-    uint256 streamEndTime,
-    uint256 lastUpdated
-) internal pure returns (uint256) {
-    // If the stream is not started yet or already ended, return 0
-    if (currentTimestamp < streamStartTime || lastUpdated >= streamEndTime) {
-        return 0;
-    }
-
-    // If lastUpdated is before start time, set it to start time
-    uint256 effectiveLastUpdated = lastUpdated;
-    if (effectiveLastUpdated < streamStartTime) {
-        effectiveLastUpdated = streamStartTime;
-    }
-
-    // If current time is past end time, use end time instead
-    uint256 effectiveNow = currentTimestamp;
-    if (effectiveNow > streamEndTime) {
-        effectiveNow = streamEndTime;
-    }
-
-    uint256 numerator = effectiveNow - effectiveLastUpdated;
-    uint256 denominator = streamEndTime - effectiveLastUpdated;
-
-    if (denominator == 0 || numerator == 0) {
-        return 0;
-    }
-    // Return ratio of time elapsed since last update compared to total remaining time
-    return (numerator * 1e18) / denominator;
-}
-
-
-    /**
-     * @dev Calculates the stream status based on the current state and timestamp
-     * @param currentStatus Current status of the stream
-     * @param currentFinalized Current finalized status
-     * @param currentTime Current timestamp to check against
-     * @param bootstrappingStartTime Timestamp when bootstrapping phase starts
-     * @param streamStartTime Timestamp when active streaming starts
-     * @param streamEndTime Timestamp when streaming ends
-     * @return IStreamTypes.Status The calculated stream status
-     */
-    function calculateStreamStatus(
-        IStreamTypes.Status currentStatus,
-        IStreamTypes.FinalizedStatus currentFinalized,
-        uint256 currentTime,
-        uint256 bootstrappingStartTime,
-        uint256 streamStartTime,
-        uint256 streamEndTime
-    ) internal pure returns (IStreamTypes.Status) {
-        // Don't update if stream is in a final state
-        if (currentStatus == IStreamTypes.Status.Cancelled ||
-            (currentStatus == IStreamTypes.Status.Finalized && 
-            (currentFinalized == IStreamTypes.FinalizedStatus.Streamed || 
-             currentFinalized == IStreamTypes.FinalizedStatus.Refunded))) {
-            return currentStatus;
-        }
-
-        // Update status based on current timestamp
-        if (currentTime < bootstrappingStartTime) {
-            return IStreamTypes.Status.Waiting;
-        } 
-        else if (currentTime >= bootstrappingStartTime && 
-                 currentTime < streamStartTime) {
-            return IStreamTypes.Status.Bootstrapping;
-        }
-        else if (currentTime >= streamStartTime && 
-                 currentTime < streamEndTime) {
-            return IStreamTypes.Status.Active;
-        }
-        else if (currentTime >= streamEndTime) {
-            return IStreamTypes.Status.Ended;
-        }
-        
-        // This should never be reached, but return current status as fallback
-        return currentStatus;
-    }
-
     /**
      * @dev Updates the stream status based on the current timestamp
      */
     function syncStreamStatus() internal {
-        streamStatus.mainStatus = calculateStreamStatus(
+        streamStatus.mainStatus = StreamMathLib.calculateStreamStatus(
             streamStatus.mainStatus,
-            streamStatus.finalized,
             block.timestamp,
-            streamStatus.bootstrappingStartTime,
-            streamStatus.streamStartTime,
-            streamStatus.streamEndTime
+            streamTimes.bootstrappingStartTime,
+            streamTimes.streamStartTime,
+            streamTimes.streamEndTime
         );
     }
 
@@ -194,27 +114,20 @@ function calculateDiff(
     }
 
     function syncStream() internal {
-        uint256 diff = calculateDiff(block.timestamp, streamStatus.streamStartTime, streamStatus.streamEndTime, streamStatus.lastUpdated);
+        uint256 diff = StreamMathLib.calculateDiff(block.timestamp, streamTimes.streamStartTime, streamTimes.streamEndTime, streamState.lastUpdated);
 
-        if (streamState.shares > 0 && diff > 0) {
-            // Calculate new distribution balance and spent in amount
-            uint256 newDistributionBalance = (streamState.outRemaining * diff) / 1e18;
-            uint256 spentIn = (streamState.inSupply * diff) / 1e18;
-
-            // Update state variables
-            streamState.spentIn += spentIn;
-            streamState.inSupply -= spentIn;
-
-            if (newDistributionBalance > 0) {
-                streamState.outRemaining -= newDistributionBalance;
-                // Update distribution index (shares are in base units, multiply by 1e18 for precision)
-                streamState.distIndex += (newDistributionBalance * 1e18) / streamState.shares;
-                // Update current streamed price
-                streamState.currentStreamedPrice = (spentIn * 1e18) / newDistributionBalance;
-            }
+       if (diff > 0) {
+            // Get updated state without modifying storage yet
+            IStreamTypes.StreamState memory updatedState = StreamMathLib.calculateUpdatedState(
+                streamState,
+                diff
+            );
+            
+            // Update storage with the new state
+            streamState = updatedState;
         }
 
-        streamStatus.lastUpdated = block.timestamp;
+        streamState.lastUpdated = block.timestamp;
     }
 
     /**
@@ -453,7 +366,7 @@ function calculateDiff(
 
         // Use the new isThresholdReached function
         if (streamStatus.mainStatus == IStreamTypes.Status.Ended && isThresholdReached() || 
-            streamStatus.mainStatus == IStreamTypes.Status.Finalized && streamStatus.finalized == IStreamTypes.FinalizedStatus.Streamed) {
+            streamStatus.mainStatus == IStreamTypes.Status.Finalized && streamStatus.subStatus[IStreamTypes.Status.Finalized] == IStreamTypes.Substatus.Streamed) {
             // Normal exit
             // Refund in_amount remaining if any in position
             if (position.inBalance > 0) {
@@ -507,7 +420,7 @@ function calculateDiff(
             // Send revenue to creator
             safeTokenTransfer(streamState.inSupplyToken, creator, creatorRevenue);
 
-            streamStatus.finalized = IStreamTypes.FinalizedStatus.Streamed;
+            streamStatus.subStatus[IStreamTypes.Status.Finalized] = IStreamTypes.Substatus.Streamed;
             streamStatus.mainStatus = IStreamTypes.Status.Finalized;
 
             // Refund out tokens to creator if left any
@@ -516,13 +429,13 @@ function calculateDiff(
             }
         }
         else {
-            streamStatus.finalized = IStreamTypes.FinalizedStatus.Refunded;
+            streamStatus.subStatus[IStreamTypes.Status.Finalized] = IStreamTypes.Substatus.Refunded;
             streamStatus.mainStatus = IStreamTypes.Status.Finalized;
             // Refund out tokens to creator
             safeTokenTransfer(streamState.outSupplyToken, creator, streamState.outSupply);
         }
 
-        emit StreamFinalized(creator, streamState.spentIn, streamState.outRemaining, streamStatus.finalized);
+        emit StreamFinalized(creator, streamState.spentIn, streamState.outRemaining, streamStatus.subStatus[IStreamTypes.Status.Finalized]);
     }
 
     function syncStreamExternal() external {

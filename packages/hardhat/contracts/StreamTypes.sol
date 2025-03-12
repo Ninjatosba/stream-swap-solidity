@@ -11,7 +11,7 @@ interface IStreamTypes {
         Cancelled
     }
 
-    enum FinalizedStatus {
+    enum Substatus {
         None,
         Streamed,
         Refunded
@@ -19,8 +19,10 @@ interface IStreamTypes {
 
     struct StatusInfo {
         Status mainStatus;
-        FinalizedStatus finalized;
-        uint256 lastUpdated;
+        mapping(Status => Substatus) subStatus;
+    }
+
+    struct StreamTimes {
         uint256 bootstrappingStartTime;
         uint256 streamStartTime;
         uint256 streamEndTime;
@@ -41,5 +43,6 @@ interface IStreamTypes {
         address inSupplyToken;
         address outSupplyToken;
         uint256 outSupply;
+        uint256 lastUpdated;
     }
 }
