@@ -7,7 +7,7 @@ import { GenericContractsDeclaration } from "~~/utils/scaffold-eth/contract";
 const deployedContracts = {
   11155111: {
     InDenomToken: {
-      address: "0x9C8FfA803469921D0622408E007F9fAa7C490b49",
+      address: "0xd1d3279dc4bD881A714846FE1af5bDD3a0c52354",
       abi: [
         {
           inputs: [
@@ -355,7 +355,7 @@ const deployedContracts = {
       inheritedFunctions: {},
     },
     OutDenomToken: {
-      address: "0x187dc99aaBAb21DC7Ea56a21d2aF0ecca75D5922",
+      address: "0xFe6CE0C9bb5103bb820A97246ac54482f972cb42",
       abi: [
         {
           inputs: [
@@ -703,12 +703,12 @@ const deployedContracts = {
       inheritedFunctions: {},
     },
     Stream: {
-      address: "0x34e5F95BeC755aDCbeDd9EA1b8BBC0EDffEC8991",
+      address: "0x95bCE9b0dEea47627791E0bb5C9ade0c32b7d532",
       abi: [],
       inheritedFunctions: {},
     },
     StreamFactory: {
-      address: "0x578C00F20efBf339921A51d8B01d3c217E62086F",
+      address: "0xbCa54Fa764564b6818CE04dB518658410aDfb64a",
       abi: [
         {
           inputs: [
@@ -1052,8 +1052,8 @@ const deployedContracts = {
             },
             {
               indexed: false,
-              internalType: "enum IStreamTypes.Substatus",
-              name: "subStatus",
+              internalType: "enum IStreamTypes.Status",
+              name: "status",
               type: "uint8",
             },
           ],
@@ -1067,12 +1067,6 @@ const deployedContracts = {
               indexed: false,
               internalType: "enum IStreamTypes.Status",
               name: "mainStatus",
-              type: "uint8",
-            },
-            {
-              indexed: false,
-              internalType: "enum IStreamTypes.Substatus",
-              name: "subStatus",
               type: "uint8",
             },
             {
