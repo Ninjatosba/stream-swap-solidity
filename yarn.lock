@@ -8319,6 +8319,38 @@ __metadata:
   languageName: node
   linkType: hard
 
+"hardhat-deploy@npm:^1.0.1":
+  version: 1.0.1
+  resolution: "hardhat-deploy@npm:1.0.1"
+  dependencies:
+    "@ethersproject/abi": ^5.7.0
+    "@ethersproject/abstract-signer": ^5.7.0
+    "@ethersproject/address": ^5.7.0
+    "@ethersproject/bignumber": ^5.7.0
+    "@ethersproject/bytes": ^5.7.0
+    "@ethersproject/constants": ^5.7.0
+    "@ethersproject/contracts": ^5.7.0
+    "@ethersproject/providers": ^5.7.2
+    "@ethersproject/solidity": ^5.7.0
+    "@ethersproject/transactions": ^5.7.0
+    "@ethersproject/wallet": ^5.7.0
+    "@types/qs": ^6.9.7
+    axios: ^0.21.1
+    chalk: ^4.1.2
+    chokidar: ^3.5.2
+    debug: ^4.3.2
+    enquirer: ^2.3.6
+    ethers: ^5.7.0
+    form-data: ^4.0.0
+    fs-extra: ^10.0.0
+    match-all: ^1.2.6
+    murmur-128: ^0.2.1
+    qs: ^6.9.4
+    zksync-ethers: ^5.0.0
+  checksum: 0566ff38ccff16f82cbdaaacb7f2ec73327d357c78f100e16f6e307d4b2ab630966613c648488d3561df865ffc056ddeab81530812c1d53b38ab22d552bb8bd4
+  languageName: node
+  linkType: hard
+
 "hardhat-deploy@npm:~0.12.4":
   version: 0.12.4
   resolution: "hardhat-deploy@npm:0.12.4"
@@ -8376,7 +8408,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"hardhat@npm:~2.22.10":
+"hardhat@npm:^2.22.19, hardhat@npm:~2.22.10":
   version: 2.22.19
   resolution: "hardhat@npm:2.22.19"
   dependencies:
@@ -12133,7 +12165,9 @@ __metadata:
   dependencies:
     "@nomicfoundation/hardhat-toolbox": ^5.0.0
     "@openzeppelin/contracts": ^5.2.0
+    hardhat: ^2.22.19
     hardhat-console: ^1.0.0
+    hardhat-deploy: ^1.0.1
     husky: ~8.0.3
     lint-staged: ~13.2.2
   languageName: unknown

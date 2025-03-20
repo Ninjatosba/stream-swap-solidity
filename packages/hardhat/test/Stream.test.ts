@@ -10,8 +10,8 @@ describe("Stream Status", function () {
     // Basic test with default parameters
     it("Should have start with status WAITING", async function () {
         const { contracts } = await loadFixture(stream().build());
-        let status = await contracts.stream.streamStatus();
-        expect(status.mainStatus).to.equal(0);
+        let status = await contracts.stream.streamStatus()
+        expect(status).to.equal(0);
     });
 
     it("Should transition to bootstrapping phase", async function () {
@@ -21,18 +21,13 @@ describe("Stream Status", function () {
         await ethers.provider.send("evm_setNextBlockTimestamp", [timeParams.bootstrappingStartTime + 1]);
         await ethers.provider.send("evm_mine", []);
 
-
         // Sync the stream
         let tx = await contracts.stream.syncStreamExternal();
         await tx.wait();
 
-        // get current time
-        let currentTime = await ethers.provider.getBlock("latest");
-        console.log(currentTime?.timestamp);
-
         // Check status
         const status = await contracts.stream.streamStatus();
-        expect(status.mainStatus).to.equal(1); // Bootstrapping phase
+        expect(status).to.equal(1); // Bootstrapping phase
     })
     it("Should transition to stream phase", async function () {
         const { contracts, timeParams } = await loadFixture(stream().build());
@@ -47,7 +42,7 @@ describe("Stream Status", function () {
 
         // Check status
         const status = await contracts.stream.streamStatus();
-        expect(status.mainStatus).to.equal(2); // Stream phase
+        expect(status).to.equal(2); // Stream phase (Active)
     })
 
     it("Should transition to ended phase", async function () {
@@ -63,8 +58,7 @@ describe("Stream Status", function () {
 
         // Check status
         const status = await contracts.stream.streamStatus();
-        expect(status.mainStatus).to.equal(3); // Ended phase
-        expect(status.finalized).to.equal(0); // Not finalized
+        expect(status).to.equal(3); // Ended phase
     })
 });
 
@@ -83,8 +77,7 @@ describe("Stream Threshold", function () {
 
         // Check status
         const status = await contracts.stream.streamStatus();
-        expect(status.mainStatus).to.equal(3); // Ended phase
-        expect(status.finalized).to.equal(0); // Not finalized
+        expect(status).to.equal(3); // Ended phase
 
         // When finalized out tokens should be refunded first check current balance of the creator
         let creatorBalanceBefore = await contracts.outDenom.balanceOf(accounts.deployer);
@@ -111,7 +104,7 @@ describe("Stream Threshold", function () {
 
         // Check status
         const status = await contracts.stream.streamStatus();
-        expect(status.mainStatus).to.equal(2); // Stream phase
+        expect(status).to.equal(2); // Stream phase (Active)
 
         // Subscribe to the stream with the subscriber1
         await contracts.inDenom.connect(accounts.subscriber1).approve(contracts.stream.getAddress(), threshold / 2 - 1);
@@ -132,7 +125,7 @@ describe("Stream Threshold", function () {
 
         // Check status
         const status2 = await contracts.stream.streamStatus();
-        expect(status2.mainStatus).to.equal(3); // Ended phase
+        expect(status2).to.equal(3); // Ended phase
 
         // Subscriber one exits at status ended 
         let exitTx = await contracts.stream.connect(accounts.subscriber1).exitStream();

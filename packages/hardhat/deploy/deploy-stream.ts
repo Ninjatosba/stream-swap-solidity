@@ -234,7 +234,7 @@ const deployStreamContract: DeployFunction = async function (hre: HardhatRuntime
       // Verify stream status
       const streamContract = await hre.ethers.getContractAt("Stream", streamAddress);
       const streamStatus = await streamContract.streamStatus();
-      console.log(`Stream status is ${streamStatus.mainStatus}`);
+      console.log(`Stream status is ${streamStatus}`);
 
       return true;
     } else {

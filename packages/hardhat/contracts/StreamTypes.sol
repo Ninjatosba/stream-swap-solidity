@@ -4,22 +4,16 @@ pragma solidity >=0.8.0 <0.9.0;
 interface IStreamTypes {
     enum Status {
         Waiting,
-        Bootstrapping, 
+        Bootstrapping,
         Active,
         Ended,
-        Finalized,
+        FinalizedRefunded,
+        FinalizedStreamed,
         Cancelled
     }
 
-    enum Substatus {
-        None,
-        Streamed,
-        Refunded
-    }
-
     struct StatusInfo {
-        Status mainStatus;
-        mapping(Status => Substatus) subStatus;
+        Status status;
     }
 
     struct StreamTimes {
