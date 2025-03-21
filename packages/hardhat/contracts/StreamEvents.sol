@@ -5,11 +5,18 @@ import "./StreamTypes.sol";
 
 interface IStreamEvents {
     event StreamCreated(
-        uint256 indexed streamOutAmount,
-        uint256 indexed bootstrappingStartTime,
+        address indexed streamOutToken,
+        address indexed streamInToken,
+        address indexed streamFactoryAddress,
+        uint256 streamOutAmount,
+        uint256 bootstrappingStartTime,
         uint256 streamStartTime,
         uint256 streamEndTime,
-        address indexed streamAddress
+        uint256 threshold,
+        string streamName,
+        string tosVersion,
+        address streamAddress,
+        string streamId
     );
 
     event StreamSynced(IStreamTypes.Status mainStatus, uint256 lastUpdated);

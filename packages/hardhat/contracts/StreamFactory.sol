@@ -7,25 +7,25 @@ import "./StreamErrors.sol";
 
 contract StreamFactory is IStreamEvents, IStreamErrors {
     struct Params {
-        uint256 streamCreationFee;    // Fixed fee to create a stream
+        uint256 streamCreationFee; // Fixed fee to create a stream
         address streamCreationFeeToken; // Token used for creation fee,
-        uint256 exitFeePercent;       // Fee percentage when exiting a stream
-        uint256 minWaitingDuration;   // Minimum waiting period
-        uint256 minBootstrappingDuration;  // Minimum bootstrapping period
-        uint256 minStreamDuration;    // Minimum duration for a stream
-        address feeCollector;         // Address where fees are collected
-        address protocolAdmin;        // Admin address for protocol
-        string tosVersion;          // Terms of service version
+        uint256 exitFeePercent; // Fee percentage when exiting a stream
+        uint256 minWaitingDuration; // Minimum waiting period
+        uint256 minBootstrappingDuration; // Minimum bootstrapping period
+        uint256 minStreamDuration; // Minimum duration for a stream
+        address feeCollector; // Address where fees are collected
+        address protocolAdmin; // Admin address for protocol
+        string tosVersion; // Terms of service version
     }
 
     mapping(address => bool) public acceptedInSupplyTokens;
-    
+
     address public constant NATIVE_TOKEN = address(0);
 
     uint16 public currentStreamId;
-    
+
     Params public params;
-    mapping( uint16 => address) public streamAddresses;
+    mapping(uint16 => address) public streamAddresses;
 
     bool public frozen;
 
@@ -43,7 +43,7 @@ contract StreamFactory is IStreamEvents, IStreamErrors {
     ) {
         if (_feeCollector == address(0)) revert InvalidFeeCollector();
         if (_protocolAdmin == address(0)) revert InvalidProtocolAdmin();
-        
+
         params = Params({
             streamCreationFee: _streamCreationFee,
             streamCreationFeeToken: _streamCreationFeeToken,
@@ -82,7 +82,7 @@ contract StreamFactory is IStreamEvents, IStreamErrors {
         params.minBootstrappingDuration = _minBootstrappingDuration;
         params.minStreamDuration = _minStreamDuration;
         params.tosVersion = _tosVersion;
-        
+
         emit ParamsUpdated();
     }
 
@@ -98,7 +98,10 @@ contract StreamFactory is IStreamEvents, IStreamErrors {
         emit ProtocolAdminUpdated(_protocolAdmin);
     }
 
-    function updateAcceptedTokens(address[] calldata tokens_to_add, address[] calldata tokens_to_remove) external onlyAdmin {
+    function updateAcceptedTokens(
+        address[] calldata tokens_to_add,
+        address[] calldata tokens_to_remove
+    ) external onlyAdmin {
         for (uint i = 0; i < tokens_to_add.length; i++) {
             acceptedInSupplyTokens[tokens_to_add[i]] = true;
         }
@@ -125,19 +128,14 @@ contract StreamFactory is IStreamEvents, IStreamErrors {
     ) external payable {
         // Check if contract is accepting new streams (not frozen)
         if (frozen) revert ContractFrozen();
-        
+
         // Validate input parameters
         if (_streamOutAmount == 0) revert ZeroOutSupplyNotAllowed();
         if (!acceptedInSupplyTokens[_inSupplyToken]) revert StreamInputTokenNotAccepted();
-        
+
         // Validate time parameters using validateStreamTimes
-        validateStreamTimes(
-            block.timestamp,
-            _bootstrappingStartTime,
-            _streamStartTime,
-            _streamEndTime
-        );
-        
+        validateStreamTimes(block.timestamp, _bootstrappingStartTime, _streamStartTime, _streamEndTime);
+
         // Validate TOS version
         if (keccak256(abi.encodePacked(_tosVersion)) != keccak256(abi.encodePacked(params.tosVersion)))
             revert InvalidToSVersion();
@@ -152,32 +150,39 @@ contract StreamFactory is IStreamEvents, IStreamErrors {
                 if (!payable(params.feeCollector).send(creationFee)) revert FeeTransferFailed();
             } else {
                 // ERC20 token
-                if (!IERC20(params.streamCreationFeeToken).transferFrom(msg.sender, address(params.feeCollector), creationFee)) revert TokenTransferFailed();
+                if (
+                    !IERC20(params.streamCreationFeeToken).transferFrom(
+                        msg.sender,
+                        address(params.feeCollector),
+                        creationFee
+                    )
+                ) revert TokenTransferFailed();
             }
         }
-        // Increment stream id
-        currentStreamId++;
         // Predict stream address
-bytes32 bytecodeHash = keccak256(abi.encodePacked(
-    type(Stream).creationCode,
-    abi.encode(
-        _streamOutAmount,
-        _outSupplyToken,
-        _bootstrappingStartTime,
-        _streamStartTime,
-        _streamEndTime,
-        _threshold,
-        _name,
-        _inSupplyToken,
-        msg.sender
-    )
-        ));
+        bytes32 bytecodeHash = keccak256(
+            abi.encodePacked(
+                type(Stream).creationCode,
+                abi.encode(
+                    _streamOutAmount,
+                    _outSupplyToken,
+                    _bootstrappingStartTime,
+                    _streamStartTime,
+                    _streamEndTime,
+                    _threshold,
+                    _name,
+                    _inSupplyToken,
+                    msg.sender
+                )
+            )
+        );
 
         address predictedAddress = predictAddress(address(this), _salt, bytecodeHash);
         // Transfer out denom to stream contract
-        if (!IERC20(_outSupplyToken).transferFrom(msg.sender, predictedAddress, _streamOutAmount)) revert TokenTransferFailed();
+        if (!IERC20(_outSupplyToken).transferFrom(msg.sender, predictedAddress, _streamOutAmount))
+            revert TokenTransferFailed();
         // Deploy new stream contract with all parameters
-        Stream newStream = new Stream{salt: _salt}(
+        Stream newStream = new Stream{ salt: _salt }(
             _streamOutAmount,
             _outSupplyToken,
             _bootstrappingStartTime,
@@ -187,16 +192,23 @@ bytes32 bytecodeHash = keccak256(abi.encodePacked(
             _name,
             _inSupplyToken,
             msg.sender
-            );
+        );
 
         if (address(newStream) != predictedAddress) revert StreamAddressPredictionFailed();
-            
+        streamAddresses[currentStreamId] = address(newStream);
+        currentStreamId++;
 
         emit StreamCreated(
+            _outSupplyToken,
+            _inSupplyToken,
+            address(this),
             _streamOutAmount,
             _bootstrappingStartTime,
             _streamStartTime,
             _streamEndTime,
+            _threshold,
+            _name,
+            _tosVersion,
             address(newStream)
         );
     }
@@ -238,12 +250,7 @@ bytes32 bytecodeHash = keccak256(abi.encodePacked(
     }
 
     function predictAddress(address creator, bytes32 _salt, bytes32 bytecodeHash) public pure returns (address) {
-        return address(uint160(uint(keccak256(abi.encodePacked(
-            bytes1(0xff),
-            creator,
-            _salt,
-            bytecodeHash
-        )))));
+        return address(uint160(uint(keccak256(abi.encodePacked(bytes1(0xff), creator, _salt, bytecodeHash)))));
     }
 
     function validateStreamTimes(
@@ -256,8 +263,8 @@ bytes32 bytecodeHash = keccak256(abi.encodePacked(
         if (_bootstrappingStartTime > _startTime) revert InvalidStreamStartTime();
         if (_startTime > _endTime) revert InvalidStreamEndTime();
         if (_endTime - _startTime < params.minStreamDuration) revert StreamDurationTooShort();
-        if (_startTime - _bootstrappingStartTime < params.minBootstrappingDuration) revert BootstrappingDurationTooShort();
+        if (_startTime - _bootstrappingStartTime < params.minBootstrappingDuration)
+            revert BootstrappingDurationTooShort();
         if (_bootstrappingStartTime - nowTime < params.minWaitingDuration) revert WaitingDurationTooShort();
     }
-
-} 
+}
