@@ -195,7 +195,4 @@ describe("Stream Threshold", function () {
         let creatorInDenomBalanceAfter = await contracts.inDenom.balanceOf(accounts.deployer);
         expect(creatorInDenomBalanceAfter).to.equal(creatorInDenomBalanceBefore + BigInt(threshold));
     });
-
-
-
 });

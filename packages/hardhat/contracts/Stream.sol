@@ -233,7 +233,7 @@ contract Stream is IStreamErrors, IStreamEvents {
 
         // Token transfer
         safeTokenTransfer(streamTokens.inSupplyToken, msg.sender, cap);
-        emit Withdrawn(msg.sender, cap);
+        emit Withdrawn(address(this), msg.sender, position.inBalance, position.shares, state.inSupply, state.shares);
     }
 
     function subscribe(uint256 amountIn) external payable {
@@ -311,7 +311,7 @@ contract Stream is IStreamErrors, IStreamEvents {
         saveStream(state);
 
         // Emit event
-        emit Subscribed(msg.sender, amountIn, newShares);
+        emit Subscribed(address(this), msg.sender, amountIn, newShares, state.inSupply, state.shares);
     }
 
     function exitStream() external {
@@ -362,7 +362,7 @@ contract Stream is IStreamErrors, IStreamEvents {
         saveStream(state);
         savePosition(msg.sender, position);
 
-        emit Exited(msg.sender, position.purchased);
+        emit Exited(address(this), msg.sender, position.purchased, position.spentIn, block.timestamp);
     }
 
     function finalizeStream() external {
@@ -390,13 +390,9 @@ contract Stream is IStreamErrors, IStreamEvents {
             StreamFactory.Params memory params = factoryContract.getParams();
             address feeCollector = params.feeCollector;
             uint256 exitFeePercent = params.exitFeePercent;
-            console.log("exitFeePercent: %s", exitFeePercent);
-            console.log("state.spentIn: %s", state.spentIn);
 
             // Calculate exit fee
             (uint256 feeAmount, uint256 creatorRevenue) = StreamMathLib.calculateExitFee(state.spentIn, exitFeePercent);
-            console.log("feeAmount: %s", feeAmount);
-            console.log("creatorRevenue: %s", creatorRevenue);
 
             // Transfer fee to fee collector if needed
             if (feeAmount > 0) {
@@ -425,7 +421,7 @@ contract Stream is IStreamErrors, IStreamEvents {
         saveStreamStatus(status);
         saveStream(state);
 
-        emit StreamFinalized(creator, state.spentIn, state.outRemaining, status.status);
+        emit StreamFinalized(address(this), creator, state.spentIn, state.outRemaining, status.status);
     }
 
     function syncStreamExternal() external {
@@ -439,6 +435,17 @@ contract Stream is IStreamErrors, IStreamEvents {
         IStreamTypes.StatusInfo memory status = loadStreamStatus();
         status = syncStreamStatus(status, times, block.timestamp);
         saveStreamStatus(status);
+
+        emit StreamSynced(
+            address(this),
+            state.lastUpdated,
+            uint8(status.status),
+            state.distIndex,
+            state.outRemaining,
+            state.inSupply,
+            state.spentIn,
+            state.currentStreamedPrice
+        );
     }
 
     /**

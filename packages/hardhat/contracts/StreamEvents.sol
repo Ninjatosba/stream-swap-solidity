@@ -19,14 +19,68 @@ interface IStreamEvents {
         uint16 streamId
     );
 
-    event StreamSynced(IStreamTypes.Status mainStatus, uint256 lastUpdated);
+    event StreamSynced(address indexed streamAddress, IStreamTypes.Status mainStatus, uint256 lastUpdated);
 
-    event Subscribed(address indexed subscriber, uint256 amountIn, uint256 newShares);
-    event Withdrawn(address indexed subscriber, uint256 amountIn);
-    event Exited(address indexed subscriber, uint256 purchased);
-    event StreamFinalized(address indexed creator, uint256 spentIn, uint256 outRemaining, IStreamTypes.Status status);
-    event ParamsUpdated();
-    event FeeCollectorUpdated(address newFeeCollector);
-    event ProtocolAdminUpdated(address newProtocolAdmin);
-    event FrozenStateUpdated(bool frozen);
+    event Subscribed(
+        address indexed streamAddress,
+        address indexed subscriber,
+        uint256 amountIn,
+        uint256 newShares,
+        uint256 totalSharesAfter,
+        uint256 totalInSupplyAfter
+    );
+
+    event StreamSynced(
+        address indexed streamAddress,
+        uint256 lastUpdated,
+        uint8 newStatus,
+        uint256 distIndex,
+        uint256 outRemaining,
+        uint256 inSupply,
+        uint256 spentIn,
+        uint256 currentStreamedPrice
+    );
+
+    event Withdrawn(
+        address indexed streamAddress,
+        address indexed subscriber,
+        uint256 remainingInBalance,
+        uint256 remainingShares,
+        uint256 totalInSupply,
+        uint256 totalShares
+    );
+
+    event Exited(
+        address indexed streamAddress,
+        address indexed subscriber,
+        uint256 purchased,
+        uint256 spentIn,
+        uint256 exitTimestamp
+    );
+
+    event StreamFinalized(
+        address indexed streamAddress,
+        address indexed creator,
+        uint256 creatorRevenue,
+        uint256 exitFeeAmount,
+        IStreamTypes.Status status
+    );
+
+    event ParamsUpdated(
+        address indexed factory,
+        uint256 streamCreationFee,
+        uint256 exitFeePercent,
+        uint256 minWaitingDuration,
+        uint256 minBootstrappingDuration,
+        uint256 minStreamDuration,
+        string tosVersion
+    );
+
+    event FeeCollectorUpdated(address indexed factory, address newFeeCollector);
+
+    event ProtocolAdminUpdated(address indexed factory, address newProtocolAdmin);
+
+    event FrozenStateUpdated(address indexed factory, bool frozen);
+
+    event AcceptedTokensUpdated(address indexed factory, address[] tokensAdded, address[] tokensRemoved);
 }

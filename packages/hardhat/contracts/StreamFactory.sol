@@ -83,19 +83,27 @@ contract StreamFactory is IStreamEvents, IStreamErrors {
         params.minStreamDuration = _minStreamDuration;
         params.tosVersion = _tosVersion;
 
-        emit ParamsUpdated();
+        emit ParamsUpdated(
+            address(this),
+            _streamCreationFee,
+            _exitFeePercent,
+            _minWaitingDuration,
+            _minBootstrappingDuration,
+            _minStreamDuration,
+            _tosVersion
+        );
     }
 
     function updateFeeCollector(address _feeCollector) external onlyAdmin {
         if (_feeCollector == address(0)) revert InvalidFeeCollector();
         params.feeCollector = _feeCollector;
-        emit FeeCollectorUpdated(_feeCollector);
+        emit FeeCollectorUpdated(address(this), _feeCollector);
     }
 
     function updateProtocolAdmin(address _protocolAdmin) external onlyAdmin {
         if (_protocolAdmin == address(0)) revert InvalidProtocolAdmin();
         params.protocolAdmin = _protocolAdmin;
-        emit ProtocolAdminUpdated(_protocolAdmin);
+        emit ProtocolAdminUpdated(address(this), _protocolAdmin);
     }
 
     function updateAcceptedTokens(
@@ -108,6 +116,7 @@ contract StreamFactory is IStreamEvents, IStreamErrors {
         for (uint i = 0; i < tokens_to_remove.length; i++) {
             acceptedInSupplyTokens[tokens_to_remove[i]] = false;
         }
+        emit AcceptedTokensUpdated(address(this), tokens_to_add, tokens_to_remove);
     }
 
     function isAcceptedInSupplyToken(address token) public view returns (bool) {
@@ -239,15 +248,9 @@ contract StreamFactory is IStreamEvents, IStreamErrors {
         return params;
     }
 
-    // Optional: Add ability to transfer ownership
-    function transferOwnership(address newOwner) external onlyAdmin {
-        if (newOwner == address(0)) revert InvalidProtocolAdmin();
-        params.protocolAdmin = newOwner;
-    }
-
     function setFrozen(bool _frozen) external onlyAdmin {
         frozen = _frozen;
-        emit FrozenStateUpdated(_frozen);
+        emit FrozenStateUpdated(address(this), _frozen);
     }
 
     function predictAddress(address creator, bytes32 _salt, bytes32 bytecodeHash) public pure returns (address) {
