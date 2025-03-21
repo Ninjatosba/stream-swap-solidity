@@ -204,7 +204,7 @@ const deployStreamContract: DeployFunction = async function (hre: HardhatRuntime
 
     // Extract stream address from event logs
     const streamFactoryInterface = new ethers.Interface([
-      "event StreamCreated(uint256 indexed streamOutAmount, uint256 indexed bootstrappingStartTime, uint256 streamStartTime, uint256 streamEndTime, address indexed streamAddress)"
+      "event StreamCreated(address indexed streamOutToken, address indexed streamInToken, address indexed streamFactoryAddress, uint256 streamOutAmount, uint256 bootstrappingStartTime, uint256 streamStartTime, uint256 streamEndTime, uint256 threshold, string streamName, string tosVersion, address streamAddress, uint16 streamId)"
     ]);
 
     // Find and parse the event

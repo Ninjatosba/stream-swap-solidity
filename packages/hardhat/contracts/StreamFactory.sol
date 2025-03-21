@@ -196,7 +196,6 @@ contract StreamFactory is IStreamEvents, IStreamErrors {
 
         if (address(newStream) != predictedAddress) revert StreamAddressPredictionFailed();
         streamAddresses[currentStreamId] = address(newStream);
-        currentStreamId++;
 
         emit StreamCreated(
             _outSupplyToken,
@@ -209,8 +208,10 @@ contract StreamFactory is IStreamEvents, IStreamErrors {
             _threshold,
             _name,
             _tosVersion,
-            address(newStream)
+            address(newStream),
+            currentStreamId
         );
+        currentStreamId++;
     }
 
     function getStreams() external view returns (address[] memory) {

@@ -16,7 +16,7 @@ interface IStreamEvents {
         string streamName,
         string tosVersion,
         address streamAddress,
-        string streamId
+        uint16 streamId
     );
 
     event StreamSynced(IStreamTypes.Status mainStatus, uint256 lastUpdated);
