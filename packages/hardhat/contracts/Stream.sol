@@ -28,7 +28,7 @@ contract Stream is IStreamErrors, IStreamEvents {
     IStreamTypes.StreamState public streamState;
     IStreamTypes.StreamTokens public streamTokens;
     IStreamTypes.StreamMetadata public streamMetadata;
-    IStreamTypes.StatusInfo public streamStatus;
+    IStreamTypes.Status public streamStatus;
     IStreamTypes.StreamTimes public streamTimes;
     address public factory;
 
@@ -81,7 +81,7 @@ contract Stream is IStreamErrors, IStreamEvents {
 
         streamMetadata = IStreamTypes.StreamMetadata({ name: _name });
 
-        streamStatus.status = IStreamTypes.Status.Waiting;
+        streamStatus = IStreamTypes.Status.Waiting;
 
         streamTimes = IStreamTypes.StreamTimes({
             bootstrappingStartTime: _bootstrappingStartTime,
@@ -194,14 +194,14 @@ contract Stream is IStreamErrors, IStreamEvents {
         IStreamTypes.StreamTimes memory times = loadStreamTimes();
 
         // Load and update status
-        IStreamTypes.StatusInfo memory status = loadStreamStatus();
+        IStreamTypes.Status status = loadStreamStatus();
         status = syncStreamStatus(status, times, block.timestamp);
 
         // Check if operation is allowed
         IStreamTypes.Status[] memory allowedStatuses = new IStreamTypes.Status[](2);
         allowedStatuses[0] = IStreamTypes.Status.Active;
         allowedStatuses[1] = IStreamTypes.Status.Bootstrapping;
-        isOperationAllowed(status.status, allowedStatuses);
+        isOperationAllowed(status, allowedStatuses);
 
         // Save the updated status
         saveStreamStatus(status);
@@ -238,7 +238,7 @@ contract Stream is IStreamErrors, IStreamEvents {
 
     function subscribe(uint256 amountIn) external payable {
         // Load status once
-        IStreamTypes.StatusInfo memory status = loadStreamStatus();
+        IStreamTypes.Status status = loadStreamStatus();
         IStreamTypes.StreamTimes memory times = loadStreamTimes();
         // Update the loaded status
         status = syncStreamStatus(status, times, block.timestamp);
@@ -247,7 +247,7 @@ contract Stream is IStreamErrors, IStreamEvents {
         IStreamTypes.Status[] memory allowedStatuses = new IStreamTypes.Status[](2);
         allowedStatuses[0] = IStreamTypes.Status.Bootstrapping;
         allowedStatuses[1] = IStreamTypes.Status.Active;
-        isOperationAllowed(status.status, allowedStatuses);
+        isOperationAllowed(status, allowedStatuses);
         // Save the updated status
         saveStreamStatus(status);
 
@@ -331,15 +331,15 @@ contract Stream is IStreamErrors, IStreamEvents {
         position = StreamMathLib.syncPosition(position, state.distIndex, state.shares, state.inSupply, block.timestamp);
 
         // Load and update status
-        IStreamTypes.StatusInfo memory status = loadStreamStatus();
+        IStreamTypes.Status status = loadStreamStatus();
         IStreamTypes.StreamTimes memory times = loadStreamTimes();
         status = syncStreamStatus(status, times, block.timestamp);
 
         bool thresholdReached = isThresholdReached(state);
 
         if (
-            (status.status == IStreamTypes.Status.Ended && thresholdReached) ||
-            (status.status == IStreamTypes.Status.FinalizedStreamed)
+            (status == IStreamTypes.Status.Ended && thresholdReached) ||
+            (status == IStreamTypes.Status.FinalizedStreamed)
         ) {
             // Normal exit
             // Refund in_amount remaining if any in position
@@ -369,14 +369,14 @@ contract Stream is IStreamErrors, IStreamEvents {
         assertIsCreator();
 
         // Load and update status
-        IStreamTypes.StatusInfo memory status = loadStreamStatus();
+        IStreamTypes.Status status = loadStreamStatus();
         IStreamTypes.StreamTimes memory times = loadStreamTimes();
         status = syncStreamStatus(status, times, block.timestamp);
 
         // Check if operation is allowed
         IStreamTypes.Status[] memory allowedStatuses = new IStreamTypes.Status[](1);
         allowedStatuses[0] = IStreamTypes.Status.Ended;
-        isOperationAllowed(status.status, allowedStatuses);
+        isOperationAllowed(status, allowedStatuses);
 
         // Load and update stream state
         IStreamTypes.StreamState memory state = loadStream();
@@ -403,7 +403,7 @@ contract Stream is IStreamErrors, IStreamEvents {
             safeTokenTransfer(streamTokens.inSupplyToken, creator, creatorRevenue);
 
             // Update status
-            status.status = IStreamTypes.Status.FinalizedStreamed;
+            status = IStreamTypes.Status.FinalizedStreamed;
 
             // Refund out tokens to creator if left any
             if (state.outRemaining > 0) {
@@ -411,7 +411,7 @@ contract Stream is IStreamErrors, IStreamEvents {
             }
         } else {
             // Update status
-            status.status = IStreamTypes.Status.FinalizedRefunded;
+            status = IStreamTypes.Status.FinalizedRefunded;
 
             // Refund out tokens to creator
             safeTokenTransfer(streamTokens.outSupplyToken, creator, state.outSupply);
@@ -421,7 +421,7 @@ contract Stream is IStreamErrors, IStreamEvents {
         saveStreamStatus(status);
         saveStream(state);
 
-        emit StreamFinalized(address(this), creator, state.spentIn, state.outRemaining, status.status);
+        emit StreamFinalized(address(this), creator, state.spentIn, state.outRemaining, status);
     }
 
     function syncStreamExternal() external {
@@ -432,14 +432,14 @@ contract Stream is IStreamErrors, IStreamEvents {
         saveStream(state);
 
         // Load, update and save status
-        IStreamTypes.StatusInfo memory status = loadStreamStatus();
+        IStreamTypes.Status status = loadStreamStatus();
         status = syncStreamStatus(status, times, block.timestamp);
         saveStreamStatus(status);
 
         emit StreamSynced(
             address(this),
             state.lastUpdated,
-            uint8(status.status),
+            uint8(status),
             state.distIndex,
             state.outRemaining,
             state.inSupply,
@@ -488,7 +488,7 @@ contract Stream is IStreamErrors, IStreamEvents {
         return streamState;
     }
 
-    function loadStreamStatus() internal view returns (IStreamTypes.StatusInfo memory) {
+    function loadStreamStatus() internal view returns (IStreamTypes.Status) {
         return streamStatus;
     }
 
@@ -505,7 +505,7 @@ contract Stream is IStreamErrors, IStreamEvents {
         streamState = state;
     }
 
-    function saveStreamStatus(IStreamTypes.StatusInfo memory status) internal {
+    function saveStreamStatus(IStreamTypes.Status status) internal {
         streamStatus = status;
     }
 
@@ -534,12 +534,12 @@ contract Stream is IStreamErrors, IStreamEvents {
 
     // Refactored syncStreamStatus to work directly with a provided memory object
     function syncStreamStatus(
-        IStreamTypes.StatusInfo memory status,
+        IStreamTypes.Status status,
         IStreamTypes.StreamTimes memory times,
         uint256 nowTime
-    ) internal pure returns (IStreamTypes.StatusInfo memory) {
-        status.status = StreamMathLib.calculateStreamStatus(
-            status.status,
+    ) internal pure returns (IStreamTypes.Status) {
+        status = StreamMathLib.calculateStreamStatus(
+            status,
             nowTime,
             times.bootstrappingStartTime,
             times.streamStartTime,
@@ -581,5 +581,13 @@ contract Stream is IStreamErrors, IStreamEvents {
      */
     function assertWithinBalance(uint256 cap, uint256 balance) internal pure {
         if (cap > balance) revert WithdrawAmountExceedsBalance(cap);
+    }
+
+    /**
+     * @dev Get the current stream status
+     * @return The current stream status
+     */
+    function getStreamStatus() external view returns (IStreamTypes.Status) {
+        return streamStatus;
     }
 }

@@ -5,6 +5,8 @@ import "./StreamTypes.sol";
 import "./DecimalMath.sol";
 import "./PositionTypes.sol";
 
+import "hardhat/console.sol";
+
 library StreamMathLib {
     /**
      * @dev Calculates the time difference ratio between current time and last updated time
@@ -151,11 +153,15 @@ library StreamMathLib {
     ) internal pure returns (uint256 feeAmount, uint256 remainingAmount) {
         uint256 decimalExitFee = exitFeePercent;
         uint256 decimalSpentIn = DecimalMath.fromNumber(spentInAmount);
+        console.log("decimalSpentIn", decimalSpentIn);
 
         // Calculate exit fee amount using DecimalMath
         uint256 exitFeeAmount = DecimalMath.mul(decimalSpentIn, decimalExitFee);
+        console.log("exitFeeAmount", exitFeeAmount);
         feeAmount = DecimalMath.floor(exitFeeAmount);
+        console.log("feeAmount", feeAmount);
         remainingAmount = spentInAmount - feeAmount;
+        console.log("remainingAmount", remainingAmount);
 
         return (feeAmount, remainingAmount);
     }

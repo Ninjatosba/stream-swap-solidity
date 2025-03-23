@@ -6,7 +6,7 @@ pragma solidity >=0.8.0 <0.9.0;
  * @dev Library for handling decimal math operations with fixed-point arithmetic
  */
 library DecimalMath {
-    // We'll use 6 decimal places for precision
+    // We'll use 2 decimal places for precision
     uint256 public constant DECIMAL_PRECISION = 1e6;
 
     // Convert a regular number to a decimal representation

@@ -103,17 +103,17 @@ export class StreamFixtureBuilder {
                 const [deployer, subscriber1, subscriber2] = await ethers.getSigners();
 
                 // Deploy token contracts
-                const InDenom = await ethers.getContractFactory("ERC20Mock");
-                const inDenom = await InDenom.deploy("InDenom Token", "IN");
+                const InSupplyToken = await ethers.getContractFactory("ERC20Mock");
+                const inSupplyToken = await InSupplyToken.deploy("StreamInSupply Token", "IN");
 
-                const OutDenom = await ethers.getContractFactory("ERC20Mock");
-                const outDenom = await OutDenom.deploy("StreamOutDenom Token", "OUT");
+                const OutSupplyToken = await ethers.getContractFactory("ERC20Mock");
+                const outSupplyToken = await OutSupplyToken.deploy("StreamOutSupply Token", "OUT");
 
                 // Mint tokens for stream creator
-                await outDenom.mint(deployer.address, config.streamOutAmount);
+                await outSupplyToken.mint(deployer.address, config.streamOutAmount);
                 // Mint tokens for subscribers
-                await inDenom.mint(subscriber1.address, 100_000_000);
-                await inDenom.mint(subscriber2.address, 100_000_000);
+                await inSupplyToken.mint(subscriber1.address, 100_000_000);
+                await inSupplyToken.mint(subscriber2.address, 100_000_000);
 
 
                 // Deploy StreamFactory
@@ -125,14 +125,14 @@ export class StreamFixtureBuilder {
                     config.minWaitingDuration,
                     config.minBootstrappingDuration,
                     config.minStreamDuration,
-                    [await inDenom.getAddress()],
+                    [await inSupplyToken.getAddress()],
                     deployer.address,
                     deployer.address,
                     config.tosVersion
                 );
 
                 // Approve tokens
-                await outDenom.approve(await streamFactory.getAddress(), config.streamOutAmount);
+                await outSupplyToken.approve(await streamFactory.getAddress(), config.streamOutAmount);
 
                 // Get current time
                 let nowSeconds: number;
@@ -151,38 +151,44 @@ export class StreamFixtureBuilder {
                 // Create stream
                 const tx = await streamFactory.createStream(
                     config.streamOutAmount,
-                    await outDenom.getAddress(),
+                    await outSupplyToken.getAddress(),
                     bootstrappingStartTime,
                     streamStartTime,
                     streamEndTime,
                     config.threshold,
                     config.streamName,
-                    await inDenom.getAddress(),
+                    await inSupplyToken.getAddress(),
                     config.tosVersion,
                     ethers.getBytes("0x0000000000000000000000000000000000000000000000000000000000000000"),
                     { value: config.streamCreationFee }
                 );
 
-                // Get stream address from event
+                // Get stream address from event - MUCH SIMPLER APPROACH
                 const receipt = await tx.wait();
-                const streamFactoryInterface = new ethers.Interface([
-                    "event StreamCreated(uint256 indexed streamOutAmount, uint256 indexed bootstrappingStartTime, uint256 streamStartTime, uint256 streamEndTime, address indexed streamAddress)"
-                ]);
 
-                const parsedLog = receipt?.logs
-                    .map((log: any) => {
-                        try {
-                            return streamFactoryInterface.parseLog({
-                                topics: log.topics as string[],
-                                data: log.data
-                            });
-                        } catch {
-                            return null;
-                        }
-                    })
-                    .find((log: any) => log !== null);
+                // This automatically finds and parses the StreamCreated event
+                const event = receipt?.logs.find(
+                    log => log.topics[0] === streamFactory.interface.getEvent("StreamCreated").topicHash
+                );
 
-                const streamAddress = parsedLog ? ethers.getAddress(parsedLog.args[4]) : ethers.ZeroAddress;
+                if (!event) {
+                    throw new Error("StreamCreated event not found in transaction logs");
+                }
+
+                // Parse the event with the contract's interface
+                const parsedEvent = streamFactory.interface.parseLog({
+                    topics: event.topics,
+                    data: event.data
+                });
+
+                // Get the stream address directly from the parsed event
+                const streamAddress = parsedEvent?.args.streamAddress || ethers.ZeroAddress;
+
+                console.log("Stream address from event:", streamAddress);
+
+                if (streamAddress === ethers.ZeroAddress) {
+                    throw new Error("Invalid stream address (zero address)");
+                }
 
                 // Connect to stream contract
                 const stream = await ethers.getContractAt("Stream", streamAddress);
@@ -192,8 +198,8 @@ export class StreamFixtureBuilder {
                     contracts: {
                         stream,
                         streamFactory,
-                        inDenom,
-                        outDenom
+                        inSupplyToken,
+                        outSupplyToken
                     },
                     accounts: {
                         deployer,

@@ -10,7 +10,7 @@ describe("Stream Status", function () {
     // Basic test with default parameters
     it("Should have start with status WAITING", async function () {
         const { contracts } = await loadFixture(stream().build());
-        let status = await contracts.stream.streamStatus()
+        let status = await contracts.stream.getStreamStatus();
         expect(status).to.equal(0);
     });
 
@@ -80,14 +80,14 @@ describe("Stream Threshold", function () {
         expect(status).to.equal(3); // Ended phase
 
         // When finalized out tokens should be refunded first check current balance of the creator
-        let creatorBalanceBefore = await contracts.outDenom.balanceOf(accounts.deployer);
+        let creatorBalanceBefore = await contracts.outSupplyToken.balanceOf(accounts.deployer);
 
         // Finalize the stream
         let finalizeTx = await contracts.stream.finalizeStream();
         await finalizeTx.wait();
 
         // Check balance of the creator
-        let creatorBalanceAfter = await contracts.outDenom.balanceOf(accounts.deployer);
+        let creatorBalanceAfter = await contracts.outSupplyToken.balanceOf(accounts.deployer);
         expect(creatorBalanceAfter).to.equal(creatorBalanceBefore + BigInt(config.streamOutAmount));
     })
     it("Should refund to subscribers if threshold is not reached", async function () {
@@ -107,11 +107,11 @@ describe("Stream Threshold", function () {
         expect(status).to.equal(2); // Stream phase (Active)
 
         // Subscribe to the stream with the subscriber1
-        await contracts.inDenom.connect(accounts.subscriber1).approve(contracts.stream.getAddress(), threshold / 2 - 1);
+        await contracts.inSupplyToken.connect(accounts.subscriber1).approve(contracts.stream.getAddress(), threshold / 2 - 1);
         let subscribeTx = await contracts.stream.connect(accounts.subscriber1).subscribe(threshold / 2 - 1);
         await subscribeTx.wait();
         // susbcribe with the subscriber2
-        await contracts.inDenom.connect(accounts.subscriber2).approve(contracts.stream.getAddress(), threshold / 2 - 1);
+        await contracts.inSupplyToken.connect(accounts.subscriber2).approve(contracts.stream.getAddress(), threshold / 2 - 1);
         let subscribeTx2 = await contracts.stream.connect(accounts.subscriber2).subscribe(threshold / 2 - 1);
         await subscribeTx2.wait();
 
@@ -140,11 +140,11 @@ describe("Stream Threshold", function () {
         await exitTx2.wait();
 
         // After this stream contracts wallet should have 0 balance
-        let streamContractInDenomBalance = await contracts.inDenom.balanceOf(contracts.stream.getAddress());
-        expect(streamContractInDenomBalance).to.equal(0);
+        let streamContractInSupplyTokenBalance = await contracts.inSupplyToken.balanceOf(contracts.stream.getAddress());
+        expect(streamContractInSupplyTokenBalance).to.equal(0);
 
-        let streamContractOutDenomBalance = await contracts.outDenom.balanceOf(contracts.stream.getAddress());
-        expect(streamContractOutDenomBalance).to.equal(0);
+        let streamContractOutSupplyTokenBalance = await contracts.outSupplyToken.balanceOf(contracts.stream.getAddress());
+        expect(streamContractOutSupplyTokenBalance).to.equal(0);
 
         // Check native token balance of the stream contract
         let streamContractNativeTokenBalance = await ethers.provider.getBalance(contracts.stream.getAddress());
@@ -164,7 +164,7 @@ describe("Stream Threshold", function () {
         await tx.wait();
 
         // Subscribe to the stream with the subscriber1
-        await contracts.inDenom.connect(accounts.subscriber1).approve(contracts.stream.getAddress(), threshold);
+        await contracts.inSupplyToken.connect(accounts.subscriber1).approve(contracts.stream.getAddress(), threshold);
         let subscribeTx = await contracts.stream.connect(accounts.subscriber1).subscribe(threshold);
         await subscribeTx.wait();
 
@@ -175,24 +175,24 @@ describe("Stream Threshold", function () {
         // Threshold is reached
 
         // When subscriber1 exits at status ended should acquire out tokens
-        let subscriber1BalanceBefore = await contracts.outDenom.balanceOf(accounts.subscriber1.address);
+        let subscriber1BalanceBefore = await contracts.outSupplyToken.balanceOf(accounts.subscriber1.address);
         // Exit the stream
         let exitTx = await contracts.stream.connect(accounts.subscriber1).exitStream();
         await exitTx.wait();
 
         // Check balance of the subscriber1
-        let subscriber1OutDenomBalanceAfter = await contracts.outDenom.balanceOf(accounts.subscriber1.address);
-        console.log("subscriber1OutDenomBalanceAfter", subscriber1OutDenomBalanceAfter);
-        expect(subscriber1OutDenomBalanceAfter).to.equal(subscriber1BalanceBefore + BigInt(config.streamOutAmount));
+        let subscriber1OutSupplyTokenBalanceAfter = await contracts.outSupplyToken.balanceOf(accounts.subscriber1.address);
+        console.log("subscriber1OutSupplyTokenBalanceAfter", subscriber1OutSupplyTokenBalanceAfter);
+        expect(subscriber1OutSupplyTokenBalanceAfter).to.equal(subscriber1BalanceBefore + BigInt(config.streamOutAmount));
 
         // Finalize the stream
-        let creatorInDenomBalanceBefore = await contracts.inDenom.balanceOf(accounts.deployer);
+        let creatorInSupplyTokenBalanceBefore = await contracts.inSupplyToken.balanceOf(accounts.deployer);
 
         let finalizeTx = await contracts.stream.finalizeStream();
         await finalizeTx.wait();
 
         // Check balance of the creator
-        let creatorInDenomBalanceAfter = await contracts.inDenom.balanceOf(accounts.deployer);
-        expect(creatorInDenomBalanceAfter).to.equal(creatorInDenomBalanceBefore + BigInt(threshold));
+        let creatorInSupplyTokenBalanceAfter = await contracts.inSupplyToken.balanceOf(accounts.deployer);
+        expect(creatorInSupplyTokenBalanceAfter).to.equal(creatorInSupplyTokenBalanceBefore + BigInt(threshold));
     });
 });

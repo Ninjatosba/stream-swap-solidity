@@ -12,10 +12,6 @@ interface IStreamTypes {
         Cancelled
     }
 
-    struct StatusInfo {
-        Status status;
-    }
-
     struct StreamTimes {
         uint256 bootstrappingStartTime;
         uint256 streamStartTime;

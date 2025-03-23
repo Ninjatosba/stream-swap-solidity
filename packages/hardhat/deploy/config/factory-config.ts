@@ -16,7 +16,7 @@ export interface FactoryConfig {
 }
 
 export const createFactoryConfig = (deployer: string, acceptedInDenoms: AddressLike[]): FactoryConfig => ({
-    exitFeePercent: 10000, // 1% fee
+    exitFeePercent: 10, // 1% fee
     feeCollector: deployer,
     minWaitingDuration: 5,
     minBootstrappingDuration: 1,
