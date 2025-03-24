@@ -73,4 +73,14 @@ library DecimalMath {
     function fromRatio(uint256 num, uint256 denom) internal pure returns (Decimal memory) {
         return Decimal({ value: (num * DECIMAL_PRECISION) / denom });
     }
+
+    // > operator for Decimals
+    function gt(Decimal memory a, Decimal memory b) internal pure returns (bool) {
+        return a.value > b.value;
+    }
+
+    // < operator for Decimals
+    function lt(Decimal memory a, Decimal memory b) internal pure returns (bool) {
+        return a.value < b.value;
+    }
 }

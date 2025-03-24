@@ -44,6 +44,8 @@ contract StreamFactory is IStreamEvents, IStreamErrors {
         if (_feeCollector == address(0)) revert InvalidFeeCollector();
         if (_protocolAdmin == address(0)) revert InvalidProtocolAdmin();
 
+        // Check if exit fee ratio is between 0 and 1
+        if (DecimalMath.gt(_exitFeeRatio, DecimalMath.fromNumber(1))) revert InvalidExitFeeRatio();
         params = Params({
             streamCreationFee: _streamCreationFee,
             streamCreationFeeToken: _streamCreationFeeToken,

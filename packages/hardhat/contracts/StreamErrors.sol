@@ -20,6 +20,7 @@ interface IStreamErrors {
     error InsufficientOutAmount();
     // StreamFactory errors
     error ContractFrozen();
+    error InvalidExitFeeRatio();
     error ZeroOutSupplyNotAllowed();
     error StreamInputTokenNotAccepted();
     error InvalidBootstrappingTime();
@@ -33,4 +34,4 @@ interface IStreamErrors {
     error InvalidFeeCollector();
     error InvalidProtocolAdmin();
     error NotAdmin();
-} 
+}
