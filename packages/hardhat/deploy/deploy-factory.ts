@@ -42,7 +42,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
             args: [
                 config.streamCreationFee,
                 config.streamCreationFeeToken,
-                config.exitFeePercent,
+                config.ExitFeeRatio,
                 config.minWaitingDuration,
                 config.minBootstrappingDuration,
                 config.minStreamDuration,

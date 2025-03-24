@@ -98,14 +98,14 @@ contract Stream is IStreamErrors, IStreamEvents {
         IStreamTypes.StreamTimes memory times,
         uint256 nowTime
     ) internal pure returns (IStreamTypes.StreamState memory) {
-        uint256 diff = StreamMathLib.calculateDiff(
+        Decimal memory diff = StreamMathLib.calculateDiff(
             nowTime,
             times.streamStartTime,
             times.streamEndTime,
             state.lastUpdated
         );
 
-        if (diff > 0) {
+        if (diff.value > 0) {
             IStreamTypes.StreamState memory updatedState = StreamMathLib.calculateUpdatedState(state, diff);
             return updatedState;
         }
@@ -517,14 +517,14 @@ contract Stream is IStreamErrors, IStreamEvents {
     function syncStream(IStreamTypes.StreamState memory state) internal view returns (IStreamTypes.StreamState memory) {
         IStreamTypes.StreamTimes memory times = loadStreamTimes();
 
-        uint256 diff = StreamMathLib.calculateDiff(
+        Decimal memory diff = StreamMathLib.calculateDiff(
             block.timestamp,
             times.streamStartTime,
             times.streamEndTime,
             state.lastUpdated
         );
 
-        if (diff > 0) {
+        if (diff.value > 0) {
             state = StreamMathLib.calculateUpdatedState(state, diff);
             state.lastUpdated = block.timestamp;
         }

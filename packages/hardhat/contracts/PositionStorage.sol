@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.0 <0.9.0;
 
-import "./PositionTypes.sol";   
+import "./PositionTypes.sol";
+import "./DecimalMath.sol";
 
 contract PositionStorage {
     using PositionTypes for PositionTypes.Position;
@@ -26,15 +27,21 @@ contract PositionStorage {
         address owner,
         uint256 inBalance,
         uint256 shares,
-        uint256 index
+        Decimal memory index
     ) external onlySender {
-        positions[owner] = PositionTypes.Position(inBalance, shares, index, block.timestamp, 0, 0, 0, 0);
+        positions[owner] = PositionTypes.Position(
+            inBalance,
+            shares,
+            index,
+            block.timestamp,
+            DecimalMath.fromNumber(0),
+            0,
+            0,
+            0
+        );
     }
 
-    function updatePosition(
-        address owner,
-        PositionTypes.Position memory position
-    ) external onlySender {
+    function updatePosition(address owner, PositionTypes.Position memory position) external onlySender {
         positions[owner] = position;
     }
 

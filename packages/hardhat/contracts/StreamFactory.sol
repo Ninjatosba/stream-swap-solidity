@@ -86,7 +86,7 @@ contract StreamFactory is IStreamEvents, IStreamErrors {
         emit ParamsUpdated(
             address(this),
             _streamCreationFee,
-            _exitFeeRatio,
+            _exitFeeRatio.value,
             _minWaitingDuration,
             _minBootstrappingDuration,
             _minStreamDuration,

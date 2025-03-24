@@ -724,7 +724,7 @@ const deployedContracts = {
             },
             {
               internalType: "uint256",
-              name: "_exitFeePercent",
+              name: "_ExitFeeRatio",
               type: "uint256",
             },
             {
@@ -1257,7 +1257,7 @@ const deployedContracts = {
                 },
                 {
                   internalType: "uint256",
-                  name: "exitFeePercent",
+                  name: "ExitFeeRatio",
                   type: "uint256",
                 },
                 {
@@ -1385,7 +1385,7 @@ const deployedContracts = {
             },
             {
               internalType: "uint256",
-              name: "exitFeePercent",
+              name: "ExitFeeRatio",
               type: "uint256",
             },
             {
@@ -1536,7 +1536,7 @@ const deployedContracts = {
             },
             {
               internalType: "uint256",
-              name: "_exitFeePercent",
+              name: "_ExitFeeRatio",
               type: "uint256",
             },
             {

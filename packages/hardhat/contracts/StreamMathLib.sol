@@ -21,10 +21,10 @@ library StreamMathLib {
         uint256 streamStartTime,
         uint256 streamEndTime,
         uint256 lastUpdated
-    ) internal pure returns (uint256) {
+    ) internal pure returns (Decimal memory) {
         // If the stream is not started yet or already ended, return 0
         if (currentTimestamp < streamStartTime || lastUpdated >= streamEndTime) {
-            return 0;
+            return DecimalMath.fromNumber(0);
         }
 
         // If lastUpdated is before start time, set it to start time
@@ -43,10 +43,10 @@ library StreamMathLib {
         uint256 denominator = streamEndTime - effectiveLastUpdated;
 
         if (denominator == 0 || numerator == 0) {
-            return 0;
+            return DecimalMath.fromNumber(0);
         }
         // Return ratio of time elapsed since last update compared to total remaining time
-        return (numerator * 1e18) / denominator;
+        return DecimalMath.fromRatio(numerator, denominator);
     }
 
     /**
@@ -97,15 +97,21 @@ library StreamMathLib {
      */
     function calculateUpdatedState(
         IStreamTypes.StreamState memory state,
-        uint256 diff
+        Decimal memory diff
     ) internal pure returns (IStreamTypes.StreamState memory) {
         // Create a copy of the state to avoid modifying the input
         IStreamTypes.StreamState memory newState = state;
 
-        if (newState.shares > 0 && diff > 0) {
+        if (newState.shares > 0 && diff.value > 0) {
             // Calculate new distribution balance and spent in amount
-            uint256 newDistributionBalance = (newState.outRemaining * diff) / 1e18;
-            uint256 spentIn = (newState.inSupply * diff) / 1e18;
+            Decimal memory newDecimalDistributionBalance = DecimalMath.mul(
+                DecimalMath.fromNumber(newState.outRemaining),
+                diff
+            );
+            uint256 newDistributionBalance = DecimalMath.floor(newDecimalDistributionBalance);
+
+            Decimal memory newDecimalSpentIn = DecimalMath.mul(DecimalMath.fromNumber(newState.inSupply), diff);
+            uint256 spentIn = DecimalMath.floor(newDecimalSpentIn);
 
             // Update state variables
             newState.spentIn += spentIn;

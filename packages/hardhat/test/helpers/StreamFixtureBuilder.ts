@@ -1,6 +1,7 @@
 import { ethers } from "hardhat";
 import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
 import { Contract } from "ethers";
+import { DecimalStruct } from "../../typechain-types/contracts/PositionStorage";
 
 export class StreamFixtureBuilder {
     private streamOutAmount: number = 1000;
@@ -10,7 +11,10 @@ export class StreamFixtureBuilder {
     private threshold: number = 1000;
     private streamName: string = "Test Stream";
     private tosVersion: string = "1.0.0";
-    private exitFeePercent: number = 1e5;
+    private ExitFeeRatio: DecimalStruct = {
+        // 1%
+        value: 1e5
+    };
     private minWaitingDuration: number = 1;
     private minBootstrappingDuration: number = 1;
     private minStreamDuration: number = 1;
@@ -56,7 +60,9 @@ export class StreamFixtureBuilder {
 
     // Method to set exit fee percent
     public exitPercent(percent: number): StreamFixtureBuilder {
-        this.exitFeePercent = percent;
+        this.ExitFeeRatio = {
+            value: percent * 1e5
+        };
         return this;
     }
 
@@ -85,7 +91,7 @@ export class StreamFixtureBuilder {
             threshold: this.threshold,
             streamName: this.streamName,
             tosVersion: this.tosVersion,
-            exitFeePercent: this.exitFeePercent,
+            ExitFeeRatio: this.ExitFeeRatio,
             minWaitingDuration: this.minWaitingDuration,
             minBootstrappingDuration: this.minBootstrappingDuration,
             minStreamDuration: this.minStreamDuration,
@@ -121,7 +127,7 @@ export class StreamFixtureBuilder {
                 const streamFactory = await StreamFactoryFactory.deploy(
                     config.streamCreationFee,
                     ethers.ZeroAddress,
-                    config.exitFeePercent,
+                    config.ExitFeeRatio,
                     config.minWaitingDuration,
                     config.minBootstrappingDuration,
                     config.minStreamDuration,

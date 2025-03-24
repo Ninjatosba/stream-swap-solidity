@@ -70,7 +70,7 @@ interface IStreamEvents {
     event ParamsUpdated(
         address indexed factory,
         uint256 streamCreationFee,
-        Decimal exitFeeRatio,
+        uint256 exitFeeRatio,
         uint256 minWaitingDuration,
         uint256 minBootstrappingDuration,
         uint256 minStreamDuration,

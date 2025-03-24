@@ -12,7 +12,7 @@ contract StreamMathLibMock {
         uint256 streamStartTime,
         uint256 streamEndTime,
         uint256 lastUpdated
-    ) external pure returns (uint256) {
+    ) external pure returns (Decimal memory) {
         return StreamMathLib.calculateDiff(currentTimestamp, streamStartTime, streamEndTime, lastUpdated);
     }
 
@@ -35,7 +35,7 @@ contract StreamMathLibMock {
 
     function calculateUpdatedState(
         IStreamTypes.StreamState memory state,
-        uint256 diff
+        Decimal memory diff
     ) external pure returns (IStreamTypes.StreamState memory) {
         return StreamMathLib.calculateUpdatedState(state, diff);
     }
@@ -51,9 +51,9 @@ contract StreamMathLibMock {
 
     function calculateExitFee(
         uint256 spentInAmount,
-        Decimal memory exitFeePercent
+        Decimal memory ExitFeeRatio
     ) external pure returns (uint256 feeAmount, uint256 remainingAmount) {
-        return StreamMathLib.calculateExitFee(spentInAmount, exitFeePercent);
+        return StreamMathLib.calculateExitFee(spentInAmount, ExitFeeRatio);
     }
 
     function syncPosition(

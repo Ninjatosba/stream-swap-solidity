@@ -1,10 +1,13 @@
 // packages/hardhat/test/helpers/FactoryFixtureBuilder.ts
 import { ethers } from "hardhat";
 import { StreamFactory, ERC20Mock } from "../../typechain-types";
+import { DecimalStruct } from "../../typechain-types/contracts/PositionStorage";
 
 export class StreamFactoryFixtureBuilder {
     private streamCreationFee: number = 100;
-    private exitFeePercent: number = 100; // 1% (scaled by 10000)
+    private ExitFeeRatio: DecimalStruct = {
+        value: 100
+    }; // 1% (scaled by 10000)
     private minWaitingDuration: number = 60; // 1 minute
     private minBootstrappingDuration: number = 60 * 60 * 24; // 24 hours
     private minStreamDuration: number = 60 * 60 * 24 * 7; // 7 days
@@ -18,7 +21,9 @@ export class StreamFactoryFixtureBuilder {
 
     // Method to set exit fee percent
     public exitPercent(percent: number): StreamFactoryFixtureBuilder {
-        this.exitFeePercent = percent;
+        this.ExitFeeRatio = {
+            value: percent * 1e5
+        };
         return this;
     }
 
@@ -45,7 +50,7 @@ export class StreamFactoryFixtureBuilder {
         // Store the current configuration in variables that will be captured in the closure
         const config = {
             streamCreationFee: this.streamCreationFee,
-            exitFeePercent: this.exitFeePercent,
+            ExitFeeRatio: this.ExitFeeRatio,
             minWaitingDuration: this.minWaitingDuration,
             minBootstrappingDuration: this.minBootstrappingDuration,
             minStreamDuration: this.minStreamDuration,
@@ -78,7 +83,7 @@ export class StreamFactoryFixtureBuilder {
             const factory = await StreamFactory.deploy(
                 config.streamCreationFee,
                 await inSupplyToken.getAddress(), // Use the token as fee token
-                config.exitFeePercent,
+                config.ExitFeeRatio,
                 config.minWaitingDuration,
                 config.minBootstrappingDuration,
                 config.minStreamDuration,

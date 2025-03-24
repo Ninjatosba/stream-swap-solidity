@@ -70,7 +70,7 @@ library DecimalMath {
     }
 
     // From ratio to Decimal
-    function fromRatio(uint256 numerator, uint256 denominator) internal pure returns (Decimal memory) {
-        return Decimal({ value: (numerator * DECIMAL_PRECISION) / denominator });
+    function fromRatio(uint256 num, uint256 denom) internal pure returns (Decimal memory) {
+        return Decimal({ value: (num * DECIMAL_PRECISION) / denom });
     }
 }

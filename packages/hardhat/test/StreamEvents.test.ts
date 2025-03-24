@@ -14,7 +14,10 @@ describe("StreamEvents", function () {
 
             // New parameters
             const newStreamCreationFee = ethers.parseEther("0.02");
-            const newExitFeePercent = 200; // 2%
+            const newExitFeeRatio = {
+                // 2%
+                value: 2000
+            };
             const newMinWaitingDuration = 60 * 60 * 2; // 2 hours
             const newMinBootstrappingDuration = 60 * 60 * 24 * 2; // 48 hours
             const newMinStreamDuration = 60 * 60 * 24 * 14; // 14 days
@@ -22,7 +25,7 @@ describe("StreamEvents", function () {
 
             await expect(factory.connect(protocolAdmin).updateParams(
                 newStreamCreationFee,
-                newExitFeePercent,
+                newExitFeeRatio,
                 newMinWaitingDuration,
                 newMinBootstrappingDuration,
                 newMinStreamDuration,
@@ -32,7 +35,7 @@ describe("StreamEvents", function () {
                 .withArgs(
                     await factory.getAddress(),
                     newStreamCreationFee,
-                    newExitFeePercent,
+                    newExitFeeRatio.value,
                     newMinWaitingDuration,
                     newMinBootstrappingDuration,
                     newMinStreamDuration,
