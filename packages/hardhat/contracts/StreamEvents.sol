@@ -2,6 +2,7 @@
 pragma solidity >=0.8.0 <0.9.0;
 
 import "./StreamTypes.sol";
+import "./DecimalMath.sol";
 
 interface IStreamEvents {
     event StreamCreated(
@@ -34,11 +35,11 @@ interface IStreamEvents {
         address indexed streamAddress,
         uint256 lastUpdated,
         uint8 newStatus,
-        uint256 distIndex,
+        Decimal distIndex,
         uint256 outRemaining,
         uint256 inSupply,
         uint256 spentIn,
-        uint256 currentStreamedPrice
+        Decimal currentStreamedPrice
     );
 
     event Withdrawn(
@@ -69,7 +70,7 @@ interface IStreamEvents {
     event ParamsUpdated(
         address indexed factory,
         uint256 streamCreationFee,
-        uint256 exitFeePercent,
+        Decimal exitFeeRatio,
         uint256 minWaitingDuration,
         uint256 minBootstrappingDuration,
         uint256 minStreamDuration,

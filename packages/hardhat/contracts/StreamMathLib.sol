@@ -114,9 +114,9 @@ library StreamMathLib {
             if (newDistributionBalance > 0) {
                 newState.outRemaining -= newDistributionBalance;
                 // Update distribution index (shares are in base units, multiply by 1e18 for precision)
-                newState.distIndex += (newDistributionBalance * 1e18) / newState.shares;
+                newState.distIndex = DecimalMath.fromRatio(newDistributionBalance, newState.shares);
                 // Update current streamed price
-                newState.currentStreamedPrice = (spentIn * 1e18) / newDistributionBalance;
+                newState.currentStreamedPrice = DecimalMath.fromRatio(spentIn, newDistributionBalance);
             }
         }
 
@@ -144,32 +144,27 @@ library StreamMathLib {
     /**
      * @dev Calculates the exit fee amount based on the spent in amount
      * @param spentInAmount Amount of tokens spent in the stream
-     * @return feeAmount The calculated fee amount
+     * @return exitFeeAmount The calculated fee amount
      * @return remainingAmount The remaining amount after fee deduction
      */
     function calculateExitFee(
         uint256 spentInAmount,
-        uint256 exitFeePercent
-    ) internal pure returns (uint256 feeAmount, uint256 remainingAmount) {
-        uint256 decimalExitFee = exitFeePercent;
-        uint256 decimalSpentIn = DecimalMath.fromNumber(spentInAmount);
-        console.log("decimalSpentIn", decimalSpentIn);
+        Decimal memory exitFeeRatio
+    ) internal pure returns (uint256 exitFeeAmount, uint256 remainingAmount) {
+        Decimal memory decimalSpentIn = DecimalMath.fromNumber(spentInAmount);
 
         // Calculate exit fee amount using DecimalMath
-        uint256 exitFeeAmount = DecimalMath.mul(decimalSpentIn, decimalExitFee);
-        console.log("exitFeeAmount", exitFeeAmount);
-        feeAmount = DecimalMath.floor(exitFeeAmount);
-        console.log("feeAmount", feeAmount);
-        remainingAmount = spentInAmount - feeAmount;
-        console.log("remainingAmount", remainingAmount);
+        Decimal memory decimalExitFeeAmount = DecimalMath.mul(decimalSpentIn, exitFeeRatio);
+        exitFeeAmount = DecimalMath.floor(decimalExitFeeAmount);
+        remainingAmount = spentInAmount - exitFeeAmount;
 
-        return (feeAmount, remainingAmount);
+        return (exitFeeAmount, remainingAmount);
     }
 
     function syncPosition(
         PositionTypes.Position memory position,
-        uint256 distIndex,
-        uint256 shares,
+        Decimal memory distIndex,
+        uint256 totalShares,
         uint256 inSupply,
         uint256 nowTime
     ) internal pure returns (PositionTypes.Position memory) {
@@ -186,24 +181,28 @@ library StreamMathLib {
         });
 
         // Calculate index difference for distributions since last update
-        uint256 indexDiff = distIndex - updatedPosition.index;
+        Decimal memory indexDiff = DecimalMath.sub(distIndex, updatedPosition.index);
         uint256 spent = 0;
         uint256 purchased = 0;
 
         // Only process if there are shares in the stream
-        if (shares > 0) {
+        if (totalShares > 0) {
             // Calculate purchased amount based on position shares and index difference
-            uint256 positionPurchased = (updatedPosition.shares * indexDiff) / 1e18 + updatedPosition.pendingReward;
+            Decimal memory positionSharesDecimal = DecimalMath.fromNumber(updatedPosition.shares);
+            Decimal memory purchasedDecimal = DecimalMath.add(
+                DecimalMath.mul(positionSharesDecimal, indexDiff),
+                updatedPosition.pendingReward
+            );
+            (purchased, purchasedDecimal) = DecimalMath.toNumber(purchasedDecimal);
+            updatedPosition.purchased += purchased;
+            updatedPosition.pendingReward = purchasedDecimal;
+
             // Calculate remaining balance based on current shares ratio
-            uint256 inRemaining = (inSupply * updatedPosition.shares) / shares;
+            uint256 inRemaining = (inSupply * updatedPosition.shares) / totalShares;
             // Calculate spent amount
             spent = updatedPosition.inBalance - inRemaining;
             updatedPosition.spentIn += spent;
             updatedPosition.inBalance = inRemaining;
-
-            // Update purchased amount
-            purchased = positionPurchased;
-            updatedPosition.purchased += purchased;
         }
 
         // Update position tracking

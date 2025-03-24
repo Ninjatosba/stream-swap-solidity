@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.0 <0.9.0;
 
+import "./DecimalMath.sol";
+
 interface IStreamTypes {
     enum Status {
         Waiting,
@@ -24,10 +26,10 @@ interface IStreamTypes {
 
     struct StreamState {
         uint256 outRemaining;
-        uint256 distIndex;
+        Decimal distIndex;
         uint256 spentIn;
         uint256 shares;
-        uint256 currentStreamedPrice;
+        Decimal currentStreamedPrice;
         uint256 threshold;
         uint256 inSupply;
         uint256 outSupply;

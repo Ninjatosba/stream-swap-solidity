@@ -1,7 +1,7 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
 import { Contract } from "ethers";
-import { IStreamTypes } from "../typechain-types/contracts/StreamMathLibMock";
+import { IStreamTypes, PositionTypes, StreamMathLibMock } from "../typechain-types/contracts/StreamMathLibMock";
 
 describe("StreamMathLib", function () {
     let mockContract: any;
@@ -427,100 +427,113 @@ describe("StreamMathLib", function () {
             expect(remainingAmount).to.equal(0);
         });
     });
+    describe("syncPosition", function () {
+        it("should update a position with partial distribution (75%)", async function () {
+            const position: PositionTypes.PositionStruct = {
+                inBalance: ethers.parseUnits("1000000", 0),
+                shares: ethers.parseUnits("1000000", 0),
+                index: ethers.parseUnits("0", 18),
+                lastUpdateTime: 1000100,
+                pendingReward: ethers.parseUnits("0", 18),
+                spentIn: ethers.parseUnits("0", 0),
+                purchased: ethers.parseUnits("0", 0),
+                exitDate: 0
+            };
 
-    // describe("syncPosition", function () {
-    //     it("should not change position when shares are 0", async function () {
-    //         const position = {
-    //             inBalance: ethers.parseUnits("1000", 18), // 1000 tokens
-    //             shares: ethers.parseUnits("1", 18), // 1 share
-    //             index: ethers.parseUnits("5000", 18), // 5000
-    //             lastUpdateTime: 100, // Use integer for time values
-    //             pendingReward: ethers.parseUnits("0", 18),
-    //             spentIn: ethers.parseUnits("0", 18),
-    //             purchased: ethers.parseUnits("0", 18),
-    //             exitDate: 0 // Use integer for time values
-    //         };
+            const distIndex = ethers.parseUnits("0.749993", 18);
+            const shares = ethers.parseUnits("1000000", 0);
+            const inSupply = ethers.parseUnits("250007", 0);
+            const nowTime = 4000000;
 
-    //         const distIndex = ethers.parseUnits("7000", 18); // 7000
-    //         const shares = ethers.parseUnits("0", 18); // Total shares in stream
-    //         const inSupply = ethers.parseUnits("5000", 18); // 5000 tokens
-    //         const nowTime = 200; // Use integer for time values
+            const result = await mockContract.syncPosition(position, distIndex, shares, inSupply, nowTime);
 
-    //         const result = await mockContract.syncPosition(position, distIndex, shares, inSupply, nowTime);
+            expect(result.inBalance).to.equal(ethers.parseUnits("250007", 0));
+            expect(result.shares).to.equal(ethers.parseUnits("1000000", 0));
+            expect(result.index).to.equal(distIndex);
+            expect(result.lastUpdateTime).to.equal(nowTime);
+            expect(result.pendingReward).to.equal(ethers.parseUnits("0", 18));
+            expect(result.spentIn).to.equal(ethers.parseUnits("749993", 0));
+            expect(result.purchased).to.equal(ethers.parseUnits("749993", 0));
+            expect(result.exitDate).to.equal(0);
+        });
 
-    //         // Position should be updated with new timestamp and index only
-    //         expect(result.inBalance).to.equal(position.inBalance);
-    //         expect(result.shares).to.equal(position.shares);
-    //         expect(result.index).to.equal(distIndex); // Index should be updated
-    //         expect(result.lastUpdateTime).to.equal(nowTime); // Last update time should be updated
-    //         expect(result.pendingReward).to.equal(position.pendingReward);
-    //         expect(result.spentIn).to.equal(position.spentIn);
-    //         expect(result.purchased).to.equal(position.purchased);
-    //         expect(result.exitDate).to.equal(position.exitDate);
-    //     });
+        it("should update a position to completion (100%)", async function () {
+            const position: PositionTypes.PositionStruct = {
+                inBalance: ethers.parseUnits("250007", 0),
+                shares: ethers.parseUnits("1000000", 0),
+                index: ethers.parseUnits("0.749993", 18),
+                lastUpdateTime: 4000000,
+                pendingReward: ethers.parseUnits("0", 18),
+                spentIn: ethers.parseUnits("749993", 0),
+                purchased: ethers.parseUnits("749993", 0),
+                exitDate: 0
+            };
 
-    //     it("should sync position correctly with share updates", async function () {
-    //         const position = {
-    //             inBalance: 1000, // 1000 tokens
-    //             shares: 1, // 1 share
-    //             index: 5000, // 5000
-    //             lastUpdateTime: 100, // Use integer for time
-    //             pendingReward: 0.1, // 0.1 tokens pending
-    //             spentIn: 500, // 500 tokens already spent
-    //             purchased: 1000, // 1000 tokens already purchased
-    //             exitDate: 0 // Use integer for time
-    //         };
+            const distIndex = ethers.parseUnits("1", 18);
+            const shares = ethers.parseUnits("1000000", 0);
+            const inSupply = ethers.parseUnits("0", 0);
+            const nowTime = 5000001;
 
-    //         const distIndex = 7000; // 7000 (index increased by 2000)
-    //         const shares = 2; // 2 total shares in stream
-    //         const inSupply = 5000; // 5000 tokens in supply
-    //         const nowTime = 200; // Use integer for time
+            const result = await mockContract.syncPosition(position, distIndex, shares, inSupply, nowTime);
 
-    //         const result = await mockContract.syncPosition(position, distIndex, shares, inSupply, nowTime);
+            expect(result.inBalance).to.equal(ethers.parseUnits("0", 0));
+            expect(result.shares).to.equal(ethers.parseUnits("1000000", 0));
+            expect(result.index).to.equal(distIndex);
+            expect(result.lastUpdateTime).to.equal(nowTime);
+            expect(result.pendingReward).to.equal(ethers.parseUnits("0", 18));
+            expect(result.spentIn).to.equal(ethers.parseUnits("1000000", 0));
+            expect(result.purchased).to.equal(ethers.parseUnits("1000000", 0));
+            expect(result.exitDate).to.equal(0);
+        });
 
-    //         // Calculations:
-    //         // Index diff = 7000 - 5000 = 2000
-    //         // Position purchased with diff = (1 share * 2000) + 0.1 * 10^18 = 2.1 * 10^18 tokens
-    //         // New inBalance = (5000 * 1) / 2 = 2500
-    //         // So the new purchased amount should be 1000 + 2.1 = 1002.1
+        it("should handle zero shares case", async function () {
+            const position: PositionTypes.PositionStruct = {
+                inBalance: ethers.parseUnits("1000", 0),
+                shares: ethers.parseUnits("0", 0),
+                index: ethers.parseUnits("0.5", 18),
+                lastUpdateTime: 1000000,
+                pendingReward: ethers.parseUnits("0", 18),
+                spentIn: ethers.parseUnits("500", 0),
+                purchased: ethers.parseUnits("500", 0),
+                exitDate: 0
+            };
 
-    //         expect(result.inBalance).to.equal(2500); // 2500 tokens
-    //         expect(result.shares).to.equal(position.shares); // Shares shouldn't change
-    //         expect(result.index).to.equal(distIndex); // Index should be updated to 7000
-    //         expect(result.lastUpdateTime).to.equal(nowTime); // Last update time should be updated to 200
-    //         expect(result.pendingReward).to.equal(0); // Pending reward should be consumed
-    //         expect(result.spentIn).to.equal(position.spentIn); // In this case, spent doesn't increase 
-    //         expect(result.purchased).to.equal(1002.1); // Purchase should increase to 1002.1
-    //         expect(result.exitDate).to.equal(position.exitDate); // Exit date shouldn't change
-    //     });
+            const distIndex = ethers.parseUnits("0.75", 18);
+            const shares = ethers.parseUnits("0", 0);
+            const inSupply = ethers.parseUnits("250", 0);
+            const nowTime = 3000000;
 
-    //     it("should correctly handle pending rewards", async function () {
-    //         const position = {
-    //             inBalance: ethers.parseUnits("1000", 18), // 1000 tokens
-    //             shares: ethers.parseUnits("1", 18), // 1 share
-    //             index: ethers.parseUnits("5000", 18), // 5000
-    //             lastUpdateTime: 100, // Use integer for time
-    //             pendingReward: ethers.parseUnits("500", 18), // 500 tokens pending
-    //             spentIn: ethers.parseUnits("0", 18),
-    //             purchased: ethers.parseUnits("0", 18),
-    //             exitDate: 0 // Use integer for time
-    //         };
+            const result = await mockContract.syncPosition(position, distIndex, shares, inSupply, nowTime);
 
-    //         const distIndex = ethers.parseUnits("6000", 18); // 6000 (index increased by 1000)
-    //         const shares = ethers.parseUnits("1", 18); // 1 total share in stream
-    //         const inSupply = ethers.parseUnits("1000", 18); // 1000 tokens in supply
-    //         const nowTime = 200; // Use integer for time
+            // Position should remain unchanged except for index and timestamp
+            expect(result.inBalance).to.equal(position.inBalance);
+            expect(result.shares).to.equal(position.shares);
+            expect(result.index).to.equal(distIndex);
+            expect(result.lastUpdateTime).to.equal(nowTime);
+            expect(result.pendingReward).to.equal(position.pendingReward);
+            expect(result.spentIn).to.equal(position.spentIn);
+            expect(result.purchased).to.equal(position.purchased);
+            expect(result.exitDate).to.equal(position.exitDate);
+        });
 
-    //         const result = await mockContract.syncPosition(position, distIndex, shares, inSupply, nowTime);
+        it("should ", async function () {
+            const position: PositionTypes.PositionStruct = {
+                inBalance: ethers.parseUnits("1000", 0),
+                shares: ethers.parseUnits("1000", 0),
+                index: ethers.parseUnits("0", 6),
+                lastUpdateTime: 1000000,
+                pendingReward: ethers.parseUnits("0", 18),
+                spentIn: ethers.parseUnits("0", 0),
+                purchased: ethers.parseUnits("0", 0),
+                exitDate: 0
+            };
 
-    //         // Calculations:
-    //         // Index diff = 6000 - 5000 = 1000
-    //         // New purchased amount = (1 share * 1000) + 500 = 1000 + 500 = 1500
-    //         // When index diff is applied with a full share, we get the full 1000 units
+            const distIndex = ethers.parseUnits("0.75", 6);
+            const shares = ethers.parseUnits("0", 0);
+            // diff is 0.75 - 0 = 0.75
 
-    //         const expectedPurchased = ethers.parseUnits("1500", 18); // 1500 tokens purchased (1000 from index, 500 from pending)
-    //         expect(result.purchased).to.equal(expectedPurchased);
-    //         expect(result.pendingReward).to.equal(0); // Pending rewards should be consumed
-    //     });
-    // });
+
+        });
+    });
+
 });

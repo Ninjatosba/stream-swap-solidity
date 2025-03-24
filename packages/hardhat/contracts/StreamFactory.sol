@@ -9,7 +9,7 @@ contract StreamFactory is IStreamEvents, IStreamErrors {
     struct Params {
         uint256 streamCreationFee; // Fixed fee to create a stream
         address streamCreationFeeToken; // Token used for creation fee,
-        uint256 exitFeePercent; // Fee percentage when exiting a stream
+        Decimal exitFeeRatio; // Fee ratio when exiting a stream
         uint256 minWaitingDuration; // Minimum waiting period
         uint256 minBootstrappingDuration; // Minimum bootstrapping period
         uint256 minStreamDuration; // Minimum duration for a stream
@@ -32,7 +32,7 @@ contract StreamFactory is IStreamEvents, IStreamErrors {
     constructor(
         uint256 _streamCreationFee,
         address _streamCreationFeeToken,
-        uint256 _exitFeePercent,
+        Decimal memory _exitFeeRatio,
         uint256 _minWaitingDuration,
         uint256 _minBootstrappingDuration,
         uint256 _minStreamDuration,
@@ -47,7 +47,7 @@ contract StreamFactory is IStreamEvents, IStreamErrors {
         params = Params({
             streamCreationFee: _streamCreationFee,
             streamCreationFeeToken: _streamCreationFeeToken,
-            exitFeePercent: _exitFeePercent,
+            exitFeeRatio: _exitFeeRatio,
             minWaitingDuration: _minWaitingDuration,
             minBootstrappingDuration: _minBootstrappingDuration,
             minStreamDuration: _minStreamDuration,
@@ -70,14 +70,14 @@ contract StreamFactory is IStreamEvents, IStreamErrors {
 
     function updateParams(
         uint256 _streamCreationFee,
-        uint256 _exitFeePercent,
+        Decimal memory _exitFeeRatio,
         uint256 _minWaitingDuration,
         uint256 _minBootstrappingDuration,
         uint256 _minStreamDuration,
         string memory _tosVersion
     ) external onlyAdmin {
         params.streamCreationFee = _streamCreationFee;
-        params.exitFeePercent = _exitFeePercent;
+        params.exitFeeRatio = _exitFeeRatio;
         params.minWaitingDuration = _minWaitingDuration;
         params.minBootstrappingDuration = _minBootstrappingDuration;
         params.minStreamDuration = _minStreamDuration;
@@ -86,7 +86,7 @@ contract StreamFactory is IStreamEvents, IStreamErrors {
         emit ParamsUpdated(
             address(this),
             _streamCreationFee,
-            _exitFeePercent,
+            _exitFeeRatio,
             _minWaitingDuration,
             _minBootstrappingDuration,
             _minStreamDuration,

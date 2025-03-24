@@ -4,6 +4,7 @@ pragma solidity ^0.8.0;
 import "./StreamMathLib.sol";
 import "./StreamTypes.sol";
 import "./PositionTypes.sol";
+import "./DecimalMath.sol";
 
 contract StreamMathLibMock {
     function calculateDiff(
@@ -50,14 +51,14 @@ contract StreamMathLibMock {
 
     function calculateExitFee(
         uint256 spentInAmount,
-        uint256 exitFeePercent
+        Decimal memory exitFeePercent
     ) external pure returns (uint256 feeAmount, uint256 remainingAmount) {
         return StreamMathLib.calculateExitFee(spentInAmount, exitFeePercent);
     }
 
     function syncPosition(
         PositionTypes.Position memory position,
-        uint256 distIndex,
+        Decimal memory distIndex,
         uint256 shares,
         uint256 inSupply,
         uint256 nowTime

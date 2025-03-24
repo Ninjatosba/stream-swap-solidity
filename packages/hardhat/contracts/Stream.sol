@@ -66,12 +66,12 @@ contract Stream is IStreamErrors, IStreamEvents {
         positionStorageAddress = address(positionStorage);
 
         streamState = IStreamTypes.StreamState({
-            distIndex: 0,
+            distIndex: DecimalMath.fromNumber(0),
             outRemaining: _streamOutAmount,
             inSupply: 0,
             spentIn: 0,
             shares: 0,
-            currentStreamedPrice: 0,
+            currentStreamedPrice: DecimalMath.fromNumber(0),
             threshold: _threshold,
             outSupply: _streamOutAmount,
             lastUpdated: block.timestamp
@@ -283,7 +283,7 @@ contract Stream is IStreamErrors, IStreamEvents {
                 shares: newShares,
                 index: state.distIndex,
                 lastUpdateTime: block.timestamp,
-                pendingReward: 0,
+                pendingReward: DecimalMath.fromNumber(0),
                 spentIn: 0,
                 purchased: 0,
                 exitDate: 0
@@ -389,10 +389,10 @@ contract Stream is IStreamErrors, IStreamEvents {
             StreamFactory factoryContract = StreamFactory(factory);
             StreamFactory.Params memory params = factoryContract.getParams();
             address feeCollector = params.feeCollector;
-            uint256 exitFeePercent = params.exitFeePercent;
+            Decimal memory exitFeeRatio = params.exitFeeRatio;
 
             // Calculate exit fee
-            (uint256 feeAmount, uint256 creatorRevenue) = StreamMathLib.calculateExitFee(state.spentIn, exitFeePercent);
+            (uint256 feeAmount, uint256 creatorRevenue) = StreamMathLib.calculateExitFee(state.spentIn, exitFeeRatio);
 
             // Transfer fee to fee collector if needed
             if (feeAmount > 0) {
