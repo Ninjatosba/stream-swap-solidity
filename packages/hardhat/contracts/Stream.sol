@@ -182,8 +182,10 @@ contract Stream is IStreamErrors, IStreamEvents {
 
         // Load position once
         PositionTypes.Position memory position = loadPosition(msg.sender);
-        if (position.shares == 0) {
-            revert OperationNotAllowed();
+
+        // Check if position is valid and active
+        if (!isValidActivePosition(position)) {
+            revert InvalidPosition();
         }
 
         if (cap > position.inBalance) {
@@ -320,7 +322,7 @@ contract Stream is IStreamErrors, IStreamEvents {
 
         // Check if position is valid and active
         if (!isValidActivePosition(position)) {
-            revert OperationNotAllowed();
+            revert InvalidPosition();
         }
 
         // Load and update stream state
@@ -337,22 +339,8 @@ contract Stream is IStreamErrors, IStreamEvents {
 
         bool thresholdReached = isThresholdReached(state);
 
-        if (
-            (status == IStreamTypes.Status.Ended && thresholdReached) ||
-            (status == IStreamTypes.Status.FinalizedStreamed)
-        ) {
-            // Normal exit
-            // Refund in_amount remaining if any in position
-            if (position.inBalance > 0) {
-                safeTokenTransfer(streamTokens.inSupplyToken, msg.sender, position.inBalance);
-            }
-            // send out_amount earned to position owner
-            safeTokenTransfer(streamTokens.outSupplyToken, msg.sender, position.purchased);
-        } else {
-            // Refund total in_amount
-            uint256 total_amount = position.inBalance + position.spentIn;
-            safeTokenTransfer(streamTokens.inSupplyToken, msg.sender, total_amount);
-        }
+        // Handle token distributions based on exit scenario
+        handleExitDistribution(status, thresholdReached, position);
 
         // Set exit date
         position.exitDate = block.timestamp;
@@ -363,6 +351,47 @@ contract Stream is IStreamErrors, IStreamEvents {
         savePosition(msg.sender, position);
 
         emit Exited(address(this), msg.sender, position.purchased, position.spentIn, block.timestamp);
+    }
+
+    function handleExitDistribution(
+        IStreamTypes.Status status,
+        bool thresholdReached,
+        PositionTypes.Position memory position
+    ) internal {
+        // Case 1: Successful stream completion
+        if (isSuccessfulExit(status, thresholdReached)) {
+            // Return any unused input tokens
+            if (position.inBalance > 0) {
+                safeTokenTransfer(streamTokens.inSupplyToken, msg.sender, position.inBalance);
+            }
+            // Distribute earned output tokens
+            safeTokenTransfer(streamTokens.outSupplyToken, msg.sender, position.purchased);
+            return;
+        }
+
+        // Case 2: Refund scenario
+        if (isRefundExit(status, thresholdReached)) {
+            // Full refund of all input tokens (both spent and unspent)
+            uint256 totalRefund = position.inBalance + position.spentIn;
+            safeTokenTransfer(streamTokens.inSupplyToken, msg.sender, totalRefund);
+            return;
+        }
+
+        // If neither condition is met, the exit is not allowed
+        revert InvalidExitCondition();
+    }
+
+    function isSuccessfulExit(IStreamTypes.Status status, bool thresholdReached) internal pure returns (bool) {
+        return
+            (status == IStreamTypes.Status.Ended && thresholdReached) ||
+            (status == IStreamTypes.Status.FinalizedStreamed);
+    }
+
+    function isRefundExit(IStreamTypes.Status status, bool thresholdReached) internal pure returns (bool) {
+        return
+            status == IStreamTypes.Status.Cancelled ||
+            status == IStreamTypes.Status.FinalizedRefunded ||
+            (status == IStreamTypes.Status.Ended && !thresholdReached);
     }
 
     function finalizeStream() external {
@@ -446,6 +475,54 @@ contract Stream is IStreamErrors, IStreamEvents {
             state.spentIn,
             state.currentStreamedPrice
         );
+    }
+
+    function cancelStream() external {
+        assertIsCreator();
+
+        // Load and update status
+        IStreamTypes.Status status = loadStreamStatus();
+        IStreamTypes.StreamTimes memory times = loadStreamTimes();
+        status = syncStreamStatus(status, times, block.timestamp);
+
+        // Check if operation is allowed
+        IStreamTypes.Status[] memory allowedStatuses = new IStreamTypes.Status[](1);
+        allowedStatuses[0] = IStreamTypes.Status.Waiting;
+        isOperationAllowed(status, allowedStatuses);
+
+        // Refund out tokens to creator
+        safeTokenTransfer(streamTokens.outSupplyToken, creator, streamState.outSupply);
+
+        // Update status
+        status = IStreamTypes.Status.Cancelled;
+        saveStreamStatus(status);
+
+        emit StreamCancelled(address(this), creator, streamState.outSupply, status);
+    }
+
+    function cancelWithAdmin() external {
+        assertIsProtocolAdmin();
+
+        // Load and update status
+        IStreamTypes.Status status = loadStreamStatus();
+        IStreamTypes.StreamTimes memory times = loadStreamTimes();
+        status = syncStreamStatus(status, times, block.timestamp);
+
+        // Check if operation is allowed
+        IStreamTypes.Status[] memory allowedStatuses = new IStreamTypes.Status[](2);
+        allowedStatuses[0] = IStreamTypes.Status.Waiting;
+        allowedStatuses[1] = IStreamTypes.Status.Bootstrapping;
+        allowedStatuses[2] = IStreamTypes.Status.Active;
+        isOperationAllowed(status, allowedStatuses);
+
+        // Refund out tokens to creator
+        safeTokenTransfer(streamTokens.outSupplyToken, creator, streamState.outSupply);
+
+        // Update status
+        status = IStreamTypes.Status.Cancelled;
+        saveStreamStatus(status);
+
+        emit StreamCancelled(address(this), creator, streamState.outSupply, status);
     }
 
     /**
@@ -563,6 +640,15 @@ contract Stream is IStreamErrors, IStreamEvents {
      */
     function assertIsCreator() internal view {
         if (msg.sender != creator) revert Unauthorized();
+    }
+
+    /**
+     * @dev Ensure sender is the protocol admin
+     */
+    function assertIsProtocolAdmin() internal view {
+        StreamFactory factoryContract = StreamFactory(factory);
+        address protocolAdmin = factoryContract.getParams().protocolAdmin;
+        if (msg.sender != protocolAdmin) revert Unauthorized();
     }
 
     /**

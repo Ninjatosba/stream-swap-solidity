@@ -18,6 +18,8 @@ interface IStreamErrors {
     error InvalidWithdrawAmount();
     error WithdrawAmountExceedsBalance(uint256 cap);
     error InsufficientOutAmount();
+    error InvalidPosition();
+    error InvalidExitCondition();
     // StreamFactory errors
     error ContractFrozen();
     error InvalidExitFeeRatio();

@@ -84,4 +84,11 @@ interface IStreamEvents {
     event FrozenStateUpdated(address indexed factory, bool frozen);
 
     event AcceptedTokensUpdated(address indexed factory, address[] tokensAdded, address[] tokensRemoved);
+
+    event StreamCancelled(
+        address indexed streamAddress,
+        address creator,
+        uint256 outSupply,
+        IStreamTypes.Status status
+    );
 }
