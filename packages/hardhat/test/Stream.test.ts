@@ -80,14 +80,14 @@ describe("Stream Threshold", function () {
         expect(status).to.equal(3); // Ended phase
 
         // When finalized out tokens should be refunded first check current balance of the creator
-        let creatorBalanceBefore = await contracts.outSupplyToken.balanceOf(accounts.deployer);
+        let creatorBalanceBefore = await contracts.outSupplyToken.balanceOf(accounts.creator.address);
 
         // Finalize the stream
-        let finalizeTx = await contracts.stream.finalizeStream();
+        let finalizeTx = await contracts.stream.connect(accounts.creator).finalizeStream();
         await finalizeTx.wait();
 
         // Check balance of the creator
-        let creatorBalanceAfter = await contracts.outSupplyToken.balanceOf(accounts.deployer);
+        let creatorBalanceAfter = await contracts.outSupplyToken.balanceOf(accounts.creator.address);
         expect(creatorBalanceAfter).to.equal(creatorBalanceBefore + BigInt(config.streamOutAmount));
     })
     it("Should refund to subscribers if threshold is not reached", async function () {
@@ -132,7 +132,7 @@ describe("Stream Threshold", function () {
         await exitTx.wait();
 
         // Creator finalizes the stream
-        let finalizeTx = await contracts.stream.finalizeStream();
+        let finalizeTx = await contracts.stream.connect(accounts.creator).finalizeStream();
         await finalizeTx.wait();
 
         // Subscriber two exits at status finalized::refunded
@@ -153,7 +153,7 @@ describe("Stream Threshold", function () {
 
     it("Should finalize normally if threshold is reached", async function () {
         let threshold = 100;
-        const { contracts, timeParams, accounts, config } = await loadFixture(stream().setThreshold(threshold).build());
+        const { contracts, timeParams, accounts, config, factoryParams } = await loadFixture(stream().setThreshold(threshold).build());
 
         // Fast forward time to stream start
         await ethers.provider.send("evm_setNextBlockTimestamp", [timeParams.streamStartTime + 1]);
@@ -182,17 +182,19 @@ describe("Stream Threshold", function () {
 
         // Check balance of the subscriber1
         let subscriber1OutSupplyTokenBalanceAfter = await contracts.outSupplyToken.balanceOf(accounts.subscriber1.address);
-        console.log("subscriber1OutSupplyTokenBalanceAfter", subscriber1OutSupplyTokenBalanceAfter);
         expect(subscriber1OutSupplyTokenBalanceAfter).to.equal(subscriber1BalanceBefore + BigInt(config.streamOutAmount));
 
         // Finalize the stream
-        let creatorInSupplyTokenBalanceBefore = await contracts.inSupplyToken.balanceOf(accounts.deployer);
+        let creatorInSupplyTokenBalanceBefore = await contracts.inSupplyToken.balanceOf(accounts.creator.address);
 
-        let finalizeTx = await contracts.stream.finalizeStream();
+        let finalizeTx = await contracts.stream.connect(accounts.creator).finalizeStream();
         await finalizeTx.wait();
 
         // Check balance of the creator
-        let creatorInSupplyTokenBalanceAfter = await contracts.inSupplyToken.balanceOf(accounts.deployer);
-        expect(creatorInSupplyTokenBalanceAfter).to.equal(creatorInSupplyTokenBalanceBefore + BigInt(threshold));
+        let creatorInSupplyTokenBalanceAfter = await contracts.inSupplyToken.balanceOf(accounts.creator.address);
+        let exitFeeRatio = factoryParams.exitFeeRatio.value;
+        let ratio = exitFeeRatio as number / 1000000;
+        let expectedBalance = creatorInSupplyTokenBalanceBefore + BigInt(threshold) - BigInt(threshold * ratio);
+        expect(creatorInSupplyTokenBalanceAfter).to.equal(expectedBalance);
     });
 });

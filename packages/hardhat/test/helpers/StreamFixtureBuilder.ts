@@ -223,6 +223,14 @@ export class StreamFixtureBuilder {
                     config: {
                         streamOutAmount: config.streamOutAmount,
                         threshold: config.threshold
+                    },
+                    factoryParams: {
+                        streamCreationFee: config.streamCreationFee,
+                        exitFeeRatio: config.ExitFeeRatio,
+                        minWaitingDuration: config.minWaitingDuration,
+                        minBootstrappingDuration: config.minBootstrappingDuration,
+                        minStreamDuration: config.minStreamDuration,
+                        tosVersion: config.tosVersion
                     }
                 };
             } catch (error) {
