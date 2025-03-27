@@ -106,9 +106,9 @@ export class StreamFixtureBuilder {
                 await ethers.provider.send("hardhat_reset", []);
 
                 // Get signers
-                const [deployer, subscriber1, subscriber2] = await ethers.getSigners();
+                const [deployer, creator, subscriber1, subscriber2] = await ethers.getSigners();
 
-                // Deploy token contracts
+                // Deploy token contracts with deployer
                 const InSupplyToken = await ethers.getContractFactory("ERC20Mock");
                 const inSupplyToken = await InSupplyToken.deploy("StreamInSupply Token", "IN");
 
@@ -116,13 +116,13 @@ export class StreamFixtureBuilder {
                 const outSupplyToken = await OutSupplyToken.deploy("StreamOutSupply Token", "OUT");
 
                 // Mint tokens for stream creator
-                await outSupplyToken.mint(deployer.address, config.streamOutAmount);
+                await outSupplyToken.mint(creator.address, config.streamOutAmount);
+
                 // Mint tokens for subscribers
-                await inSupplyToken.mint(subscriber1.address, 100_000_000);
-                await inSupplyToken.mint(subscriber2.address, 100_000_000);
+                await inSupplyToken.mint(subscriber1.address, ethers.parseEther("100"));
+                await inSupplyToken.mint(subscriber2.address, ethers.parseEther("100"));
 
-
-                // Deploy StreamFactory
+                // Deploy StreamFactory with deployer
                 const StreamFactoryFactory = await ethers.getContractFactory("StreamFactory");
                 const streamFactory = await StreamFactoryFactory.deploy(
                     config.streamCreationFee,
@@ -137,8 +137,11 @@ export class StreamFixtureBuilder {
                     config.tosVersion
                 );
 
-                // Approve tokens
-                await outSupplyToken.approve(await streamFactory.getAddress(), config.streamOutAmount);
+                // IMPORTANT: Creator approves tokens (not deployer)
+                await outSupplyToken.connect(creator).approve(
+                    await streamFactory.getAddress(),
+                    config.streamOutAmount
+                );
 
                 // Get current time
                 let nowSeconds: number;
@@ -154,8 +157,8 @@ export class StreamFixtureBuilder {
                 const streamStartTime = bootstrappingStartTime + config.bootstrappingDuration;
                 const streamEndTime = streamStartTime + config.streamDuration;
 
-                // Create stream
-                const tx = await streamFactory.createStream(
+                // Create stream with creator (not deployer)
+                const tx = await streamFactory.connect(creator).createStream(
                     config.streamOutAmount,
                     await outSupplyToken.getAddress(),
                     bootstrappingStartTime,
@@ -190,8 +193,6 @@ export class StreamFixtureBuilder {
                 // Get the stream address directly from the parsed event
                 const streamAddress = parsedEvent?.args.streamAddress || ethers.ZeroAddress;
 
-                console.log("Stream address from event:", streamAddress);
-
                 if (streamAddress === ethers.ZeroAddress) {
                     throw new Error("Invalid stream address (zero address)");
                 }
@@ -209,6 +210,7 @@ export class StreamFixtureBuilder {
                     },
                     accounts: {
                         deployer,
+                        creator,
                         subscriber1,
                         subscriber2
                     },

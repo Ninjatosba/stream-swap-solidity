@@ -488,7 +488,10 @@ contract Stream is IStreamErrors, IStreamEvents {
         // Check if operation is allowed
         IStreamTypes.Status[] memory allowedStatuses = new IStreamTypes.Status[](1);
         allowedStatuses[0] = IStreamTypes.Status.Waiting;
-        isOperationAllowed(status, allowedStatuses);
+        bool isAllowed = isOperationAllowed(status, allowedStatuses);
+        if (!isAllowed) {
+            revert OperationNotAllowed();
+        }
 
         // Refund out tokens to creator
         safeTokenTransfer(streamTokens.outSupplyToken, creator, streamState.outSupply);
@@ -509,11 +512,14 @@ contract Stream is IStreamErrors, IStreamEvents {
         status = syncStreamStatus(status, times, block.timestamp);
 
         // Check if operation is allowed
-        IStreamTypes.Status[] memory allowedStatuses = new IStreamTypes.Status[](2);
+        IStreamTypes.Status[] memory allowedStatuses = new IStreamTypes.Status[](3);
         allowedStatuses[0] = IStreamTypes.Status.Waiting;
         allowedStatuses[1] = IStreamTypes.Status.Bootstrapping;
         allowedStatuses[2] = IStreamTypes.Status.Active;
-        isOperationAllowed(status, allowedStatuses);
+        bool isAllowed = isOperationAllowed(status, allowedStatuses);
+        if (!isAllowed) {
+            revert OperationNotAllowed();
+        }
 
         // Refund out tokens to creator
         safeTokenTransfer(streamTokens.outSupplyToken, creator, streamState.outSupply);
@@ -675,5 +681,13 @@ contract Stream is IStreamErrors, IStreamEvents {
      */
     function getStreamStatus() external view returns (IStreamTypes.Status) {
         return streamStatus;
+    }
+
+    /**
+     * @dev Get the current stream state
+     * @return The current stream state
+     */
+    function getStreamState() external view returns (IStreamTypes.StreamState memory) {
+        return streamState;
     }
 }
