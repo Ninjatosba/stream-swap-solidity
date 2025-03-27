@@ -77,6 +77,20 @@ describe("StreamFactory", function () {
             await factory.connect(protocolAdmin).updateAcceptedTokens([], [newToken]);
             expect(await factory.isAcceptedInSupplyToken(newToken)).to.be.false;
         });
+        it("should not allow non-admin to update accepted tokens", async function () {
+            const { factory, owner } = await loadFixture(streamFactory().build());
+            const newToken = ethers.Wallet.createRandom().address;
+
+            await expect(factory.connect(owner).updateAcceptedTokens([newToken], [])).to.be.revertedWithCustomError(factory, "NotAdmin");
+        });
+        it("should remove token from accepted tokens if set", async function () {
+            const { factory, protocolAdmin } = await loadFixture(streamFactory().build());
+            const acceptedTokens = await factory.getAcceptedInSupplyTokens();
+            // Remove accepted tokens
+            await factory.connect(protocolAdmin).updateAcceptedTokens([], acceptedTokens);
+            const acceptedTokensAfter = await factory.getAcceptedInSupplyTokens();
+            expect(acceptedTokensAfter.length).to.equal(0);
+        });
     });
 
     describe("View Functions", function () {

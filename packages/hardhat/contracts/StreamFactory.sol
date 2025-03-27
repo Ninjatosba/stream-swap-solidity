@@ -121,10 +121,6 @@ contract StreamFactory is IStreamEvents, IStreamErrors {
         emit AcceptedTokensUpdated(address(this), tokens_to_add, tokens_to_remove);
     }
 
-    function isAcceptedInSupplyToken(address token) public view returns (bool) {
-        return acceptedInSupplyTokens[token];
-    }
-
     function createStream(
         uint256 _streamOutAmount,
         address _outSupplyToken,
@@ -248,6 +244,20 @@ contract StreamFactory is IStreamEvents, IStreamErrors {
 
     function getParams() external view returns (Params memory) {
         return params;
+    }
+
+    function isAcceptedInSupplyToken(address token) public view returns (bool) {
+        return acceptedInSupplyTokens[token];
+    }
+
+    function getAcceptedInSupplyTokens() external view returns (address[] memory) {
+        address[] memory tokens = new address[](currentStreamId);
+        for (uint16 i = 0; i < currentStreamId; i++) {
+            if (acceptedInSupplyTokens[streamAddresses[i]]) {
+                tokens[i] = streamAddresses[i];
+            }
+        }
+        return tokens;
     }
 
     function setFrozen(bool _frozen) external onlyAdmin {

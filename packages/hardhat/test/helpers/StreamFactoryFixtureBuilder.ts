@@ -100,7 +100,8 @@ export class StreamFactoryFixtureBuilder {
                 protocolAdmin,
                 inSupplyToken,
                 outSupplyToken,
-                config
+                config,
+
             };
         };
     }
