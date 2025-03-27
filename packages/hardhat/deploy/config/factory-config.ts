@@ -1,9 +1,10 @@
 // packages/hardhat/deploy/config/factory-config.ts
 
 import { AddressLike } from "ethers";
+import { DecimalStruct } from "../../typechain-types/contracts/StreamFactory";
 
 export interface FactoryConfig {
-    ExitFeeRatio: number;
+    ExitFeeRatio: DecimalStruct;
     feeCollector: string;
     protocolAdmin: string;
     minWaitingDuration: number;
@@ -16,7 +17,9 @@ export interface FactoryConfig {
 }
 
 export const createFactoryConfig = (deployer: string, acceptedInDenoms: AddressLike[]): FactoryConfig => ({
-    ExitFeeRatio: 100000, // 10% fee
+    ExitFeeRatio: {
+        value: 100000, // 10% fee
+    },
     feeCollector: deployer,
     minWaitingDuration: 5,
     minBootstrappingDuration: 1,
@@ -40,5 +43,7 @@ export const createProductionFactoryConfig = (deployer: string, inDenom: string)
     minWaitingDuration: 3600, // 1 hour
     minBootstrappingDuration: 86400, // 1 day
     minStreamDuration: 259200, // 3 days
-    ExitFeeRatio: 200, // 2% fee
+    ExitFeeRatio: {
+        value: 20000, // 2% fee
+    },
 });

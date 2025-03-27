@@ -219,7 +219,7 @@ const deployStreamContract: DeployFunction = async function (hre: HardhatRuntime
       .find((log: ethers.LogDescription | null) => log !== null);
 
     if (parsedLog) {
-      const streamAddress = ethers.getAddress(parsedLog.args[4]); // Normalize address
+      const streamAddress = ethers.getAddress(parsedLog.args.streamAddress);
       console.log("New Stream Contract Address:", streamAddress);
 
       // Save the stream address for future reference
