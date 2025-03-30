@@ -12,6 +12,8 @@ import "./StreamMathLib.sol";
 import "./IERC20.sol";
 import "hardhat/console.sol";
 
+import "./IVesting.sol";
+
 contract Stream is IStreamErrors, IStreamEvents {
     address public creator;
     address public positionStorageAddress;
@@ -22,6 +24,8 @@ contract Stream is IStreamErrors, IStreamEvents {
     IStreamTypes.StreamMetadata public streamMetadata;
     IStreamTypes.Status public streamStatus;
     IStreamTypes.StreamTimes public streamTimes;
+    IStreamTypes.VestingInfo public creatorVestingInfo;
+    IStreamTypes.VestingInfo public beneficiaryVestingInfo;
     address public factory;
 
     PositionStorage public positionStorage;
@@ -36,7 +40,9 @@ contract Stream is IStreamErrors, IStreamEvents {
         uint256 _threshold,
         string memory _name,
         address _inSupplyToken,
-        address _creator
+        address _creator,
+        VestingInfo memory _creatorVestingInfo,
+        VestingInfo memory _beneficiaryVestingInfo
     ) {
         // Validate that output token is a valid ERC20
         if (!isValidERC20(_outSupplyToken, msg.sender)) {
@@ -51,6 +57,38 @@ contract Stream is IStreamErrors, IStreamEvents {
         // Validate that in token is a valid ERC20
         if (!isValidERC20(_inSupplyToken, msg.sender)) {
             revert InvalidInSupplyToken();
+        }
+
+        // Validate and set creator vesting info
+        if (_creatorVestingInfo.isVestingEnabled) {
+            // Validate vesting duration
+            if (_creatorVestingInfo.vestingDuration == 0) {
+                revert InvalidVestingDuration();
+            }
+            if (_creatorVestingInfo.cliffDuration == 0) {
+                revert InvalidVestingCliffDuration();
+            }
+            if (_creatorVestingInfo.cliffDuration >= _creatorVestingInfo.vestingDuration) {
+                revert InvalidVestingCliffDuration();
+            }
+            // set vesting info
+            creatorVestingInfo = _creatorVestingInfo;
+        }
+
+        // Validate and set beneficiary vesting info
+        if (_beneficiaryVestingInfo.isVestingEnabled) {
+            // Validate vesting duration
+            if (_beneficiaryVestingInfo.vestingDuration == 0) {
+                revert InvalidVestingDuration();
+            }
+            if (_beneficiaryVestingInfo.cliffDuration == 0) {
+                revert InvalidVestingCliffDuration();
+            }
+            if (_beneficiaryVestingInfo.cliffDuration >= _beneficiaryVestingInfo.vestingDuration) {
+                revert InvalidVestingCliffDuration();
+            }
+            // set vesting info
+            beneficiaryVestingInfo = _beneficiaryVestingInfo;
         }
 
         creator = _creator;
@@ -348,7 +386,8 @@ contract Stream is IStreamErrors, IStreamEvents {
     function handleExitDistribution(
         IStreamTypes.Status status,
         bool thresholdReached,
-        PositionTypes.Position memory position
+        PositionTypes.Position memory position,
+        IStreamTypes.VestingInfo memory vestingInfo
     ) internal {
         // Case 1: Successful stream completion
         if (isSuccessfulExit(status, thresholdReached)) {
@@ -356,8 +395,21 @@ contract Stream is IStreamErrors, IStreamEvents {
             if (position.inBalance > 0) {
                 safeTokenTransfer(streamTokens.inSupplyToken, msg.sender, position.inBalance);
             }
-            // Distribute earned output tokens
-            safeTokenTransfer(streamTokens.outSupplyToken, msg.sender, position.purchased);
+            if (vestingInfo.isVestingEnabled) {
+                // Distribute earned output tokens
+                uint256 amountToDistribute = position.purchased;
+                // Load factory params
+                StreamFactory factoryContract = StreamFactory(factory);
+                StreamFactory.Params memory params = factoryContract.getParams();
+                address vestingContractAddress = params.vestingAddress;
+                IVesting vestingContract = IVesting(vestingContractAddress);
+                // Create vesting schedule
+                (uint256 cliffTime, uint256 endTime) = StreamMathLib.calculateVestingSchedule(block.timestamp, vestingInfo.cliffDuration, vestingInfo.vestingDuration);
+                // Transfer tokens to vesting contract
+                safeTokenTransfer(streamTokens.outSupplyToken, vestingContractAddress, amountToDistribute);
+                // Create vesting schedule
+                vestingContract.stakeFunds(msg.sender, streamTokens.outSupplyToken, cliffTime, endTime, amountToDistribute);
+            }
             return;
         }
 

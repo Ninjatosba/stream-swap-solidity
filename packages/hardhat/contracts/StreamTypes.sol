@@ -40,4 +40,9 @@ interface IStreamTypes {
         address inSupplyToken;
         address outSupplyToken;
     }
+    struct VestingInfo {
+        bool isVestingEnabled;
+        uint16 vestingDuration;
+        uint16 cliffDuration;
+    }
 }

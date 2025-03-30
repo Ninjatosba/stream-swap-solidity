@@ -20,6 +20,8 @@ interface IStreamErrors {
     error InsufficientOutAmount();
     error InvalidPosition();
     error InvalidExitCondition();
+    error InvalidVestingDuration();
+    error InvalidVestingCliffDuration();
     // StreamFactory errors
     error ContractFrozen();
     error InvalidExitFeeRatio();

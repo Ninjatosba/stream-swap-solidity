@@ -5,6 +5,7 @@ import "./Stream.sol";
 import "./StreamEvents.sol";
 import "./StreamErrors.sol";
 import "./Vesting.sol";
+import "./StreamTypes.sol";
 contract StreamFactory is IStreamEvents, IStreamErrors {
     struct Params {
         uint256 streamCreationFee; // Fixed fee to create a stream
@@ -140,7 +141,9 @@ contract StreamFactory is IStreamEvents, IStreamErrors {
         string memory _name,
         address _inSupplyToken,
         string memory _tosVersion,
-        bytes32 _salt
+        bytes32 _salt,
+        VestingInfo memory _creatorVestingInfo,
+        VestingInfo memory _beneficiaryVestingInfo
     ) external payable {
         // Check if contract is accepting new streams (not frozen)
         if (frozen) revert ContractFrozen();

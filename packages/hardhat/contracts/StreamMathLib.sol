@@ -217,4 +217,15 @@ library StreamMathLib {
 
         return updatedPosition;
     }
+
+    function calculateVestingSchedule(
+        uint256 nowTime,
+        uint256 cliffDuration,
+        uint256 vestingDuration
+    ) internal pure returns (uint256 cliffTime, uint256 endTime) {
+        cliffTime = nowTime + cliffDuration;
+        endTime = nowTime + vestingDuration;
+        return (cliffTime, endTime);
+    }
+
 }
