@@ -4,7 +4,7 @@ pragma solidity >=0.8.0 <0.9.0;
 import "./Stream.sol";
 import "./StreamEvents.sol";
 import "./StreamErrors.sol";
-
+import "./Vesting.sol";
 contract StreamFactory is IStreamEvents, IStreamErrors {
     struct Params {
         uint256 streamCreationFee; // Fixed fee to create a stream
@@ -16,6 +16,7 @@ contract StreamFactory is IStreamEvents, IStreamErrors {
         address feeCollector; // Address where fees are collected
         address protocolAdmin; // Admin address for protocol
         string tosVersion; // Terms of service version
+        address vestingAddress; // Address of the vesting contract
     }
 
     mapping(address => bool) public acceptedInSupplyTokens;
@@ -46,6 +47,13 @@ contract StreamFactory is IStreamEvents, IStreamErrors {
 
         // Check if exit fee ratio is between 0 and 1
         if (DecimalMath.gt(_exitFeeRatio, DecimalMath.fromNumber(1))) revert InvalidExitFeeRatio();
+
+        // Deploy vesting contract
+        Vesting vesting = new Vesting();
+
+        // Emit event for vesting contract deployment
+        emit VestingContractDeployed(address(this), address(vesting));
+
         params = Params({
             streamCreationFee: _streamCreationFee,
             streamCreationFeeToken: _streamCreationFeeToken,
@@ -55,7 +63,8 @@ contract StreamFactory is IStreamEvents, IStreamErrors {
             minStreamDuration: _minStreamDuration,
             feeCollector: _feeCollector,
             protocolAdmin: _protocolAdmin,
-            tosVersion: _tosVersion
+            tosVersion: _tosVersion,
+            vestingAddress: address(vesting)
         });
 
         // Set accepted tokens

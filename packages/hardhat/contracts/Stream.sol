@@ -9,16 +9,8 @@ import "./StreamTypes.sol";
 import "./StreamFactory.sol";
 import "./DecimalMath.sol";
 import "./StreamMathLib.sol";
-
+import "./IERC20.sol";
 import "hardhat/console.sol";
-
-interface IERC20 {
-    function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
-
-    function balanceOf(address account) external view returns (uint256);
-
-    function transfer(address to, uint256 amount) external returns (bool);
-}
 
 contract Stream is IStreamErrors, IStreamEvents {
     address public creator;

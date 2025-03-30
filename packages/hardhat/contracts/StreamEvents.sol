@@ -91,4 +91,6 @@ interface IStreamEvents {
         uint256 outSupply,
         IStreamTypes.Status status
     );
+
+    event VestingContractDeployed(address indexed factoryAddress, address vestingContract);
 }
