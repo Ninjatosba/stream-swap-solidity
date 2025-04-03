@@ -171,7 +171,7 @@ export class StreamFixtureBuilder {
                     config.tosVersion
                 );
 
-                // IMPORTANT: Creator approves tokens (not deployer)
+                // IMPORTANT: Creator approves tokens
                 await outSupplyToken.connect(creator).approve(
                     await streamFactory.getAddress(),
                     config.streamOutAmount

@@ -67,6 +67,12 @@ const config: HardhatUserConfig = {
         interval: 1000  // Add a 1 second interval between blocks
       }
     },
+    localhost: {
+      url: "http://127.0.0.1:8545",
+      // The following are optional but might be needed depending on your setup
+      timeout: 60000,
+      chainId: 31337
+    },
     mainnet: {
       url: `https://eth-mainnet.alchemyapi.io/v2/${providerApiKey}`,
       accounts: [deployerPrivateKey],

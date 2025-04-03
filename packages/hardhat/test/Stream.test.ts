@@ -173,7 +173,6 @@ describe("Stream Threshold", function () {
         await ethers.provider.send("evm_mine", []);
 
         // Threshold is reached
-
         // When subscriber1 exits at status ended should acquire out tokens
         let subscriber1BalanceBefore = await contracts.outSupplyToken.balanceOf(accounts.subscriber1.address);
         // Exit the stream
@@ -216,10 +215,12 @@ describe("Stream Recurring subscription", function () {
         expect(status).to.equal(2); // Stream phase (Active)
 
         // Subscribe to the stream
+        await contracts.inSupplyToken.connect(accounts.subscriber1).approve(contracts.stream.getAddress(), 100);
         let subscribeTx = await contracts.stream.connect(accounts.subscriber1).subscribe(100);
         await subscribeTx.wait();
 
         // Subscribe to the stream again
+        await contracts.inSupplyToken.connect(accounts.subscriber1).approve(contracts.stream.getAddress(), 100);
         let subscribeTx2 = await contracts.stream.connect(accounts.subscriber1).subscribe(100);
         await subscribeTx2.wait();
     });

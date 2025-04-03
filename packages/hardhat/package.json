@@ -16,7 +16,7 @@
     "hardhat-verify": "hardhat verify",
     "lint": "eslint --config ./.eslintrc.json --ignore-path ./.eslintignore ./*.ts ./deploy/**/*.ts ./scripts/**/*.ts ./test/**/*.ts",
     "lint-staged": "eslint --config ./.eslintrc.json --ignore-path ./.eslintignore",
-    "test": "REPORT_GAS=true hardhat test --network hardhat",
+    "test": "REPORT_GAS=true hardhat test",
     "verify": "hardhat etherscan-verify",
     "sync-abis": "hardhat sync-abis",
     "generate-indexer-types": "typechain --target viem --out-dir ../indexer/types '../indexer/abis/**/*.json'",

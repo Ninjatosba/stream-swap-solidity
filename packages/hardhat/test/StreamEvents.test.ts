@@ -112,7 +112,17 @@ describe("StreamEvents", function () {
                 streamName,
                 await inSupplyToken.getAddress(),  // Use getAddress
                 tosVersion,
-                salt
+                salt,
+                {
+                    cliffDuration: 0,
+                    vestingDuration: 0,
+                    isVestingEnabled: false
+                },
+                {
+                    cliffDuration: 0,
+                    vestingDuration: 0,
+                    isVestingEnabled: false
+                }
             );
             const receipt = await tx.wait();
             if (receipt) {
