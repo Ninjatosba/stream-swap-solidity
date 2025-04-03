@@ -193,6 +193,8 @@ const deployStreamContract: DeployFunction = async function (hre: HardhatRuntime
       inDenomAddress,
       streamConfig.tosVersion,
       salt,
+      streamConfig.creatorVestingInfo,
+      streamConfig.beneficiaryVestingInfo,
       txOptions // This will include { value: factoryFee } for native token fees
     );
 

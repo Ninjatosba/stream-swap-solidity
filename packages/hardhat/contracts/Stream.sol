@@ -41,8 +41,8 @@ contract Stream is IStreamErrors, IStreamEvents {
         string memory _name,
         address _inSupplyToken,
         address _creator,
-        VestingInfo memory _creatorVestingInfo,
-        VestingInfo memory _beneficiaryVestingInfo
+        IStreamTypes.VestingInfo memory _creatorVestingInfo,
+        IStreamTypes.VestingInfo memory _beneficiaryVestingInfo
     ) {
         // Validate that output token is a valid ERC20
         if (!isValidERC20(_outSupplyToken, msg.sender)) {
@@ -370,7 +370,7 @@ contract Stream is IStreamErrors, IStreamEvents {
         bool thresholdReached = isThresholdReached(state);
 
         // Handle token distributions based on exit scenario
-        handleExitDistribution(status, thresholdReached, position);
+        handleExitDistribution(status, thresholdReached, position, beneficiaryVestingInfo);
 
         // Set exit date
         position.exitDate = block.timestamp;

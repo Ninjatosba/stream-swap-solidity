@@ -11,7 +11,8 @@ import "hardhat-deploy";
 import "hardhat-deploy-ethers";
 import { task } from "hardhat/config";
 import generateTsAbis from "./scripts/generateTsAbis";
-
+import path from "path";
+import fs from "fs";
 // If not set, it uses ours Alchemy's default API key.
 // You can get your own at https://dashboard.alchemyapi.io
 const providerApiKey = process.env.ALCHEMY_API_KEY || "oKxs-03sij-U_N0iOlrSsZFr29-IqbuF";
@@ -196,5 +197,70 @@ task("deploy").setAction(async (args, hre, runSuper) => {
   // Force run the generateTsAbis script
   await generateTsAbis(hre);
 });
+
+task('sync-abis', 'Syncs ABIs with the indexer').setAction(async () => {
+  const sourceDir = './artifacts/contracts';
+  const targetDir = '../indexer/abis';
+
+  if (!fs.existsSync(sourceDir)) {
+    console.error(`❌ Source directory ${sourceDir} does not exist!`);
+    return;
+  }
+
+  if (!fs.existsSync(targetDir)) {
+    console.log(`📁 Creating target directory ${targetDir}`);
+    fs.mkdirSync(targetDir, { recursive: true });
+  }
+
+  // Recursive function to find all .json files
+  const findJsonFiles = (dir: string): string[] => {
+    let results: string[] = [];
+    const items = fs.readdirSync(dir);
+
+    items.forEach((item) => {
+      const fullPath = path.join(dir, item);
+      const stat = fs.statSync(fullPath);
+
+      if (stat.isDirectory()) {
+        results = results.concat(findJsonFiles(fullPath));
+      } else if (item.endsWith('.json') && !item.endsWith('.dbg.json')) {
+        // Skip debug files and only include main artifact files
+        results.push(fullPath);
+      }
+    });
+
+    return results;
+  };
+
+  try {
+    const jsonFiles = findJsonFiles(sourceDir);
+    console.log(`Found ${jsonFiles.length} JSON files`);
+
+    let copiedFiles = 0;
+    jsonFiles.forEach((sourcePath) => {
+      // Get just the contract name for the target file
+      const fileName = path.basename(sourcePath);
+      const targetPath = path.join(targetDir, fileName);
+
+      try {
+        fs.copyFileSync(sourcePath, targetPath);
+        console.log(`✓ Copied ${fileName}`);
+        copiedFiles++;
+      } catch (error) {
+        console.error(`❌ Error copying ${fileName}:`, error);
+      }
+    });
+
+    if (copiedFiles === 0) {
+      console.warn('⚠️ No ABI files copied!');
+    } else {
+      console.log(`✅ Successfully copied ${copiedFiles} ABI files to indexer`);
+    }
+  } catch (error) {
+    console.error('❌ Error processing files:', error);
+  }
+});
+
+
 
 export default config;

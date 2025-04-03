@@ -198,3 +198,29 @@ describe("Stream Threshold", function () {
         expect(creatorInSupplyTokenBalanceAfter).to.equal(expectedBalance);
     });
 });
+
+describe("Stream Recurring subscription", function () {
+    it("Should create a recurring subscription", async function () {
+        const { contracts, timeParams, accounts, config } = await loadFixture(stream().build());
+
+        // Fast forward time to stream start
+        await ethers.provider.send("evm_setNextBlockTimestamp", [timeParams.streamStartTime + 1]);
+        await ethers.provider.send("evm_mine", []);
+
+        // Sync the stream
+        let tx = await contracts.stream.syncStreamExternal();
+        await tx.wait();
+
+        // Check status
+        const status = await contracts.stream.streamStatus();
+        expect(status).to.equal(2); // Stream phase (Active)
+
+        // Subscribe to the stream
+        let subscribeTx = await contracts.stream.connect(accounts.subscriber1).subscribe(100);
+        await subscribeTx.wait();
+
+        // Subscribe to the stream again
+        let subscribeTx2 = await contracts.stream.connect(accounts.subscriber1).subscribe(100);
+        await subscribeTx2.wait();
+    });
+});

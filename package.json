@@ -43,7 +43,8 @@
     "test": "yarn hardhat:test",
     "vercel": "yarn workspace @se-2/nextjs vercel",
     "vercel:yolo": "yarn workspace @se-2/nextjs vercel:yolo",
-    "verify": "yarn hardhat:verify"
+    "verify": "yarn hardhat:verify",
+    "compile:sync": "yarn workspace @se-2/hardhat compile && yarn workspace @se-2/hardhat sync-abis && yarn workspace @se-2/hardhat generate-indexer-types"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",

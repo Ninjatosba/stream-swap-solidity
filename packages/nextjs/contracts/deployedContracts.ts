@@ -7,7 +7,7 @@ import { GenericContractsDeclaration } from "~~/utils/scaffold-eth/contract";
 const deployedContracts = {
   31337: {
     InDenomToken: {
-      address: "0xa513E6E4b8f2a923D98304ec87F64353C4D5C853",
+      address: "0x9A676e781A523b5d0C0e43731313A708CB607508",
       abi: [
         {
           inputs: [
@@ -355,7 +355,7 @@ const deployedContracts = {
       inheritedFunctions: {},
     },
     OutDenomToken: {
-      address: "0x2279B7A0a67DB372996a5FaB50D91eAA73d2eBe6",
+      address: "0x0B306BF915C4d645ff596e518fAf3F9669b97016",
       abi: [
         {
           inputs: [
@@ -703,12 +703,12 @@ const deployedContracts = {
       inheritedFunctions: {},
     },
     Stream: {
-      address: "0x03b19fec608572c236ce5963700eED797C2B9989",
+      address: "0xC204CC64623D571Ebb301b368BD38e8Cb8B595bf",
       abi: [],
       inheritedFunctions: {},
     },
     StreamFactory: {
-      address: "0xB7f8BC63BbcaD18155201308C8f3540b07f84F5e",
+      address: "0x68B1D87F95878fE05B998F19b66F4baba5De1aed",
       abi: [
         {
           inputs: [
@@ -872,6 +872,16 @@ const deployedContracts = {
         {
           inputs: [],
           name: "InvalidToSVersion",
+          type: "error",
+        },
+        {
+          inputs: [],
+          name: "InvalidVestingCliffDuration",
+          type: "error",
+        },
+        {
+          inputs: [],
+          name: "InvalidVestingDuration",
           type: "error",
         },
         {
@@ -1408,6 +1418,25 @@ const deployedContracts = {
             {
               indexed: true,
               internalType: "address",
+              name: "factoryAddress",
+              type: "address",
+            },
+            {
+              indexed: false,
+              internalType: "address",
+              name: "vestingContract",
+              type: "address",
+            },
+          ],
+          name: "VestingContractDeployed",
+          type: "event",
+        },
+        {
+          anonymous: false,
+          inputs: [
+            {
+              indexed: true,
+              internalType: "address",
               name: "streamAddress",
               type: "address",
             },
@@ -1529,6 +1558,50 @@ const deployedContracts = {
               name: "_salt",
               type: "bytes32",
             },
+            {
+              components: [
+                {
+                  internalType: "bool",
+                  name: "isVestingEnabled",
+                  type: "bool",
+                },
+                {
+                  internalType: "uint16",
+                  name: "vestingDuration",
+                  type: "uint16",
+                },
+                {
+                  internalType: "uint16",
+                  name: "cliffDuration",
+                  type: "uint16",
+                },
+              ],
+              internalType: "struct IStreamTypes.VestingInfo",
+              name: "_creatorVestingInfo",
+              type: "tuple",
+            },
+            {
+              components: [
+                {
+                  internalType: "bool",
+                  name: "isVestingEnabled",
+                  type: "bool",
+                },
+                {
+                  internalType: "uint16",
+                  name: "vestingDuration",
+                  type: "uint16",
+                },
+                {
+                  internalType: "uint16",
+                  name: "cliffDuration",
+                  type: "uint16",
+                },
+              ],
+              internalType: "struct IStreamTypes.VestingInfo",
+              name: "_beneficiaryVestingInfo",
+              type: "tuple",
+            },
           ],
           name: "createStream",
           outputs: [],
@@ -1631,6 +1704,11 @@ const deployedContracts = {
                   internalType: "string",
                   name: "tosVersion",
                   type: "string",
+                },
+                {
+                  internalType: "address",
+                  name: "vestingAddress",
+                  type: "address",
                 },
               ],
               internalType: "struct StreamFactory.Params",
@@ -1766,6 +1844,11 @@ const deployedContracts = {
               internalType: "string",
               name: "tosVersion",
               type: "string",
+            },
+            {
+              internalType: "address",
+              name: "vestingAddress",
+              type: "address",
             },
           ],
           stateMutability: "view",
@@ -1927,7 +2010,7 @@ const deployedContracts = {
   },
   11155111: {
     InDenomToken: {
-      address: "0x2AC7623Ac10543F0F587Be05b4655a5c2eBb06B8",
+      address: "0xbD1B0A64197cB7a573B95808094e73C1f469CA9D",
       abi: [
         {
           inputs: [
@@ -2275,7 +2358,7 @@ const deployedContracts = {
       inheritedFunctions: {},
     },
     OutDenomToken: {
-      address: "0x9C4e278260DCb672A4B5F47C1e537c880c0475f5",
+      address: "0x122Af4F6C6Dd19b0515055F3DC7b0C2B736512D4",
       abi: [
         {
           inputs: [
@@ -2616,1228 +2699,6 @@ const deployedContracts = {
               type: "bool",
             },
           ],
-          stateMutability: "nonpayable",
-          type: "function",
-        },
-      ],
-      inheritedFunctions: {},
-    },
-    Stream: {
-      address: "0x8Bc8e84eBa70682f0Beb3F7a0feD4C8d0e076219",
-      abi: [],
-      inheritedFunctions: {},
-    },
-    StreamFactory: {
-      address: "0x9c67eDC37E8dc1a8b50dA85f9a5F29151941378c",
-      abi: [
-        {
-          inputs: [
-            {
-              internalType: "uint256",
-              name: "_streamCreationFee",
-              type: "uint256",
-            },
-            {
-              internalType: "address",
-              name: "_streamCreationFeeToken",
-              type: "address",
-            },
-            {
-              components: [
-                {
-                  internalType: "uint256",
-                  name: "value",
-                  type: "uint256",
-                },
-              ],
-              internalType: "struct Decimal",
-              name: "_exitFeeRatio",
-              type: "tuple",
-            },
-            {
-              internalType: "uint256",
-              name: "_minWaitingDuration",
-              type: "uint256",
-            },
-            {
-              internalType: "uint256",
-              name: "_minBootstrappingDuration",
-              type: "uint256",
-            },
-            {
-              internalType: "uint256",
-              name: "_minStreamDuration",
-              type: "uint256",
-            },
-            {
-              internalType: "address[]",
-              name: "_acceptedInSupplyTokens",
-              type: "address[]",
-            },
-            {
-              internalType: "address",
-              name: "_feeCollector",
-              type: "address",
-            },
-            {
-              internalType: "address",
-              name: "_protocolAdmin",
-              type: "address",
-            },
-            {
-              internalType: "string",
-              name: "_tosVersion",
-              type: "string",
-            },
-          ],
-          stateMutability: "nonpayable",
-          type: "constructor",
-        },
-        {
-          inputs: [],
-          name: "BootstrappingDurationTooShort",
-          type: "error",
-        },
-        {
-          inputs: [],
-          name: "ContractFrozen",
-          type: "error",
-        },
-        {
-          inputs: [],
-          name: "FeeTransferFailed",
-          type: "error",
-        },
-        {
-          inputs: [],
-          name: "InsufficientNativeToken",
-          type: "error",
-        },
-        {
-          inputs: [],
-          name: "InsufficientOutAmount",
-          type: "error",
-        },
-        {
-          inputs: [
-            {
-              internalType: "uint256",
-              name: "requiredTokenAmount",
-              type: "uint256",
-            },
-            {
-              internalType: "uint256",
-              name: "tokenBalance",
-              type: "uint256",
-            },
-          ],
-          name: "InsufficientTokenPayment",
-          type: "error",
-        },
-        {
-          inputs: [],
-          name: "InvalidBootstrappingStartTime",
-          type: "error",
-        },
-        {
-          inputs: [],
-          name: "InvalidBootstrappingTime",
-          type: "error",
-        },
-        {
-          inputs: [],
-          name: "InvalidExitCondition",
-          type: "error",
-        },
-        {
-          inputs: [],
-          name: "InvalidExitFeeRatio",
-          type: "error",
-        },
-        {
-          inputs: [],
-          name: "InvalidFeeCollector",
-          type: "error",
-        },
-        {
-          inputs: [],
-          name: "InvalidInSupplyToken",
-          type: "error",
-        },
-        {
-          inputs: [],
-          name: "InvalidOutSupplyToken",
-          type: "error",
-        },
-        {
-          inputs: [],
-          name: "InvalidPosition",
-          type: "error",
-        },
-        {
-          inputs: [],
-          name: "InvalidProtocolAdmin",
-          type: "error",
-        },
-        {
-          inputs: [],
-          name: "InvalidStreamEndTime",
-          type: "error",
-        },
-        {
-          inputs: [],
-          name: "InvalidStreamStartTime",
-          type: "error",
-        },
-        {
-          inputs: [],
-          name: "InvalidToSVersion",
-          type: "error",
-        },
-        {
-          inputs: [],
-          name: "InvalidWithdrawAmount",
-          type: "error",
-        },
-        {
-          inputs: [],
-          name: "NotAdmin",
-          type: "error",
-        },
-        {
-          inputs: [],
-          name: "OperationNotAllowed",
-          type: "error",
-        },
-        {
-          inputs: [],
-          name: "PaymentFailed",
-          type: "error",
-        },
-        {
-          inputs: [],
-          name: "StreamAddressPredictionFailed",
-          type: "error",
-        },
-        {
-          inputs: [],
-          name: "StreamDurationTooShort",
-          type: "error",
-        },
-        {
-          inputs: [],
-          name: "StreamEndMustBeAfterStart",
-          type: "error",
-        },
-        {
-          inputs: [],
-          name: "StreamInputTokenNotAccepted",
-          type: "error",
-        },
-        {
-          inputs: [],
-          name: "StreamStartMustBeAfterBootstrapping",
-          type: "error",
-        },
-        {
-          inputs: [],
-          name: "TokenTransferFailed",
-          type: "error",
-        },
-        {
-          inputs: [],
-          name: "Unauthorized",
-          type: "error",
-        },
-        {
-          inputs: [],
-          name: "WaitingDurationTooShort",
-          type: "error",
-        },
-        {
-          inputs: [
-            {
-              internalType: "uint256",
-              name: "cap",
-              type: "uint256",
-            },
-          ],
-          name: "WithdrawAmountExceedsBalance",
-          type: "error",
-        },
-        {
-          inputs: [],
-          name: "ZeroOutSupplyNotAllowed",
-          type: "error",
-        },
-        {
-          anonymous: false,
-          inputs: [
-            {
-              indexed: true,
-              internalType: "address",
-              name: "factory",
-              type: "address",
-            },
-            {
-              indexed: false,
-              internalType: "address[]",
-              name: "tokensAdded",
-              type: "address[]",
-            },
-            {
-              indexed: false,
-              internalType: "address[]",
-              name: "tokensRemoved",
-              type: "address[]",
-            },
-          ],
-          name: "AcceptedTokensUpdated",
-          type: "event",
-        },
-        {
-          anonymous: false,
-          inputs: [
-            {
-              indexed: true,
-              internalType: "address",
-              name: "streamAddress",
-              type: "address",
-            },
-            {
-              indexed: true,
-              internalType: "address",
-              name: "subscriber",
-              type: "address",
-            },
-            {
-              indexed: false,
-              internalType: "uint256",
-              name: "purchased",
-              type: "uint256",
-            },
-            {
-              indexed: false,
-              internalType: "uint256",
-              name: "spentIn",
-              type: "uint256",
-            },
-            {
-              indexed: false,
-              internalType: "uint256",
-              name: "exitTimestamp",
-              type: "uint256",
-            },
-          ],
-          name: "Exited",
-          type: "event",
-        },
-        {
-          anonymous: false,
-          inputs: [
-            {
-              indexed: true,
-              internalType: "address",
-              name: "factory",
-              type: "address",
-            },
-            {
-              indexed: false,
-              internalType: "address",
-              name: "newFeeCollector",
-              type: "address",
-            },
-          ],
-          name: "FeeCollectorUpdated",
-          type: "event",
-        },
-        {
-          anonymous: false,
-          inputs: [
-            {
-              indexed: true,
-              internalType: "address",
-              name: "factory",
-              type: "address",
-            },
-            {
-              indexed: false,
-              internalType: "bool",
-              name: "frozen",
-              type: "bool",
-            },
-          ],
-          name: "FrozenStateUpdated",
-          type: "event",
-        },
-        {
-          anonymous: false,
-          inputs: [
-            {
-              indexed: true,
-              internalType: "address",
-              name: "factory",
-              type: "address",
-            },
-            {
-              indexed: false,
-              internalType: "uint256",
-              name: "streamCreationFee",
-              type: "uint256",
-            },
-            {
-              indexed: false,
-              internalType: "uint256",
-              name: "exitFeeRatio",
-              type: "uint256",
-            },
-            {
-              indexed: false,
-              internalType: "uint256",
-              name: "minWaitingDuration",
-              type: "uint256",
-            },
-            {
-              indexed: false,
-              internalType: "uint256",
-              name: "minBootstrappingDuration",
-              type: "uint256",
-            },
-            {
-              indexed: false,
-              internalType: "uint256",
-              name: "minStreamDuration",
-              type: "uint256",
-            },
-            {
-              indexed: false,
-              internalType: "string",
-              name: "tosVersion",
-              type: "string",
-            },
-          ],
-          name: "ParamsUpdated",
-          type: "event",
-        },
-        {
-          anonymous: false,
-          inputs: [
-            {
-              indexed: true,
-              internalType: "address",
-              name: "factory",
-              type: "address",
-            },
-            {
-              indexed: false,
-              internalType: "address",
-              name: "newProtocolAdmin",
-              type: "address",
-            },
-          ],
-          name: "ProtocolAdminUpdated",
-          type: "event",
-        },
-        {
-          anonymous: false,
-          inputs: [
-            {
-              indexed: true,
-              internalType: "address",
-              name: "streamAddress",
-              type: "address",
-            },
-            {
-              indexed: false,
-              internalType: "address",
-              name: "creator",
-              type: "address",
-            },
-            {
-              indexed: false,
-              internalType: "uint256",
-              name: "outSupply",
-              type: "uint256",
-            },
-            {
-              indexed: false,
-              internalType: "enum IStreamTypes.Status",
-              name: "status",
-              type: "uint8",
-            },
-          ],
-          name: "StreamCancelled",
-          type: "event",
-        },
-        {
-          anonymous: false,
-          inputs: [
-            {
-              indexed: true,
-              internalType: "address",
-              name: "streamOutToken",
-              type: "address",
-            },
-            {
-              indexed: true,
-              internalType: "address",
-              name: "streamInToken",
-              type: "address",
-            },
-            {
-              indexed: true,
-              internalType: "address",
-              name: "streamFactoryAddress",
-              type: "address",
-            },
-            {
-              indexed: false,
-              internalType: "uint256",
-              name: "streamOutAmount",
-              type: "uint256",
-            },
-            {
-              indexed: false,
-              internalType: "uint256",
-              name: "bootstrappingStartTime",
-              type: "uint256",
-            },
-            {
-              indexed: false,
-              internalType: "uint256",
-              name: "streamStartTime",
-              type: "uint256",
-            },
-            {
-              indexed: false,
-              internalType: "uint256",
-              name: "streamEndTime",
-              type: "uint256",
-            },
-            {
-              indexed: false,
-              internalType: "uint256",
-              name: "threshold",
-              type: "uint256",
-            },
-            {
-              indexed: false,
-              internalType: "string",
-              name: "streamName",
-              type: "string",
-            },
-            {
-              indexed: false,
-              internalType: "string",
-              name: "tosVersion",
-              type: "string",
-            },
-            {
-              indexed: false,
-              internalType: "address",
-              name: "streamAddress",
-              type: "address",
-            },
-            {
-              indexed: false,
-              internalType: "uint16",
-              name: "streamId",
-              type: "uint16",
-            },
-          ],
-          name: "StreamCreated",
-          type: "event",
-        },
-        {
-          anonymous: false,
-          inputs: [
-            {
-              indexed: true,
-              internalType: "address",
-              name: "streamAddress",
-              type: "address",
-            },
-            {
-              indexed: true,
-              internalType: "address",
-              name: "creator",
-              type: "address",
-            },
-            {
-              indexed: false,
-              internalType: "uint256",
-              name: "creatorRevenue",
-              type: "uint256",
-            },
-            {
-              indexed: false,
-              internalType: "uint256",
-              name: "exitFeeAmount",
-              type: "uint256",
-            },
-            {
-              indexed: false,
-              internalType: "enum IStreamTypes.Status",
-              name: "status",
-              type: "uint8",
-            },
-          ],
-          name: "StreamFinalized",
-          type: "event",
-        },
-        {
-          anonymous: false,
-          inputs: [
-            {
-              indexed: true,
-              internalType: "address",
-              name: "streamAddress",
-              type: "address",
-            },
-            {
-              indexed: false,
-              internalType: "enum IStreamTypes.Status",
-              name: "mainStatus",
-              type: "uint8",
-            },
-            {
-              indexed: false,
-              internalType: "uint256",
-              name: "lastUpdated",
-              type: "uint256",
-            },
-          ],
-          name: "StreamSynced",
-          type: "event",
-        },
-        {
-          anonymous: false,
-          inputs: [
-            {
-              indexed: true,
-              internalType: "address",
-              name: "streamAddress",
-              type: "address",
-            },
-            {
-              indexed: false,
-              internalType: "uint256",
-              name: "lastUpdated",
-              type: "uint256",
-            },
-            {
-              indexed: false,
-              internalType: "uint8",
-              name: "newStatus",
-              type: "uint8",
-            },
-            {
-              components: [
-                {
-                  internalType: "uint256",
-                  name: "value",
-                  type: "uint256",
-                },
-              ],
-              indexed: false,
-              internalType: "struct Decimal",
-              name: "distIndex",
-              type: "tuple",
-            },
-            {
-              indexed: false,
-              internalType: "uint256",
-              name: "outRemaining",
-              type: "uint256",
-            },
-            {
-              indexed: false,
-              internalType: "uint256",
-              name: "inSupply",
-              type: "uint256",
-            },
-            {
-              indexed: false,
-              internalType: "uint256",
-              name: "spentIn",
-              type: "uint256",
-            },
-            {
-              components: [
-                {
-                  internalType: "uint256",
-                  name: "value",
-                  type: "uint256",
-                },
-              ],
-              indexed: false,
-              internalType: "struct Decimal",
-              name: "currentStreamedPrice",
-              type: "tuple",
-            },
-          ],
-          name: "StreamSynced",
-          type: "event",
-        },
-        {
-          anonymous: false,
-          inputs: [
-            {
-              indexed: true,
-              internalType: "address",
-              name: "streamAddress",
-              type: "address",
-            },
-            {
-              indexed: true,
-              internalType: "address",
-              name: "subscriber",
-              type: "address",
-            },
-            {
-              indexed: false,
-              internalType: "uint256",
-              name: "amountIn",
-              type: "uint256",
-            },
-            {
-              indexed: false,
-              internalType: "uint256",
-              name: "newShares",
-              type: "uint256",
-            },
-            {
-              indexed: false,
-              internalType: "uint256",
-              name: "totalSharesAfter",
-              type: "uint256",
-            },
-            {
-              indexed: false,
-              internalType: "uint256",
-              name: "totalInSupplyAfter",
-              type: "uint256",
-            },
-          ],
-          name: "Subscribed",
-          type: "event",
-        },
-        {
-          anonymous: false,
-          inputs: [
-            {
-              indexed: true,
-              internalType: "address",
-              name: "streamAddress",
-              type: "address",
-            },
-            {
-              indexed: true,
-              internalType: "address",
-              name: "subscriber",
-              type: "address",
-            },
-            {
-              indexed: false,
-              internalType: "uint256",
-              name: "remainingInBalance",
-              type: "uint256",
-            },
-            {
-              indexed: false,
-              internalType: "uint256",
-              name: "remainingShares",
-              type: "uint256",
-            },
-            {
-              indexed: false,
-              internalType: "uint256",
-              name: "totalInSupply",
-              type: "uint256",
-            },
-            {
-              indexed: false,
-              internalType: "uint256",
-              name: "totalShares",
-              type: "uint256",
-            },
-          ],
-          name: "Withdrawn",
-          type: "event",
-        },
-        {
-          inputs: [],
-          name: "NATIVE_TOKEN",
-          outputs: [
-            {
-              internalType: "address",
-              name: "",
-              type: "address",
-            },
-          ],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [
-            {
-              internalType: "address",
-              name: "",
-              type: "address",
-            },
-          ],
-          name: "acceptedInSupplyTokens",
-          outputs: [
-            {
-              internalType: "bool",
-              name: "",
-              type: "bool",
-            },
-          ],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [
-            {
-              internalType: "uint256",
-              name: "_streamOutAmount",
-              type: "uint256",
-            },
-            {
-              internalType: "address",
-              name: "_outSupplyToken",
-              type: "address",
-            },
-            {
-              internalType: "uint256",
-              name: "_bootstrappingStartTime",
-              type: "uint256",
-            },
-            {
-              internalType: "uint256",
-              name: "_streamStartTime",
-              type: "uint256",
-            },
-            {
-              internalType: "uint256",
-              name: "_streamEndTime",
-              type: "uint256",
-            },
-            {
-              internalType: "uint256",
-              name: "_threshold",
-              type: "uint256",
-            },
-            {
-              internalType: "string",
-              name: "_name",
-              type: "string",
-            },
-            {
-              internalType: "address",
-              name: "_inSupplyToken",
-              type: "address",
-            },
-            {
-              internalType: "string",
-              name: "_tosVersion",
-              type: "string",
-            },
-            {
-              internalType: "bytes32",
-              name: "_salt",
-              type: "bytes32",
-            },
-          ],
-          name: "createStream",
-          outputs: [],
-          stateMutability: "payable",
-          type: "function",
-        },
-        {
-          inputs: [],
-          name: "currentStreamId",
-          outputs: [
-            {
-              internalType: "uint16",
-              name: "",
-              type: "uint16",
-            },
-          ],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [],
-          name: "frozen",
-          outputs: [
-            {
-              internalType: "bool",
-              name: "",
-              type: "bool",
-            },
-          ],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [],
-          name: "getAcceptedInSupplyTokens",
-          outputs: [
-            {
-              internalType: "address[]",
-              name: "",
-              type: "address[]",
-            },
-          ],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [],
-          name: "getParams",
-          outputs: [
-            {
-              components: [
-                {
-                  internalType: "uint256",
-                  name: "streamCreationFee",
-                  type: "uint256",
-                },
-                {
-                  internalType: "address",
-                  name: "streamCreationFeeToken",
-                  type: "address",
-                },
-                {
-                  components: [
-                    {
-                      internalType: "uint256",
-                      name: "value",
-                      type: "uint256",
-                    },
-                  ],
-                  internalType: "struct Decimal",
-                  name: "exitFeeRatio",
-                  type: "tuple",
-                },
-                {
-                  internalType: "uint256",
-                  name: "minWaitingDuration",
-                  type: "uint256",
-                },
-                {
-                  internalType: "uint256",
-                  name: "minBootstrappingDuration",
-                  type: "uint256",
-                },
-                {
-                  internalType: "uint256",
-                  name: "minStreamDuration",
-                  type: "uint256",
-                },
-                {
-                  internalType: "address",
-                  name: "feeCollector",
-                  type: "address",
-                },
-                {
-                  internalType: "address",
-                  name: "protocolAdmin",
-                  type: "address",
-                },
-                {
-                  internalType: "string",
-                  name: "tosVersion",
-                  type: "string",
-                },
-              ],
-              internalType: "struct StreamFactory.Params",
-              name: "",
-              type: "tuple",
-            },
-          ],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [
-            {
-              internalType: "uint16",
-              name: "_streamId",
-              type: "uint16",
-            },
-          ],
-          name: "getStream",
-          outputs: [
-            {
-              internalType: "address",
-              name: "",
-              type: "address",
-            },
-          ],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [],
-          name: "getStreams",
-          outputs: [
-            {
-              internalType: "address[]",
-              name: "",
-              type: "address[]",
-            },
-          ],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [
-            {
-              internalType: "address",
-              name: "token",
-              type: "address",
-            },
-          ],
-          name: "isAcceptedInSupplyToken",
-          outputs: [
-            {
-              internalType: "bool",
-              name: "",
-              type: "bool",
-            },
-          ],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [
-            {
-              internalType: "address",
-              name: "_streamAddress",
-              type: "address",
-            },
-          ],
-          name: "isStream",
-          outputs: [
-            {
-              internalType: "bool",
-              name: "",
-              type: "bool",
-            },
-          ],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [],
-          name: "params",
-          outputs: [
-            {
-              internalType: "uint256",
-              name: "streamCreationFee",
-              type: "uint256",
-            },
-            {
-              internalType: "address",
-              name: "streamCreationFeeToken",
-              type: "address",
-            },
-            {
-              components: [
-                {
-                  internalType: "uint256",
-                  name: "value",
-                  type: "uint256",
-                },
-              ],
-              internalType: "struct Decimal",
-              name: "exitFeeRatio",
-              type: "tuple",
-            },
-            {
-              internalType: "uint256",
-              name: "minWaitingDuration",
-              type: "uint256",
-            },
-            {
-              internalType: "uint256",
-              name: "minBootstrappingDuration",
-              type: "uint256",
-            },
-            {
-              internalType: "uint256",
-              name: "minStreamDuration",
-              type: "uint256",
-            },
-            {
-              internalType: "address",
-              name: "feeCollector",
-              type: "address",
-            },
-            {
-              internalType: "address",
-              name: "protocolAdmin",
-              type: "address",
-            },
-            {
-              internalType: "string",
-              name: "tosVersion",
-              type: "string",
-            },
-          ],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [
-            {
-              internalType: "address",
-              name: "creator",
-              type: "address",
-            },
-            {
-              internalType: "bytes32",
-              name: "_salt",
-              type: "bytes32",
-            },
-            {
-              internalType: "bytes32",
-              name: "bytecodeHash",
-              type: "bytes32",
-            },
-          ],
-          name: "predictAddress",
-          outputs: [
-            {
-              internalType: "address",
-              name: "",
-              type: "address",
-            },
-          ],
-          stateMutability: "pure",
-          type: "function",
-        },
-        {
-          inputs: [
-            {
-              internalType: "bool",
-              name: "_frozen",
-              type: "bool",
-            },
-          ],
-          name: "setFrozen",
-          outputs: [],
-          stateMutability: "nonpayable",
-          type: "function",
-        },
-        {
-          inputs: [
-            {
-              internalType: "uint16",
-              name: "",
-              type: "uint16",
-            },
-          ],
-          name: "streamAddresses",
-          outputs: [
-            {
-              internalType: "address",
-              name: "",
-              type: "address",
-            },
-          ],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [
-            {
-              internalType: "address[]",
-              name: "tokens_to_add",
-              type: "address[]",
-            },
-            {
-              internalType: "address[]",
-              name: "tokens_to_remove",
-              type: "address[]",
-            },
-          ],
-          name: "updateAcceptedTokens",
-          outputs: [],
-          stateMutability: "nonpayable",
-          type: "function",
-        },
-        {
-          inputs: [
-            {
-              internalType: "address",
-              name: "_feeCollector",
-              type: "address",
-            },
-          ],
-          name: "updateFeeCollector",
-          outputs: [],
-          stateMutability: "nonpayable",
-          type: "function",
-        },
-        {
-          inputs: [
-            {
-              internalType: "uint256",
-              name: "_streamCreationFee",
-              type: "uint256",
-            },
-            {
-              components: [
-                {
-                  internalType: "uint256",
-                  name: "value",
-                  type: "uint256",
-                },
-              ],
-              internalType: "struct Decimal",
-              name: "_exitFeeRatio",
-              type: "tuple",
-            },
-            {
-              internalType: "uint256",
-              name: "_minWaitingDuration",
-              type: "uint256",
-            },
-            {
-              internalType: "uint256",
-              name: "_minBootstrappingDuration",
-              type: "uint256",
-            },
-            {
-              internalType: "uint256",
-              name: "_minStreamDuration",
-              type: "uint256",
-            },
-            {
-              internalType: "string",
-              name: "_tosVersion",
-              type: "string",
-            },
-          ],
-          name: "updateParams",
-          outputs: [],
-          stateMutability: "nonpayable",
-          type: "function",
-        },
-        {
-          inputs: [
-            {
-              internalType: "address",
-              name: "_protocolAdmin",
-              type: "address",
-            },
-          ],
-          name: "updateProtocolAdmin",
-          outputs: [],
           stateMutability: "nonpayable",
           type: "function",
         },

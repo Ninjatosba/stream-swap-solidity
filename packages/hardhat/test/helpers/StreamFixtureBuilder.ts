@@ -2,6 +2,8 @@ import { ethers } from "hardhat";
 import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
 import { Contract } from "ethers";
 import { DecimalStruct } from "../../typechain-types/contracts/PositionStorage";
+import { VestingInterface } from "../../typechain-types/contracts/Vesting";
+import { IStreamTypes } from "../../typechain-types/contracts/StreamFactory";
 
 export class StreamFixtureBuilder {
     private streamOutAmount: number = 1000;
@@ -20,6 +22,16 @@ export class StreamFixtureBuilder {
     private minStreamDuration: number = 1;
     private nowSeconds?: number;
     private streamCreationFee: number = 100;
+    private creatorVestingInfo: IStreamTypes.VestingInfoStruct = {
+        cliffDuration: 0,
+        vestingDuration: 0,
+        isVestingEnabled: false
+    };
+    private beneficiaryVestingInfo: IStreamTypes.VestingInfoStruct = {
+        cliffDuration: 0,
+        vestingDuration: 0,
+        isVestingEnabled: false
+    };
 
     // Method to set stream out amount
     public streamOut(amount: number): StreamFixtureBuilder {
@@ -80,6 +92,26 @@ export class StreamFixtureBuilder {
         return this;
     }
 
+    // Method to set creator vesting info
+    public creatorVesting(cliffDuration: number, vestingDuration: number): StreamFixtureBuilder {
+        this.creatorVestingInfo = {
+            cliffDuration,
+            vestingDuration,
+            isVestingEnabled: true
+        };
+        return this;
+    }
+
+    // Method to set beneficiary vesting info
+    public beneficiaryVesting(cliffDuration: number, vestingDuration: number): StreamFixtureBuilder {
+        this.beneficiaryVestingInfo = {
+            cliffDuration,
+            vestingDuration,
+            isVestingEnabled: true
+        };
+        return this;
+    }
+
     // Build method that returns the fixture function
     public build() {
         // Store the current configuration in variables that will be captured in the closure
@@ -96,7 +128,9 @@ export class StreamFixtureBuilder {
             minBootstrappingDuration: this.minBootstrappingDuration,
             minStreamDuration: this.minStreamDuration,
             nowSeconds: this.nowSeconds,
-            streamCreationFee: this.streamCreationFee
+            streamCreationFee: this.streamCreationFee,
+            creatorVestingInfo: this.creatorVestingInfo,
+            beneficiaryVestingInfo: this.beneficiaryVestingInfo
         };
 
         // Return the fixture function
@@ -157,7 +191,7 @@ export class StreamFixtureBuilder {
                 const streamStartTime = bootstrappingStartTime + config.bootstrappingDuration;
                 const streamEndTime = streamStartTime + config.streamDuration;
 
-                // Create stream with creator (not deployer)
+                // Create stream with creator
                 const tx = await streamFactory.connect(creator).createStream(
                     config.streamOutAmount,
                     await outSupplyToken.getAddress(),
@@ -169,6 +203,8 @@ export class StreamFixtureBuilder {
                     await inSupplyToken.getAddress(),
                     config.tosVersion,
                     ethers.getBytes("0x0000000000000000000000000000000000000000000000000000000000000000"),
+                    config.creatorVestingInfo,
+                    config.beneficiaryVestingInfo,
                     { value: config.streamCreationFee }
                 );
 
@@ -222,7 +258,9 @@ export class StreamFixtureBuilder {
                     },
                     config: {
                         streamOutAmount: config.streamOutAmount,
-                        threshold: config.threshold
+                        threshold: config.threshold,
+                        creatorVestingInfo: config.creatorVestingInfo,
+                        beneficiaryVestingInfo: config.beneficiaryVestingInfo
                     },
                     factoryParams: {
                         streamCreationFee: config.streamCreationFee,

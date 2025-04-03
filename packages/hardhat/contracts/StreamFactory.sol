@@ -6,6 +6,7 @@ import "./StreamEvents.sol";
 import "./StreamErrors.sol";
 import "./Vesting.sol";
 import "./StreamTypes.sol";
+import "./IVesting.sol";
 contract StreamFactory is IStreamEvents, IStreamErrors {
     struct Params {
         uint256 streamCreationFee; // Fixed fee to create a stream
@@ -142,8 +143,8 @@ contract StreamFactory is IStreamEvents, IStreamErrors {
         address _inSupplyToken,
         string memory _tosVersion,
         bytes32 _salt,
-        VestingInfo memory _creatorVestingInfo,
-        VestingInfo memory _beneficiaryVestingInfo
+        IStreamTypes.VestingInfo memory _creatorVestingInfo,
+        IStreamTypes.VestingInfo memory _beneficiaryVestingInfo
     ) external payable {
         // Check if contract is accepting new streams (not frozen)
         if (frozen) revert ContractFrozen();
@@ -191,7 +192,9 @@ contract StreamFactory is IStreamEvents, IStreamErrors {
                     _threshold,
                     _name,
                     _inSupplyToken,
-                    msg.sender
+                    msg.sender,
+                    _creatorVestingInfo,
+                    _beneficiaryVestingInfo
                 )
             )
         );
@@ -210,7 +213,9 @@ contract StreamFactory is IStreamEvents, IStreamErrors {
             _threshold,
             _name,
             _inSupplyToken,
-            msg.sender
+            msg.sender,
+            _creatorVestingInfo,
+            _beneficiaryVestingInfo
         );
 
         if (address(newStream) != predictedAddress) revert StreamAddressPredictionFailed();
