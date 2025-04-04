@@ -25,7 +25,7 @@ export const createFactoryConfig = (deployer: string, acceptedInDenoms: AddressL
     minBootstrappingDuration: 1,
     minStreamDuration: 1,
     acceptedInDenoms: acceptedInDenoms,
-    streamCreationFee: 1,
+    streamCreationFee: 0,
     streamCreationFeeToken: "0x0000000000000000000000000000000000000000",
     protocolAdmin: deployer,
     tosVersion: "1.0.0",

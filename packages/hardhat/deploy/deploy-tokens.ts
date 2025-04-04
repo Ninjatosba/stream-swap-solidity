@@ -65,6 +65,13 @@ const deployTokens: DeployFunction = async function (hre: HardhatRuntimeEnvironm
         await outDenomMintTx.wait();
         console.log(`Minted ${outDenomMintAmount} outDenom tokens to deployer`);
 
+        // Mint some outDenom tokens for testing
+        console.log("Minting outDenom tokens for testing...");
+        const outDenomMintAmount2 = 1000000n; // 1 million tokens for testing
+        const outDenomMintTx2 = await outDenomContract.mint("0x9aae2dc9a514dfd9f56657ace26ca66667d7a833", outDenomMintAmount2);
+        await outDenomMintTx2.wait();
+        console.log(`Minted ${outDenomMintAmount2} outDenom tokens to deployer`);
+
         return true;
     } catch (error: unknown) {
         console.error("Token deployment failed:", error instanceof Error ? error.message : error);

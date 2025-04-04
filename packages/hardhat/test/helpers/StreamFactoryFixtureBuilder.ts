@@ -4,13 +4,13 @@ import { StreamFactory, ERC20Mock } from "../../typechain-types";
 import { DecimalStruct } from "../../typechain-types/contracts/PositionStorage";
 
 export class StreamFactoryFixtureBuilder {
-    private streamCreationFee: number = 100;
+    private streamCreationFee: number = 0;
     private ExitFeeRatio: DecimalStruct = {
         value: 100
     }; // 1% (scaled by 10000)
-    private minWaitingDuration: number = 60; // 1 minute
-    private minBootstrappingDuration: number = 60 * 60 * 24; // 24 hours
-    private minStreamDuration: number = 60 * 60 * 24 * 7; // 7 days
+    private minWaitingDuration: number = 1; // 1 second
+    private minBootstrappingDuration: number = 1; // 1 second
+    private minStreamDuration: number = 1; // 1 second
     private tosVersion: string = "1.0";
 
     // Method to set stream creation fee
@@ -60,7 +60,7 @@ export class StreamFactoryFixtureBuilder {
         // Return the fixture function
         return async function deployFactoryFixture() {
             // Get signers
-            const [owner, feeCollector, protocolAdmin] = await ethers.getSigners();
+            const [creator, feeCollector, protocolAdmin] = await ethers.getSigners();
 
             // Deploy token contracts
             const InSupplyToken = await ethers.getContractFactory("ERC20Mock");
@@ -69,9 +69,9 @@ export class StreamFactoryFixtureBuilder {
             const OutSupplyToken = await ethers.getContractFactory("ERC20Mock");
             const outSupplyToken = await OutSupplyToken.deploy("OutSupply Token", "OUT");
 
-            // Mint tokens to the owner
-            await inSupplyToken.mint(owner.address, 1000000000000);
-            await outSupplyToken.mint(owner.address, 1000000000000);
+            // Mint tokens to the creator
+            await inSupplyToken.mint(creator.address, 1000000000000);
+            await outSupplyToken.mint(creator.address, 1000000000000);
 
             // List of accepted tokens
             const acceptedInSupplyTokens = [await inSupplyToken.getAddress()];
@@ -95,9 +95,9 @@ export class StreamFactoryFixtureBuilder {
 
             return {
                 factory,
-                owner,
-                feeCollector,
                 protocolAdmin,
+                creator,
+                feeCollector,
                 inSupplyToken,
                 outSupplyToken,
                 config,

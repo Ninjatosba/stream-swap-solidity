@@ -75,26 +75,6 @@ const deployStreamContract: DeployFunction = async function (hre: HardhatRuntime
 
     // Get contract instances
     const streamFactoryContract = await hre.ethers.getContractAt("StreamFactory", streamFactoryAddress);
-    const outDenomContract = await hre.ethers.getContractAt("ERC20Mock", outDenomAddress);
-
-    // Check token balance and allowance for stream out tokens
-    const deployerBalance = await outDenomContract.balanceOf(deployer);
-    console.log(`Deployer balance of stream out tokens: ${deployerBalance}`);
-
-    if (BigInt(deployerBalance) < BigInt(streamConfig.streamOutAmount)) {
-      console.error(`Insufficient token balance. Required: ${streamConfig.streamOutAmount}, Available: ${deployerBalance}`);
-      throw new Error("Insufficient token balance");
-    }
-
-    const allowance = await outDenomContract.allowance(deployer, streamFactoryAddress);
-    console.log(`Current allowance for factory: ${allowance} tokens`);
-
-    if (BigInt(allowance) < BigInt(streamConfig.streamOutAmount)) {
-      console.log(`Setting approval for StreamFactory to spend ${streamConfig.streamOutAmount} tokens`);
-      const approveTx = await outDenomContract.approve(streamFactoryAddress, streamConfig.streamOutAmount);
-      await approveTx.wait();
-      console.log(`Approval transaction confirmed: ${approveTx.hash}`);
-    }
 
     // Get factory fee information
     const factoryParams: StreamFactory.ParamsStruct = await streamFactoryContract.getParams();
@@ -120,7 +100,7 @@ const deployStreamContract: DeployFunction = async function (hre: HardhatRuntime
         throw new Error("Insufficient native token balance for fee");
       }
 
-      txOptions = { value: streamCreationFee };
+      txOptions = streamCreationFee ? { value: streamCreationFee } : {};
     } else {
       // ERC-20 token fee
       console.log(`Factory requires ${streamCreationFee} tokens at ${streamCreationFeeToken} as fee`);
@@ -182,23 +162,37 @@ const deployStreamContract: DeployFunction = async function (hre: HardhatRuntime
     console.log(`Using salt: ${salt}`);
 
     // Create stream with appropriate fee handling
-    const createStreamTx = await streamFactoryContract.createStream(
-      streamConfig.streamOutAmount,
-      outDenomAddress,
-      bootstrappingStartTime,
-      streamStartTime,
-      streamEndTime,
-      streamConfig.threshold,
-      streamConfig.streamName,
-      inDenomAddress,
-      streamConfig.tosVersion,
-      salt,
-      streamConfig.creatorVestingInfo,
-      streamConfig.beneficiaryVestingInfo,
-      txOptions // This will include { value: factoryFee } for native token fees
-    );
+    try {
+      const createStreamTx = await streamFactoryContract.createStream(
+        streamConfig.streamOutAmount,
+        outDenomAddress,
+        bootstrappingStartTime,
+        streamStartTime,
+        streamEndTime,
+        streamConfig.threshold,
+        streamConfig.streamName,
+        inDenomAddress,
+        streamConfig.tosVersion,
+        salt,
+        streamConfig.creatorVestingInfo,
+        streamConfig.beneficiaryVestingInfo,
+        txOptions
+      );
 
-    console.log(`Stream creation transaction sent: ${createStreamTx.hash}`);
+      console.log(`Stream creation transaction sent: ${createStreamTx.hash}`);
+    } catch (error: any) {
+      console.error("Stream creation failed with error:", error);
+      if (error.data) {
+        // Try to decode the revert reason
+        try {
+          const decodedError = streamFactoryContract.interface.parseError(error.data);
+          console.error("Decoded error:", decodedError);
+        } catch (e) {
+          console.error("Could not decode error data");
+        }
+      }
+      throw error;
+    }
 
     // Wait for transaction confirmation
     const receipt = await createStreamTx.wait();
