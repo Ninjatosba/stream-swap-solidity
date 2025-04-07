@@ -6,7 +6,7 @@ import { VestingInterface } from "../../typechain-types/contracts/Vesting";
 import { IStreamTypes } from "../../typechain-types/contracts/StreamFactory";
 
 export class StreamFixtureBuilder {
-    private streamOutAmount: number = 1000;
+    private streamOutAmount: bigint = ethers.parseEther("1000")
     private waitSeconds: number = 50;
     private bootstrappingDuration: number = 50;
     private streamDuration: number = 100;
@@ -34,7 +34,7 @@ export class StreamFixtureBuilder {
     };
 
     // Method to set stream out amount
-    public streamOut(amount: number): StreamFixtureBuilder {
+    public streamOut(amount: bigint): StreamFixtureBuilder {
         this.streamOutAmount = amount;
         return this;
     }
@@ -148,7 +148,6 @@ export class StreamFixtureBuilder {
 
                 const OutSupplyToken = await ethers.getContractFactory("ERC20Mock");
                 const outSupplyToken = await OutSupplyToken.deploy("StreamOutSupply Token", "OUT");
-
                 // Mint tokens for stream creator
                 await outSupplyToken.mint(creator.address, config.streamOutAmount);
 

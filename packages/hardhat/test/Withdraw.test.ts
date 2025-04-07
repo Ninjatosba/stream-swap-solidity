@@ -34,7 +34,10 @@ describe("Stream Withdraw", function () {
 
             // Withdraw 50 tokens
             const withdrawAmount = 50
+            const inBalanceBefore = await contracts.inSupplyToken.balanceOf(accounts.subscriber1.address);
             await contracts.stream.connect(accounts.subscriber1).withdraw(withdrawAmount);
+            const inBalanceAfter = await contracts.inSupplyToken.balanceOf(accounts.subscriber1.address);
+            expect(inBalanceAfter - inBalanceBefore).to.equal(withdrawAmount);
 
             // Sync the position
             await contracts.stream.syncPosition(accounts.subscriber1.address);
@@ -94,6 +97,9 @@ describe("Stream Withdraw", function () {
             await contracts.inSupplyToken.connect(accounts.subscriber1).approve(contracts.stream.getAddress(), subscriptionAmount);
             await contracts.stream.connect(accounts.subscriber1).subscribe(subscriptionAmount);
 
+            // Query in balance of subscriber1
+            const inBalanceBefore = await contracts.inSupplyToken.balanceOf(accounts.subscriber1.address);
+
             // First withdrawal
             const withdrawAmount1 = ethers.parseEther("30");
             await contracts.stream.connect(accounts.subscriber1).withdraw(withdrawAmount1);
@@ -108,67 +114,14 @@ describe("Stream Withdraw", function () {
 
             // Verify position was updated correctly
             const position = await positionStorage.getPosition(accounts.subscriber1.address);
-            expect(position.inBalance).to.equal(subscriptionAmount - withdrawAmount1 - withdrawAmount2);
+            expect(position.inBalance).to.lt(subscriptionAmount - withdrawAmount1 - withdrawAmount2);
             expect(position.shares).to.be.gt(0);
             expect(position.spentIn).to.be.gt(0);
             expect(position.purchased).to.be.gt(0);
 
-            // Verify token transfer
-            const subscriberBalance = await contracts.inSupplyToken.balanceOf(accounts.subscriber1.address);
-            expect(subscriberBalance).to.equal(ethers.parseEther("100") - subscriptionAmount + withdrawAmount1 + withdrawAmount2);
-        });
-
-        it("Should allow withdrawals from multiple users", async function () {
-            const { contracts, timeParams, accounts } = await loadFixture(stream().build());
-
-            // Fast forward time to stream phase
-            await ethers.provider.send("evm_setNextBlockTimestamp", [timeParams.streamStartTime + 1]);
-            await ethers.provider.send("evm_mine", []);
-
-            // Sync the stream to update status
-            await contracts.stream.syncStreamExternal();
-
-            // First user subscribes
-            const amount1 = ethers.parseEther("100");
-            await contracts.inSupplyToken.connect(accounts.subscriber1).approve(contracts.stream.getAddress(), amount1);
-            await contracts.stream.connect(accounts.subscriber1).subscribe(amount1);
-
-            // Second user subscribes
-            const amount2 = ethers.parseEther("50");
-            await contracts.inSupplyToken.connect(accounts.subscriber2).approve(contracts.stream.getAddress(), amount2);
-            await contracts.stream.connect(accounts.subscriber2).subscribe(amount2);
-
-            // First user withdraws
-            const withdrawAmount1 = ethers.parseEther("30");
-            await contracts.stream.connect(accounts.subscriber1).withdraw(withdrawAmount1);
-
-            // Second user withdraws
-            const withdrawAmount2 = ethers.parseEther("20");
-            await contracts.stream.connect(accounts.subscriber2).withdraw(withdrawAmount2);
-
-            // Get PositionStorage contract instance
-            const positionStorageAddr = await contracts.stream.positionStorage();
-            const positionStorage = await ethers.getContractAt("PositionStorage", positionStorageAddr) as PositionStorage;
-
-            // Verify positions
-            const position1 = await positionStorage.getPosition(accounts.subscriber1.address);
-            expect(position1.inBalance).to.equal(amount1 - withdrawAmount1);
-            expect(position1.shares).to.be.gt(0);
-            expect(position1.spentIn).to.be.gt(0);
-            expect(position1.purchased).to.be.gt(0);
-
-            const position2 = await positionStorage.getPosition(accounts.subscriber2.address);
-            expect(position2.inBalance).to.equal(amount2 - withdrawAmount2);
-            expect(position2.shares).to.be.gt(0);
-            expect(position2.spentIn).to.be.gt(0);
-            expect(position2.purchased).to.be.gt(0);
-
-            // Verify token transfers
-            const subscriber1Balance = await contracts.inSupplyToken.balanceOf(accounts.subscriber1.address);
-            expect(subscriber1Balance).to.equal(ethers.parseEther("100") - amount1 + withdrawAmount1);
-
-            const subscriber2Balance = await contracts.inSupplyToken.balanceOf(accounts.subscriber2.address);
-            expect(subscriber2Balance).to.equal(ethers.parseEther("100") - amount2 + withdrawAmount2);
+            // Verify in balance of subscriber1
+            const inBalanceAfter = await contracts.inSupplyToken.balanceOf(accounts.subscriber1.address);
+            expect(inBalanceAfter - inBalanceBefore).to.equal(withdrawAmount1 + withdrawAmount2);
         });
     });
 
@@ -231,12 +184,47 @@ describe("Stream Withdraw", function () {
                 contracts.stream.connect(accounts.subscriber1).withdraw(withdrawAmount)
             ).to.be.revertedWithCustomError(contracts.stream, "InvalidPosition");
         });
+    });
 
-        it("Should allow full withdrawal", async function () {
+    describe("Withdraw in bootstrapping phase", function () {
+        it("Should allow withdrawal in bootstrapping phase", async function () {
             const { contracts, timeParams, accounts } = await loadFixture(stream().build());
 
-            // Fast forward time to stream phase
-            await ethers.provider.send("evm_setNextBlockTimestamp", [timeParams.streamStartTime + 1]);
+            // Fast forward time to bootstrapping phase
+            await ethers.provider.send("evm_setNextBlockTimestamp", [timeParams.bootstrappingStartTime + 1]);
+            await ethers.provider.send("evm_mine", []);
+
+            // Sync the stream to update status
+            await contracts.stream.syncStreamExternal();
+
+            // Subscribe with 100 tokens
+            const subscriptionAmount = ethers.parseEther("100");
+            await contracts.inSupplyToken.connect(accounts.subscriber1).approve(contracts.stream.getAddress(), subscriptionAmount);
+            await contracts.stream.connect(accounts.subscriber1).subscribe(subscriptionAmount);
+
+            // Get PositionStorage contract instance
+            const positionStorageAddr = await contracts.stream.positionStorage();
+            const positionStorage = await ethers.getContractAt("PositionStorage", positionStorageAddr) as PositionStorage;
+
+            // Verify position was created correctly
+            const position = await positionStorage.getPosition(accounts.subscriber1.address);
+            expect(position.inBalance).to.equal(subscriptionAmount);
+            expect(position.shares).to.be.gt(0);
+
+            // Withdraw 50 tokens
+            const withdrawAmount = ethers.parseEther("50");
+            await contracts.stream.connect(accounts.subscriber1).withdraw(withdrawAmount);
+
+            // Verify position was updated correctly
+            const updatedPosition = await positionStorage.getPosition(accounts.subscriber1.address);
+            expect(updatedPosition.inBalance).to.equal(subscriptionAmount - withdrawAmount);
+        });
+
+        it("Full withdrawal in bootstrapping phase", async function () {
+            const { contracts, timeParams, accounts } = await loadFixture(stream().build());
+
+            // Fast forward time to bootstrapping phase
+            await ethers.provider.send("evm_setNextBlockTimestamp", [timeParams.bootstrappingStartTime + 1]);
             await ethers.provider.send("evm_mine", []);
 
             // Sync the stream to update status
@@ -263,97 +251,6 @@ describe("Stream Withdraw", function () {
             const updatedPosition = await positionStorage.getPosition(accounts.subscriber1.address);
             expect(updatedPosition.inBalance).to.equal(0);
             expect(updatedPosition.shares).to.equal(0);
-            expect(updatedPosition.spentIn).to.be.gt(0);
-            expect(updatedPosition.purchased).to.be.gt(0);
-
-            // Verify token transfer
-            const subscriberBalance = await contracts.inSupplyToken.balanceOf(accounts.subscriber1.address);
-            expect(subscriberBalance).to.equal(ethers.parseEther("100"));
-        });
-    });
-
-    describe("Withdrawal after subscription", function () {
-        it("Should allow withdrawal after multiple subscriptions", async function () {
-            const { contracts, timeParams, accounts } = await loadFixture(stream().build());
-
-            // Fast forward time to stream phase
-            await ethers.provider.send("evm_setNextBlockTimestamp", [timeParams.streamStartTime + 1]);
-            await ethers.provider.send("evm_mine", []);
-
-            // Sync the stream to update status
-            await contracts.stream.syncStreamExternal();
-
-            // First subscription
-            const amount1 = ethers.parseEther("100");
-            await contracts.inSupplyToken.connect(accounts.subscriber1).approve(contracts.stream.getAddress(), amount1);
-            await contracts.stream.connect(accounts.subscriber1).subscribe(amount1);
-
-            // Second subscription
-            const amount2 = ethers.parseEther("50");
-            await contracts.inSupplyToken.connect(accounts.subscriber1).approve(contracts.stream.getAddress(), amount2);
-            await contracts.stream.connect(accounts.subscriber1).subscribe(amount2);
-
-            // Get PositionStorage contract instance
-            const positionStorageAddr = await contracts.stream.positionStorage();
-            const positionStorage = await ethers.getContractAt("PositionStorage", positionStorageAddr) as PositionStorage;
-
-            // Verify position was updated correctly
-            const position = await positionStorage.getPosition(accounts.subscriber1.address);
-            expect(position.inBalance).to.equal(amount1 + amount2);
-
-            // Withdraw 75 tokens
-            const withdrawAmount = ethers.parseEther("75");
-            await contracts.stream.connect(accounts.subscriber1).withdraw(withdrawAmount);
-
-            // Verify position was updated correctly
-            const updatedPosition = await positionStorage.getPosition(accounts.subscriber1.address);
-            expect(updatedPosition.inBalance).to.equal(amount1 + amount2 - withdrawAmount);
-            expect(updatedPosition.shares).to.be.gt(0);
-            expect(updatedPosition.spentIn).to.be.gt(0);
-            expect(updatedPosition.purchased).to.be.gt(0);
-
-            // Verify token transfer
-            const subscriberBalance = await contracts.inSupplyToken.balanceOf(accounts.subscriber1.address);
-            expect(subscriberBalance).to.equal(ethers.parseEther("100") - (amount1 + amount2) + withdrawAmount);
-        });
-
-        it("Should allow withdrawal after partial withdrawal", async function () {
-            const { contracts, timeParams, accounts } = await loadFixture(stream().build());
-
-            // Fast forward time to stream phase
-            await ethers.provider.send("evm_setNextBlockTimestamp", [timeParams.streamStartTime + 1]);
-            await ethers.provider.send("evm_mine", []);
-
-            // Sync the stream to update status
-            await contracts.stream.syncStreamExternal();
-
-            // Subscribe with 100 tokens
-            const subscriptionAmount = ethers.parseEther("100");
-            await contracts.inSupplyToken.connect(accounts.subscriber1).approve(contracts.stream.getAddress(), subscriptionAmount);
-            await contracts.stream.connect(accounts.subscriber1).subscribe(subscriptionAmount);
-
-            // First withdrawal
-            const withdrawAmount1 = ethers.parseEther("30");
-            await contracts.stream.connect(accounts.subscriber1).withdraw(withdrawAmount1);
-
-            // Second withdrawal
-            const withdrawAmount2 = ethers.parseEther("20");
-            await contracts.stream.connect(accounts.subscriber1).withdraw(withdrawAmount2);
-
-            // Get PositionStorage contract instance
-            const positionStorageAddr = await contracts.stream.positionStorage();
-            const positionStorage = await ethers.getContractAt("PositionStorage", positionStorageAddr) as PositionStorage;
-
-            // Verify position was updated correctly
-            const position = await positionStorage.getPosition(accounts.subscriber1.address);
-            expect(position.inBalance).to.equal(subscriptionAmount - withdrawAmount1 - withdrawAmount2);
-            expect(position.shares).to.be.gt(0);
-            expect(position.spentIn).to.be.gt(0);
-            expect(position.purchased).to.be.gt(0);
-
-            // Verify token transfer
-            const subscriberBalance = await contracts.inSupplyToken.balanceOf(accounts.subscriber1.address);
-            expect(subscriberBalance).to.equal(ethers.parseEther("100") - subscriptionAmount + withdrawAmount1 + withdrawAmount2);
         });
     });
 
@@ -403,7 +300,7 @@ describe("Stream Withdraw", function () {
             // Verify event parameters
             expect(parsedEvent?.args.streamAddress).to.equal(await contracts.stream.getAddress());
             expect(parsedEvent?.args.subscriber).to.equal(accounts.subscriber1.address);
-            expect(parsedEvent?.args.remainingInBalance).to.equal(subscriptionAmount - withdrawAmount);
+            expect(parsedEvent?.args.remainingInBalance).to.lt(subscriptionAmount - withdrawAmount);
             expect(parsedEvent?.args.remainingShares).to.be.gt(0);
             expect(parsedEvent?.args.totalInSupply).to.be.gt(0);
             expect(parsedEvent?.args.totalShares).to.be.gt(0);

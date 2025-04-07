@@ -215,10 +215,6 @@ contract Stream is IStreamErrors, IStreamEvents {
             revert InvalidPosition();
         }
 
-        if (cap > position.inBalance) {
-            revert WithdrawAmountExceedsBalance(cap);
-        }
-
         // load stream times
         IStreamTypes.StreamTimes memory times = loadStreamTimes();
 
@@ -241,6 +237,11 @@ contract Stream is IStreamErrors, IStreamEvents {
 
         // Sync position with the updated state
         position = StreamMathLib.syncPosition(position, state.distIndex, state.shares, state.inSupply, block.timestamp);
+
+        // Check if withdrawal amount exceeds position balance
+        if (cap > position.inBalance) {
+            revert WithdrawAmountExceedsBalance(cap);
+        }
 
         uint256 shareDeduction = 0;
 
