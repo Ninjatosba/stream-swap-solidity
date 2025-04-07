@@ -119,13 +119,13 @@ library StreamMathLib {
 
             if (newDistributionBalance > 0) {
                 newState.outRemaining -= newDistributionBalance;
-                // Update distribution index (shares are in base units, multiply by 1e18 for precision)
-                newState.distIndex = DecimalMath.fromRatio(newDistributionBalance, newState.shares);
+                // Increment distribution index
+                Decimal memory distIndexIncrementAmount = DecimalMath.fromRatio(newDistributionBalance, newState.shares);
+                newState.distIndex = DecimalMath.add(newState.distIndex, distIndexIncrementAmount);
                 // Update current streamed price
                 newState.currentStreamedPrice = DecimalMath.fromRatio(spentIn, newDistributionBalance);
             }
         }
-
         return newState;
     }
 

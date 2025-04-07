@@ -50,6 +50,40 @@ describe("Stream Subscribe", function () {
             ).to.be.revertedWithCustomError(contracts.stream, "OperationNotAllowed");
         });
 
+        it("Should allow subscription during bootstrapping phase", async function () {
+            const { contracts, timeParams, accounts } = await loadFixture(stream().build());
+
+            // Fast forward time to bootstrapping phase
+            await ethers.provider.send("evm_setNextBlockTimestamp", [timeParams.bootstrappingStartTime]);
+            await ethers.provider.send("evm_mine", []);
+
+            // Subscribe with 100 tokens
+            const subscriptionAmount = 100;
+            await contracts.inSupplyToken.connect(accounts.subscriber1).approve(contracts.stream.getAddress(), subscriptionAmount);
+            await contracts.stream.connect(accounts.subscriber1).subscribe(subscriptionAmount);
+
+            // Get PositionStorage contract instance
+            const positionStorageAddr = await contracts.stream.positionStorage();
+            const positionStorage = await ethers.getContractAt("PositionStorage", positionStorageAddr) as PositionStorage;
+
+            // Verify position was created correctly
+            const position = await positionStorage.getPosition(accounts.subscriber1.address);
+            expect(position.inBalance).to.equal(subscriptionAmount);
+            expect(position.shares).to.be.gt(0);
+            expect(position.spentIn).to.equal(0);
+            expect(position.purchased).to.equal(0);
+            expect(position.exitDate).to.equal(0);
+
+            // In bootstrapping phase, sync position with updated state
+            await contracts.stream.syncStreamExternal();
+            const updatedPosition = await positionStorage.getPosition(accounts.subscriber1.address);
+            expect(updatedPosition.inBalance).to.equal(subscriptionAmount);
+            expect(updatedPosition.shares).to.be.gt(0);
+            // No spentIn or purchased because it's not streaming yet
+            expect(updatedPosition.spentIn).to.equal(0);
+            expect(updatedPosition.purchased).to.equal(0);
+        });
+
         it("Should fail subscription during ended phase", async function () {
             const { contracts, timeParams, accounts } = await loadFixture(stream().build());
 
@@ -182,6 +216,47 @@ describe("Stream Subscribe", function () {
             await expect(
                 contracts.stream.connect(accounts.subscriber1).subscribe(largeAmount)
             ).to.be.reverted;
+        });
+    });
+
+    describe("Subscription after full withdrawal", function () {
+        it("Should allow subscription after full withdrawal during bootstrapping phase", async function () {
+            const { contracts, timeParams, accounts } = await loadFixture(stream().build());
+
+            // Fast forward time to bootstrapping phase
+            await ethers.provider.send("evm_setNextBlockTimestamp", [timeParams.bootstrappingStartTime]);
+            await ethers.provider.send("evm_mine", []);
+
+            // Subscribe with 100 tokens
+            const subscriptionAmount = 100;
+            await contracts.inSupplyToken.connect(accounts.subscriber1).approve(contracts.stream.getAddress(), subscriptionAmount);
+            await contracts.stream.connect(accounts.subscriber1).subscribe(subscriptionAmount);
+
+            // Increment time
+            await ethers.provider.send("evm_setNextBlockTimestamp", [timeParams.bootstrappingStartTime + 10]);
+            await ethers.provider.send("evm_mine", []);
+
+            // Full withdrawal
+            await contracts.stream.connect(accounts.subscriber1).withdraw(subscriptionAmount);
+
+            // Check that position is empty
+            const positionStorageAddr = await contracts.stream.positionStorage();
+            const positionStorage = await ethers.getContractAt("PositionStorage", positionStorageAddr) as PositionStorage;
+            const position = await positionStorage.getPosition(accounts.subscriber1.address);
+            expect(position.inBalance).to.equal(0);
+            expect(position.shares).to.equal(0);
+            expect(position.spentIn).to.equal(0);
+            expect(position.purchased).to.equal(0);
+            expect(position.exitDate).to.equal(0);
+
+            // Subscribe again
+            await contracts.inSupplyToken.connect(accounts.subscriber1).approve(contracts.stream.getAddress(), subscriptionAmount);
+            await contracts.stream.connect(accounts.subscriber1).subscribe(subscriptionAmount);
+
+            // Check that position is updated
+            const updatedPosition = await positionStorage.getPosition(accounts.subscriber1.address);
+            expect(updatedPosition.inBalance).to.equal(subscriptionAmount);
+            expect(updatedPosition.shares).to.be.gt(0);
         });
     });
 });

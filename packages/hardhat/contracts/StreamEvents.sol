@@ -42,6 +42,13 @@ interface IStreamEvents {
         Decimal currentStreamedPrice
     );
 
+    event PositionSynced(
+        address indexed streamAddress,
+        address indexed subscriber,
+        uint256 inBalance,
+        uint256 shares
+    );
+
     event Withdrawn(
         address indexed streamAddress,
         address indexed subscriber,

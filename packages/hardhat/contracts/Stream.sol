@@ -134,13 +134,14 @@ contract Stream is IStreamErrors, IStreamEvents {
             times.streamEndTime,
             state.lastUpdated
         );
+        state.lastUpdated = nowTime;
 
-        if (diff.value > 0) {
-            IStreamTypes.StreamState memory updatedState = StreamMathLib.calculateUpdatedState(state, diff);
-            return updatedState;
+        if (diff.value == 0) {
+            return state;
         }
 
-        return state;
+        IStreamTypes.StreamState memory updatedState = StreamMathLib.calculateUpdatedState(state, diff);
+        return updatedState;
     }
 
     function saveStreamState(IStreamTypes.StreamState memory state) internal {
@@ -241,19 +242,21 @@ contract Stream is IStreamErrors, IStreamEvents {
         // Sync position with the updated state
         position = StreamMathLib.syncPosition(position, state.distIndex, state.shares, state.inSupply, block.timestamp);
 
+        uint256 shareDeduction = 0;
+
         if (cap == position.inBalance) {
-            position.shares = 0;
-            position.inBalance = 0;
+            shareDeduction = position.shares;
         } else {
-            position.shares =
-                position.shares -
-                StreamMathLib.computeSharesAmount(cap, true, state.inSupply, position.shares);
-            position.inBalance = position.inBalance - cap;
+            shareDeduction = StreamMathLib.computeSharesAmount(cap, true, state.inSupply, position.shares);
         }
+
+        // Update position
+        position.shares = position.shares - shareDeduction;
+        position.inBalance = position.inBalance - cap;
 
         // Update stream state
         state.inSupply = state.inSupply - cap;
-        state.shares = state.shares - StreamMathLib.computeSharesAmount(cap, true, state.inSupply, state.shares);
+        state.shares = state.shares - shareDeduction;
 
         // Save everything at the end
         savePosition(msg.sender, position);
@@ -520,6 +523,17 @@ contract Stream is IStreamErrors, IStreamEvents {
             state.spentIn,
             state.currentStreamedPrice
         );
+    }
+
+    function syncPosition(address user) external {
+        PositionTypes.Position memory position = loadPosition(user);
+        IStreamTypes.StreamState memory state = loadStream();
+        IStreamTypes.StreamTimes memory times = loadStreamTimes();
+        state = syncStream(state, times, block.timestamp);
+        position = StreamMathLib.syncPosition(position, state.distIndex, state.shares, state.inSupply, block.timestamp);
+        savePosition(user, position);
+        saveStream(state);
+        emit PositionSynced(address(this), user, position.inBalance, position.shares);
     }
 
     function cancelStream() external {
