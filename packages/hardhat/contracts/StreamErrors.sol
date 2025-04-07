@@ -22,6 +22,7 @@ interface IStreamErrors {
     error InvalidExitCondition();
     error InvalidVestingDuration();
     error InvalidVestingCliffDuration();
+    error InvalidAmount();
     // StreamFactory errors
     error ContractFrozen();
     error InvalidExitFeeRatio();

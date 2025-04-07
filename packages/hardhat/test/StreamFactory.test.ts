@@ -18,10 +18,10 @@ describe("StreamFactory", function () {
         });
 
         it("should not allow non-admin to update fee collector", async function () {
-            const { factory, owner } = await loadFixture(streamFactory().build());
+            const { factory, protocolAdmin, creator } = await loadFixture(streamFactory().build());
             const newFeeCollector = ethers.Wallet.createRandom().address;
 
-            await expect(factory.connect(owner).updateFeeCollector(newFeeCollector))
+            await expect(factory.connect(creator).updateFeeCollector(newFeeCollector))
                 .to.be.revertedWithCustomError(factory, "NotAdmin");
         });
 
@@ -78,10 +78,10 @@ describe("StreamFactory", function () {
             expect(await factory.isAcceptedInSupplyToken(newToken)).to.be.false;
         });
         it("should not allow non-admin to update accepted tokens", async function () {
-            const { factory, owner } = await loadFixture(streamFactory().build());
+            const { factory, protocolAdmin, creator } = await loadFixture(streamFactory().build());
             const newToken = ethers.Wallet.createRandom().address;
 
-            await expect(factory.connect(owner).updateAcceptedTokens([newToken], [])).to.be.revertedWithCustomError(factory, "NotAdmin");
+            await expect(factory.connect(creator).updateAcceptedTokens([newToken], [])).to.be.revertedWithCustomError(factory, "NotAdmin");
         });
         it("should remove token from accepted tokens if set", async function () {
             const { factory, protocolAdmin } = await loadFixture(streamFactory().build());

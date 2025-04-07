@@ -154,18 +154,17 @@ contract Stream is IStreamErrors, IStreamEvents {
     /**
      * @dev Validates if an operation is allowed based on the current stream status
      * @param allowedStatuses Array of allowed statuses for the operation
-     * @return bool True if the operation is allowed, false otherwise
      */
     function isOperationAllowed(
         IStreamTypes.Status currentStatus,
         IStreamTypes.Status[] memory allowedStatuses
-    ) internal pure returns (bool) {
+    ) internal pure {
         for (uint256 i = 0; i < allowedStatuses.length; i++) {
             if (currentStatus == allowedStatuses[i]) {
-                return true;
+                return;
             }
         }
-        return false;
+        revert OperationNotAllowed();
     }
 
     /**
@@ -206,10 +205,7 @@ contract Stream is IStreamErrors, IStreamEvents {
     }
 
     function withdraw(uint256 cap) external {
-        if (cap == 0) {
-            revert InvalidWithdrawAmount();
-        }
-
+        assertAmountNotZero(cap);
         // Load position once
         PositionTypes.Position memory position = loadPosition(msg.sender);
 
@@ -269,12 +265,12 @@ contract Stream is IStreamErrors, IStreamEvents {
     }
 
     function subscribe(uint256 amountIn) external payable {
+        assertAmountNotZero(amountIn);
         // Load status once
         IStreamTypes.Status status = loadStreamStatus();
         IStreamTypes.StreamTimes memory times = loadStreamTimes();
         // Update the loaded status
         status = syncStreamStatus(status, times, block.timestamp);
-
         // Check if operation is allowed with the updated status
         IStreamTypes.Status[] memory allowedStatuses = new IStreamTypes.Status[](2);
         allowedStatuses[0] = IStreamTypes.Status.Bootstrapping;
@@ -304,6 +300,7 @@ contract Stream is IStreamErrors, IStreamEvents {
 
         // Update the stream state
         state = syncStream(state);
+
 
         uint256 newShares = 0;
 
@@ -536,10 +533,7 @@ contract Stream is IStreamErrors, IStreamEvents {
         // Check if operation is allowed
         IStreamTypes.Status[] memory allowedStatuses = new IStreamTypes.Status[](1);
         allowedStatuses[0] = IStreamTypes.Status.Waiting;
-        bool isAllowed = isOperationAllowed(status, allowedStatuses);
-        if (!isAllowed) {
-            revert OperationNotAllowed();
-        }
+        isOperationAllowed(status, allowedStatuses);
 
         // Refund out tokens to creator
         safeTokenTransfer(streamTokens.outSupplyToken, creator, streamState.outSupply);
@@ -564,10 +558,7 @@ contract Stream is IStreamErrors, IStreamEvents {
         allowedStatuses[0] = IStreamTypes.Status.Waiting;
         allowedStatuses[1] = IStreamTypes.Status.Bootstrapping;
         allowedStatuses[2] = IStreamTypes.Status.Active;
-        bool isAllowed = isOperationAllowed(status, allowedStatuses);
-        if (!isAllowed) {
-            revert OperationNotAllowed();
-        }
+        isOperationAllowed(status, allowedStatuses);
 
         // Refund out tokens to creator
         safeTokenTransfer(streamTokens.outSupplyToken, creator, streamState.outSupply);
@@ -712,6 +703,14 @@ contract Stream is IStreamErrors, IStreamEvents {
      */
     function assertStatus(IStreamTypes.Status status, IStreamTypes.Status expectedStatus) internal pure {
         if (status != expectedStatus) revert OperationNotAllowed();
+    }
+
+    /**
+     * @dev Ensure amount is not zero
+     * @param amount Amount to check
+     */
+    function assertAmountNotZero(uint256 amount) internal pure {
+        if (amount == 0) revert InvalidAmount();
     }
 
     /**

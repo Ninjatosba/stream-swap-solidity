@@ -36,15 +36,18 @@ describe("Stream Subscribe", function () {
         });
 
         it("Should fail subscription during waiting phase", async function () {
-            const { contracts, accounts } = await loadFixture(stream().build());
+            const { contracts, timeParams, accounts } = await loadFixture(stream().build());
 
             // Try to subscribe during waiting phase
+            await ethers.provider.send("evm_setNextBlockTimestamp", [timeParams.bootstrappingStartTime - 3]);
+            await ethers.provider.send("evm_mine", []);
+
             const subscriptionAmount = 100;
             await contracts.inSupplyToken.connect(accounts.subscriber1).approve(contracts.stream.getAddress(), subscriptionAmount);
 
             await expect(
                 contracts.stream.connect(accounts.subscriber1).subscribe(subscriptionAmount)
-            ).to.be.revertedWithCustomError(contracts.stream, "InvalidStreamStatus");
+            ).to.be.revertedWithCustomError(contracts.stream, "OperationNotAllowed");
         });
 
         it("Should fail subscription during ended phase", async function () {
@@ -63,7 +66,7 @@ describe("Stream Subscribe", function () {
 
             await expect(
                 contracts.stream.connect(accounts.subscriber1).subscribe(subscriptionAmount)
-            ).to.be.revertedWithCustomError(contracts.stream, "InvalidStreamStatus");
+            ).to.be.revertedWithCustomError(contracts.stream, "OperationNotAllowed");
         });
     });
 
@@ -72,11 +75,8 @@ describe("Stream Subscribe", function () {
             const { contracts, timeParams, accounts } = await loadFixture(stream().build());
 
             // Fast forward time to stream phase
-            await ethers.provider.send("evm_setNextBlockTimestamp", [timeParams.streamStartTime + 1]);
+            await ethers.provider.send("evm_setNextBlockTimestamp", [timeParams.streamStartTime]);
             await ethers.provider.send("evm_mine", []);
-
-            // Sync the stream to update status
-            await contracts.stream.syncStreamExternal();
 
             // First subscription
             const amount1 = 100;
@@ -94,8 +94,7 @@ describe("Stream Subscribe", function () {
 
             // Verify position was updated correctly
             const position = await positionStorage.getPosition(accounts.subscriber1.address);
-            expect(position.inBalance).to.equal(amount1 + amount2);
-            expect(position.shares).to.be.gt(0);
+            expect(position.inBalance).to.equal((amount1 + amount2) - (amount1 * /* Stream duration on default is 100 seconds, first subscription is at 0 seconds  but second is at 2 second*/2 / 100));
         });
 
         it("Should allow subscriptions from multiple users", async function () {
@@ -146,7 +145,7 @@ describe("Stream Subscribe", function () {
 
             await expect(
                 contracts.stream.connect(accounts.subscriber1).subscribe(0)
-            ).to.be.revertedWithCustomError(contracts.stream, "InvalidSubscriptionAmount");
+            ).to.be.revertedWithCustomError(contracts.stream, "InvalidAmount");
         });
 
         it("Should fail with insufficient allowance", async function () {

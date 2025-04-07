@@ -155,10 +155,6 @@ describe("Stream Threshold", function () {
         let threshold = 100;
         const { contracts, timeParams, accounts, config, factoryParams } = await loadFixture(stream().setThreshold(threshold).build());
 
-        console.log("Initial setup:");
-        console.log("Threshold:", threshold);
-        console.log("Factory params:", factoryParams);
-
         // Fast forward time to stream start
         await ethers.provider.send("evm_setNextBlockTimestamp", [timeParams.streamStartTime + 1]);
         await ethers.provider.send("evm_mine", []);
