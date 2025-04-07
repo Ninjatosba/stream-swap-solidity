@@ -71,6 +71,10 @@ const config: HardhatUserConfig = {
       url: "http://127.0.0.1:8545",
       // The following are optional but might be needed depending on your setup
       timeout: 60000,
+      mining: {
+        auto: true,
+        interval: 1000  // Add a 1 second interval between blocks
+      },
       chainId: 31337
     },
     mainnet: {

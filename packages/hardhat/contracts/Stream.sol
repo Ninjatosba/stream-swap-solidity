@@ -410,6 +410,10 @@ contract Stream is IStreamErrors, IStreamEvents {
                 // Create vesting schedule
                 vestingContract.stakeFunds(msg.sender, streamTokens.outSupplyToken, cliffTime, endTime, amountToDistribute);
             }
+            else {
+                // Direct transfer if vesting is not enabled
+                safeTokenTransfer(streamTokens.outSupplyToken, msg.sender, position.purchased);
+            }
             return;
         }
 
