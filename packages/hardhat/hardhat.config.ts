@@ -64,7 +64,7 @@ const config: HardhatUserConfig = {
       },
       mining: {
         auto: true,
-        interval: 1000  // Add a 1 second interval between blocks
+        interval: 0  // Add a 1 second interval between blocks
       }
     },
     localhost: {
@@ -73,7 +73,7 @@ const config: HardhatUserConfig = {
       timeout: 60000,
       mining: {
         auto: true,
-        interval: 1000  // Add a 1 second interval between blocks
+        interval: 0  // Add a 1 second interval between blocks
       },
       chainId: 31337
     },

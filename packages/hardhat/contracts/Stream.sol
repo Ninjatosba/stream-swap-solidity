@@ -752,4 +752,8 @@ contract Stream is IStreamErrors, IStreamEvents {
     function getStreamState() external view returns (IStreamTypes.StreamState memory) {
         return streamState;
     }
+
+    function getPosition(address user) external view returns (PositionTypes.Position memory) {
+        return positionStorage.getPosition(user);
+    }
 }

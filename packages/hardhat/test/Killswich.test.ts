@@ -88,7 +88,7 @@ describe("Stream Cancel", function () {
             const streamStateBefore = await contracts.stream.getStreamState();
 
             // Cancel with admin
-            await contracts.stream.connect(accounts.deployer).cancelWithAdmin();
+            await contracts.stream.connect(accounts.protocolAdmin).cancelWithAdmin();
 
             // Check final balances
             const creatorBalanceAfter = await contracts.outSupplyToken.balanceOf(accounts.creator.address);
@@ -96,14 +96,14 @@ describe("Stream Cancel", function () {
         });
 
         it("Should handle cancellation at stream boundaries correctly", async function () {
-            const { contracts, timeParams } = await loadFixture(stream().build());
+            const { contracts, timeParams, accounts } = await loadFixture(stream().build());
 
             // Test cancellation at exact bootstrapping start
             await ethers.provider.send("evm_setNextBlockTimestamp", [timeParams.bootstrappingStartTime]);
             await ethers.provider.send("evm_mine", []);
 
             await contracts.stream.syncStreamExternal();
-            await expect(contracts.stream.cancelWithAdmin()).to.not.be.reverted;
+            await expect(contracts.stream.connect(accounts.protocolAdmin).cancelWithAdmin()).to.not.be.reverted;
         });
 
         it("Should fail admin cancel if caller is not protocol admin", async function () {
@@ -116,8 +116,8 @@ describe("Stream Cancel", function () {
             }
         });
 
-        it("Should not allow admin cancel after stream is finalized", async function () {
-            const { contracts, timeParams } = await loadFixture(stream().build());
+        it("Should not allow admin cancel after stream is ended", async function () {
+            const { contracts, timeParams, accounts } = await loadFixture(stream().build());
 
             // Move to ended status and finalize
             await ethers.provider.send("evm_setNextBlockTimestamp", [timeParams.streamEndTime + 1]);
@@ -125,7 +125,23 @@ describe("Stream Cancel", function () {
 
             await contracts.stream.syncStreamExternal();
 
-            await expect(contracts.stream.cancelWithAdmin())
+            await expect(contracts.stream.connect(accounts.protocolAdmin).cancelWithAdmin())
+                .to.be.revertedWithCustomError(contracts.stream, "OperationNotAllowed");
+        });
+
+        it("Should not allow admin cancel after stream is finalized", async function () {
+            const { contracts, timeParams, accounts } = await loadFixture(stream().build());
+
+            await contracts.stream.syncStreamExternal();
+
+            // Set time to stream end
+            await ethers.provider.send("evm_setNextBlockTimestamp", [timeParams.streamEndTime + 1]);
+            await ethers.provider.send("evm_mine", []);
+
+            // Finalize the stream
+            await contracts.stream.connect(accounts.creator).finalizeStream();
+
+            await expect(contracts.stream.connect(accounts.protocolAdmin).cancelWithAdmin())
                 .to.be.revertedWithCustomError(contracts.stream, "OperationNotAllowed");
         });
 
@@ -165,7 +181,7 @@ describe("Stream Cancel", function () {
             const streamStateBefore = await contracts.stream.getStreamState();
 
             // Cancel with admin
-            await contracts.stream.connect(accounts.deployer).cancelWithAdmin();
+            await contracts.stream.connect(accounts.protocolAdmin).cancelWithAdmin();
 
             // Verify all out tokens returned to creator
             const creatorBalanceAfter = await contracts.outSupplyToken.balanceOf(accounts.creator.address);
