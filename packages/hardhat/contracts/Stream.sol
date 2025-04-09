@@ -487,19 +487,22 @@ contract Stream is IStreamErrors, IStreamEvents {
             if (state.outRemaining > 0) {
                 safeTokenTransfer(streamTokens.outSupplyToken, creator, state.outRemaining);
             }
+
+            emit FinalizedStreamed(address(this), creator, creatorRevenue, feeAmount, state.outRemaining, status);
         } else {
             // Update status
             status = IStreamTypes.Status.FinalizedRefunded;
 
             // Refund out tokens to creator
             safeTokenTransfer(streamTokens.outSupplyToken, creator, state.outSupply);
+
+            emit FinalizedRefunded(address(this), creator, state.outSupply, status);
         }
 
         // Save everything
         saveStreamStatus(status);
         saveStream(state);
 
-        emit StreamFinalized(address(this), creator, state.spentIn, state.outRemaining, status);
     }
 
     function syncStreamExternal() external {

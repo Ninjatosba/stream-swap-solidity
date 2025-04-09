@@ -73,11 +73,19 @@ interface IStreamEvents {
         uint256 exitTimestamp
     );
 
-    event StreamFinalized(
+    event FinalizedStreamed(
         address indexed streamAddress,
         address indexed creator,
         uint256 creatorRevenue,
         uint256 exitFeeAmount,
+        uint256 refundedOutAmount,
+        IStreamTypes.Status status
+    );
+
+    event FinalizedRefunded(
+        address indexed streamAddress,
+        address indexed creator,
+        uint256 refundedOutAmount,
         IStreamTypes.Status status
     );
 

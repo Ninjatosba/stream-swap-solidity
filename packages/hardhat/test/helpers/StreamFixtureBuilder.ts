@@ -71,9 +71,9 @@ export class StreamFixtureBuilder {
     }
 
     // Method to set exit fee percent
-    public exitPercent(percent: number): StreamFixtureBuilder {
+    public exitRatio(ratio: number): StreamFixtureBuilder {
         this.ExitFeeRatio = {
-            value: percent * 1e5
+            value: ratio
         };
         return this;
     }
@@ -140,7 +140,7 @@ export class StreamFixtureBuilder {
                 await ethers.provider.send("hardhat_reset", []);
 
                 // Get signers
-                const [deployer, creator, subscriber1, subscriber2, protocolAdmin] = await ethers.getSigners();
+                const [deployer, creator, subscriber1, subscriber2, protocolAdmin, feeCollector] = await ethers.getSigners();
 
                 // Deploy token contracts with deployer
                 const InSupplyToken = await ethers.getContractFactory("ERC20Mock");
@@ -165,7 +165,7 @@ export class StreamFixtureBuilder {
                     config.minBootstrappingDuration,
                     config.minStreamDuration,
                     [await inSupplyToken.getAddress()],
-                    protocolAdmin.address,
+                    feeCollector.address,
                     protocolAdmin.address,
                     config.tosVersion
                 );
@@ -246,6 +246,7 @@ export class StreamFixtureBuilder {
                     accounts: {
                         deployer,
                         protocolAdmin,
+                        feeCollector,
                         creator,
                         subscriber1,
                         subscriber2
