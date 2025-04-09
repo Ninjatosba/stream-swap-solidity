@@ -58,7 +58,14 @@ interface IStreamEvents {
         uint256 totalShares
     );
 
-    event Exited(
+    event ExitRefunded(
+        address indexed streamAddress,
+        address indexed subscriber,
+        uint256 refundedAmount,
+        uint256 exitTimestamp
+
+    );
+    event ExitStreamed(
         address indexed streamAddress,
         address indexed subscriber,
         uint256 purchased,

@@ -380,8 +380,6 @@ contract Stream is IStreamErrors, IStreamEvents {
         saveStreamStatus(status);
         saveStream(state);
         savePosition(msg.sender, position);
-
-        emit Exited(address(this), msg.sender, position.purchased, position.spentIn, block.timestamp);
     }
 
     function handleExitDistribution(
@@ -415,6 +413,7 @@ contract Stream is IStreamErrors, IStreamEvents {
                 // Direct transfer if vesting is not enabled
                 safeTokenTransfer(streamTokens.outSupplyToken, msg.sender, position.purchased);
             }
+            emit ExitStreamed(address(this), msg.sender, position.purchased, position.spentIn, block.timestamp);
             return;
         }
 
@@ -423,6 +422,7 @@ contract Stream is IStreamErrors, IStreamEvents {
             // Full refund of all input tokens (both spent and unspent)
             uint256 totalRefund = position.inBalance + position.spentIn;
             safeTokenTransfer(streamTokens.inSupplyToken, msg.sender, totalRefund);
+            emit ExitRefunded(address(this), msg.sender, totalRefund, block.timestamp);
             return;
         }
 

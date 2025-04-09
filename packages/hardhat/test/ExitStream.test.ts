@@ -208,8 +208,9 @@ describe("Stream Exit", function () {
     });
 
     describe("Event Emission", function () {
-        it("Should emit Exited event on successful exit", async function () {
-            const { contracts, timeParams, accounts } = await loadFixture(stream().build());
+        it("Should emit ExitRefunded event on refund exit", async function () {
+            let threshold = ethers.parseEther("100");
+            const { contracts, timeParams, accounts } = await loadFixture(stream().setThreshold(threshold).build());
 
             // Fast forward time to stream phase
             await ethers.provider.send("evm_setNextBlockTimestamp", [timeParams.streamStartTime + 1]);
@@ -219,7 +220,7 @@ describe("Stream Exit", function () {
             await contracts.stream.syncStreamExternal();
 
             // Subscribe with some amount
-            const subscribeAmount = ethers.parseEther("100");
+            const subscribeAmount = threshold / BigInt(2);
             await contracts.inSupplyToken.connect(accounts.subscriber1).approve(
                 contracts.stream.getAddress(),
                 subscribeAmount
@@ -245,7 +246,56 @@ describe("Stream Exit", function () {
             const receipt = await tx.wait();
 
             // Get the event from the receipt
-            const event = receipt?.logs.find(log => log.topics[0] === contracts.stream.interface.getEvent("Exited").topicHash);
+            const event = receipt?.logs.find(log => log.topics[0] === contracts.stream.interface.getEvent("ExitRefunded").topicHash);
+            expect(event).to.not.be.undefined;
+
+            // Check the event arguments
+            const parsedEvent = contracts.stream.interface.parseLog({
+                topics: event!.topics,
+                data: event!.data
+            });
+            expect(parsedEvent?.args.streamAddress).to.equal(await contracts.stream.getAddress());
+            expect(parsedEvent?.args.refundedAmount).to.equal(subscribeAmount);
+            expect(parsedEvent?.args.exitTimestamp).to.be.closeTo(currentBlock.timestamp, 1);
+        });
+        it("Should emit ExitStreamed event on successful exit", async function () {
+            let threshold = ethers.parseEther("100");
+            const { contracts, timeParams, accounts } = await loadFixture(stream().setThreshold(threshold).build());
+
+            // Fast forward time to stream phase
+            await ethers.provider.send("evm_setNextBlockTimestamp", [timeParams.streamStartTime + 1]);
+            await ethers.provider.send("evm_mine", []);
+
+            // Sync the stream to update status
+            await contracts.stream.syncStreamExternal();
+
+            // Subscribe with amount equal to threshold
+            await contracts.inSupplyToken.connect(accounts.subscriber1).approve(
+                contracts.stream.getAddress(),
+                threshold
+            );
+            await contracts.stream.connect(accounts.subscriber1).subscribe(threshold);
+
+            // Fast forward time to ended phase
+            await ethers.provider.send("evm_setNextBlockTimestamp", [timeParams.streamEndTime + 1]);
+            await ethers.provider.send("evm_mine", []);
+
+            // Sync the stream to update status
+            await contracts.stream.syncStreamExternal();
+
+            // Finalize the stream
+            await contracts.stream.connect(accounts.creator).finalizeStream();
+
+            // Get current block timestamp
+            const currentBlock = await ethers.provider.getBlock("latest");
+            if (!currentBlock) throw new Error("Failed to get current block");
+
+            // Exit the stream and check event emission
+            const tx = await contracts.stream.connect(accounts.subscriber1).exitStream();
+            const receipt = await tx.wait();
+
+            // Get the event from the receipt
+            const event = receipt?.logs.find(log => log.topics[0] === contracts.stream.interface.getEvent("ExitStreamed").topicHash);
             expect(event).to.not.be.undefined;
 
             // Check the event arguments
@@ -256,7 +306,7 @@ describe("Stream Exit", function () {
             expect(parsedEvent?.args.streamAddress).to.equal(await contracts.stream.getAddress());
             expect(parsedEvent?.args.subscriber).to.equal(accounts.subscriber1.address);
             expect(parsedEvent?.args.purchased).to.equal((await contracts.stream.getPosition(accounts.subscriber1.address)).purchased);
-            expect(parsedEvent?.args.spentIn).to.equal(subscribeAmount);
+            expect(parsedEvent?.args.spentIn).to.equal(threshold);
             expect(parsedEvent?.args.exitTimestamp).to.be.closeTo(currentBlock.timestamp, 1);
         });
     });

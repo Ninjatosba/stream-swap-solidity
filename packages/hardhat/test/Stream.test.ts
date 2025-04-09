@@ -65,7 +65,7 @@ describe("Stream Status", function () {
 // Test threshold feature
 describe("Stream Threshold", function () {
     it("Should refund to creator if threshold is not reached", async function () {
-        const { contracts, timeParams, accounts, config } = await loadFixture(stream().setThreshold(100).build());
+        const { contracts, timeParams, accounts, config } = await loadFixture(stream().setThreshold(ethers.parseEther("100")).build());
 
         // Fast forward time to stream end
         await ethers.provider.send("evm_setNextBlockTimestamp", [timeParams.streamEndTime + 1]);
@@ -91,7 +91,7 @@ describe("Stream Threshold", function () {
         expect(creatorBalanceAfter).to.equal(creatorBalanceBefore + BigInt(config.streamOutAmount));
     })
     it("Should refund to subscribers if threshold is not reached", async function () {
-        let threshold = 100;
+        let threshold = ethers.parseEther("100");
         const { contracts, timeParams, accounts, config } = await loadFixture(stream().setThreshold(threshold).build());
 
         // Fast forward time to stream start
@@ -106,13 +106,13 @@ describe("Stream Threshold", function () {
         const status = await contracts.stream.streamStatus();
         expect(status).to.equal(2); // Stream phase (Active)
 
-        // Subscribe to the stream with the subscriber1
-        await contracts.inSupplyToken.connect(accounts.subscriber1).approve(contracts.stream.getAddress(), threshold / 2 - 1);
-        let subscribeTx = await contracts.stream.connect(accounts.subscriber1).subscribe(threshold / 2 - 1);
+        // Subscribe to the stream with amount which is less than half of the threshold
+        await contracts.inSupplyToken.connect(accounts.subscriber1).approve(contracts.stream.getAddress(), (threshold / BigInt(2)) - BigInt(1));
+        let subscribeTx = await contracts.stream.connect(accounts.subscriber1).subscribe(threshold / BigInt(2) - BigInt(1));
         await subscribeTx.wait();
         // susbcribe with the subscriber2
-        await contracts.inSupplyToken.connect(accounts.subscriber2).approve(contracts.stream.getAddress(), threshold / 2 - 1);
-        let subscribeTx2 = await contracts.stream.connect(accounts.subscriber2).subscribe(threshold / 2 - 1);
+        await contracts.inSupplyToken.connect(accounts.subscriber2).approve(contracts.stream.getAddress(), (threshold / BigInt(2)) - BigInt(1));
+        let subscribeTx2 = await contracts.stream.connect(accounts.subscriber2).subscribe(threshold / BigInt(2) - BigInt(1));
         await subscribeTx2.wait();
 
         // Skip time to stream end
@@ -152,7 +152,7 @@ describe("Stream Threshold", function () {
     });
 
     it("Should finalize normally if threshold is reached", async function () {
-        let threshold = 100;
+        let threshold = ethers.parseEther("100");
         const { contracts, timeParams, accounts, config, factoryParams } = await loadFixture(stream().setThreshold(threshold).build());
 
         // Fast forward time to stream start
@@ -167,7 +167,6 @@ describe("Stream Threshold", function () {
         await contracts.inSupplyToken.connect(accounts.subscriber1).approve(contracts.stream.getAddress(), threshold);
         let subscribeTx = await contracts.stream.connect(accounts.subscriber1).subscribe(threshold);
         await subscribeTx.wait();
-
 
         // Fast forward time to stream end
         await ethers.provider.send("evm_setNextBlockTimestamp", [timeParams.streamEndTime + 1]);
@@ -195,8 +194,7 @@ describe("Stream Threshold", function () {
         let creatorInSupplyTokenBalanceAfter = Number(await contracts.inSupplyToken.balanceOf(accounts.creator.address));
         let exitFeeRatio = Number(factoryParams.exitFeeRatio.value);
         let ratio = exitFeeRatio / 1000000;
-        let expectedBalance = creatorInSupplyTokenBalanceBefore + threshold - (threshold * ratio);
-
+        let expectedBalance = creatorInSupplyTokenBalanceBefore + Number(threshold) - (Number(threshold) * ratio);
         expect(creatorInSupplyTokenBalanceAfter).to.equal(expectedBalance);
     });
 });

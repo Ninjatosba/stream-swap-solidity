@@ -10,7 +10,7 @@ export class StreamFixtureBuilder {
     private waitSeconds: number = 50;
     private bootstrappingDuration: number = 50;
     private streamDuration: number = 100;
-    private threshold: number = 1000;
+    private threshold: bigint = ethers.parseEther("10");
     private streamName: string = "Test Stream";
     private tosVersion: string = "1.0.0";
     private ExitFeeRatio: DecimalStruct = {
@@ -47,7 +47,7 @@ export class StreamFixtureBuilder {
         return this;
     }
     // Method to set threshold
-    public setThreshold(threshold: number): StreamFixtureBuilder {
+    public setThreshold(threshold: bigint): StreamFixtureBuilder {
         this.threshold = threshold;
         return this;
     }
