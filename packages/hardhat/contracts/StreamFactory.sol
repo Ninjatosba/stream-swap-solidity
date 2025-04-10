@@ -19,6 +19,7 @@ contract StreamFactory is IStreamEvents, IStreamErrors {
         address protocolAdmin; // Admin address for protocol
         string tosVersion; // Terms of service version
         address vestingAddress; // Address of the vesting contract
+        address poolAddress; // Address of the pool contract
     }
 
     mapping(address => bool) public acceptedInSupplyTokens;
@@ -144,7 +145,8 @@ contract StreamFactory is IStreamEvents, IStreamErrors {
         string memory _tosVersion,
         bytes32 _salt,
         IStreamTypes.VestingInfo memory _creatorVestingInfo,
-        IStreamTypes.VestingInfo memory _beneficiaryVestingInfo
+        IStreamTypes.VestingInfo memory _beneficiaryVestingInfo,
+        IStreamTypes.PoolConfig memory _poolConfig
     ) external payable {
         // Check if contract is accepting new streams (not frozen)
         if (frozen) revert ContractFrozen();
@@ -194,7 +196,8 @@ contract StreamFactory is IStreamEvents, IStreamErrors {
                     _inSupplyToken,
                     msg.sender,
                     _creatorVestingInfo,
-                    _beneficiaryVestingInfo
+                    _beneficiaryVestingInfo,
+                    _poolConfig
                 )
             )
         );
@@ -204,7 +207,7 @@ contract StreamFactory is IStreamEvents, IStreamErrors {
         if (!IERC20(_outSupplyToken).transferFrom(msg.sender, predictedAddress, _streamOutAmount))
             revert TokenTransferFailed();
         // Deploy new stream contract with all parameters
-        Stream newStream = new Stream{ salt: _salt }(
+        Stream stream = new Stream{salt: _salt}(
             _streamOutAmount,
             _outSupplyToken,
             _bootstrappingStartTime,
@@ -215,11 +218,12 @@ contract StreamFactory is IStreamEvents, IStreamErrors {
             _inSupplyToken,
             msg.sender,
             _creatorVestingInfo,
-            _beneficiaryVestingInfo
+            _beneficiaryVestingInfo,
+            _poolConfig
         );
 
-        if (address(newStream) != predictedAddress) revert StreamAddressPredictionFailed();
-        streamAddresses[currentStreamId] = address(newStream);
+        if (address(stream) != predictedAddress) revert StreamAddressPredictionFailed();
+        streamAddresses[currentStreamId] = address(stream);
 
         emit StreamCreated(
             _outSupplyToken,
@@ -232,7 +236,7 @@ contract StreamFactory is IStreamEvents, IStreamErrors {
             _threshold,
             _name,
             _tosVersion,
-            address(newStream),
+            address(stream),
             currentStreamId
         );
         currentStreamId++;

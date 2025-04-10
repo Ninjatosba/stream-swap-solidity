@@ -26,6 +26,7 @@ contract Stream is IStreamErrors, IStreamEvents {
     IStreamTypes.StreamTimes public streamTimes;
     IStreamTypes.VestingInfo public creatorVestingInfo;
     IStreamTypes.VestingInfo public beneficiaryVestingInfo;
+    IStreamTypes.PoolConfig public poolConfig;
     address public factory;
 
     PositionStorage public positionStorage;
@@ -42,7 +43,8 @@ contract Stream is IStreamErrors, IStreamEvents {
         address _inSupplyToken,
         address _creator,
         IStreamTypes.VestingInfo memory _creatorVestingInfo,
-        IStreamTypes.VestingInfo memory _beneficiaryVestingInfo
+        IStreamTypes.VestingInfo memory _beneficiaryVestingInfo,
+        IStreamTypes.PoolConfig memory _poolConfig
     ) {
         // Validate that output token is a valid ERC20
         if (!isValidERC20(_outSupplyToken, msg.sender)) {
@@ -50,7 +52,8 @@ contract Stream is IStreamErrors, IStreamEvents {
         }
 
         // Check if the contract has enough balance of output token
-        if (!hasEnoughBalance(_outSupplyToken, address(this), _streamOutAmount)) {
+        uint256 totalRequiredAmount = _streamOutAmount + _poolConfig.poolAmount;
+        if (!hasEnoughBalance(_outSupplyToken, address(this), totalRequiredAmount)) {
             revert InsufficientOutAmount();
         }
 
@@ -89,6 +92,15 @@ contract Stream is IStreamErrors, IStreamEvents {
             }
             // set vesting info
             beneficiaryVestingInfo = _beneficiaryVestingInfo;
+        }
+
+        // Validate pool config
+        if (_poolConfig.poolAmount > 0) {
+            // Validate pool amount is less than or equal to out amount
+            if (_poolConfig.poolAmount > _streamOutAmount) {
+                revert InvalidAmount();
+            }
+            poolConfig = _poolConfig;
         }
 
         creator = _creator;
@@ -477,8 +489,31 @@ contract Stream is IStreamErrors, IStreamEvents {
                 safeTokenTransfer(streamTokens.inSupplyToken, feeCollector, feeAmount);
             }
 
-            // Send revenue to creator
-            safeTokenTransfer(streamTokens.inSupplyToken, creator, creatorRevenue);
+            // Handle pool creation if configured
+            if (poolConfig.poolAmount > 0) {
+                // Calculate pool ratio
+                Decimal memory poolRatio = DecimalMath.div(
+                    DecimalMath.fromNumber(poolConfig.poolAmount),
+                    DecimalMath.fromNumber(streamState.outSupply)
+                );
+
+                // Calculate pool amount based on ratio
+                uint256 totalRevenue = state.spentIn - feeAmount;
+                uint256 poolAmount = DecimalMath.mul(
+                    DecimalMath.fromNumber(totalRevenue),
+                    poolRatio
+                ).value;
+                uint256 creatorAmount = totalRevenue - poolAmount;
+
+                // Transfer pool amount to pool contract
+                safeTokenTransfer(streamTokens.inSupplyToken, params.poolAddress, poolAmount);
+                
+                // Send remaining revenue to creator
+                safeTokenTransfer(streamTokens.inSupplyToken, creator, creatorAmount);
+            } else {
+                // Send revenue to creator
+                safeTokenTransfer(streamTokens.inSupplyToken, creator, creatorRevenue);
+            }
 
             // Update status
             status = IStreamTypes.Status.FinalizedStreamed;
@@ -502,7 +537,6 @@ contract Stream is IStreamErrors, IStreamEvents {
         // Save everything
         saveStreamStatus(status);
         saveStream(state);
-
     }
 
     function syncStreamExternal() external {

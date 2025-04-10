@@ -45,4 +45,8 @@ interface IStreamTypes {
         uint16 vestingDuration;
         uint16 cliffDuration;
     }
+
+    struct PoolConfig {
+        uint256 poolAmount;
+    }
 }
