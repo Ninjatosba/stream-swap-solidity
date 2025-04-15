@@ -47,6 +47,6 @@ interface IStreamTypes {
     }
 
     struct PoolConfig {
-        uint256 poolAmount;
+        uint256 poolOutSupplyAmount;
     }
 }

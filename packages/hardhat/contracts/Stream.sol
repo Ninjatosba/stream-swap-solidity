@@ -52,7 +52,7 @@ contract Stream is IStreamErrors, IStreamEvents {
         }
 
         // Check if the contract has enough balance of output token
-        uint256 totalRequiredAmount = _streamOutAmount + _poolConfig.poolAmount;
+        uint256 totalRequiredAmount = _streamOutAmount + _poolConfig.poolOutSupplyAmount;
         if (!hasEnoughBalance(_outSupplyToken, address(this), totalRequiredAmount)) {
             revert InsufficientOutAmount();
         }
@@ -95,9 +95,9 @@ contract Stream is IStreamErrors, IStreamEvents {
         }
 
         // Validate pool config
-        if (_poolConfig.poolAmount > 0) {
+        if (_poolConfig.poolOutSupplyAmount > 0) {
             // Validate pool amount is less than or equal to out amount
-            if (_poolConfig.poolAmount > _streamOutAmount) {
+            if (_poolConfig.poolOutSupplyAmount > _streamOutAmount) {
                 revert InvalidAmount();
             }
             poolConfig = _poolConfig;
@@ -490,24 +490,23 @@ contract Stream is IStreamErrors, IStreamEvents {
             }
 
             // Handle pool creation if configured
-            if (poolConfig.poolAmount > 0) {
+            if (poolConfig.poolOutSupplyAmount > 0) {
                 // Calculate pool ratio
                 Decimal memory poolRatio = DecimalMath.div(
-                    DecimalMath.fromNumber(poolConfig.poolAmount),
+                    DecimalMath.fromNumber(poolConfig.poolOutSupplyAmount),
                     DecimalMath.fromNumber(streamState.outSupply)
                 );
 
                 // Calculate pool amount based on ratio
                 uint256 totalRevenue = state.spentIn - feeAmount;
-                uint256 poolAmount = DecimalMath.mul(
+                uint256 poolInSupplyAmount = DecimalMath.mul(
                     DecimalMath.fromNumber(totalRevenue),
                     poolRatio
                 ).value;
-                uint256 creatorAmount = totalRevenue - poolAmount;
+                uint256 creatorAmount = totalRevenue - poolInSupplyAmount;
 
-                // Transfer pool amount to pool contract
-                safeTokenTransfer(streamTokens.inSupplyToken, params.poolAddress, poolAmount);
-                
+                // Transfer pool inSupplyToken amount to the pool factory
+                safeTokenTransfer(streamTokens.inSupplyToken, params.poolFactoryAddress, poolInSupplyAmount);
                 // Send remaining revenue to creator
                 safeTokenTransfer(streamTokens.inSupplyToken, creator, creatorAmount);
             } else {

@@ -19,7 +19,7 @@ contract StreamFactory is IStreamEvents, IStreamErrors {
         address protocolAdmin; // Admin address for protocol
         string tosVersion; // Terms of service version
         address vestingAddress; // Address of the vesting contract
-        address poolAddress; // Address of the pool contract
+        address poolFactoryAddress; // Address of the pool factory contract
     }
 
     mapping(address => bool) public acceptedInSupplyTokens;
@@ -43,7 +43,8 @@ contract StreamFactory is IStreamEvents, IStreamErrors {
         address[] memory _acceptedInSupplyTokens,
         address _feeCollector,
         address _protocolAdmin,
-        string memory _tosVersion
+        string memory _tosVersion,
+        address _poolFactoryAddress
     ) {
         if (_feeCollector == address(0)) revert InvalidFeeCollector();
         if (_protocolAdmin == address(0)) revert InvalidProtocolAdmin();
@@ -67,7 +68,8 @@ contract StreamFactory is IStreamEvents, IStreamErrors {
             feeCollector: _feeCollector,
             protocolAdmin: _protocolAdmin,
             tosVersion: _tosVersion,
-            vestingAddress: address(vesting)
+            vestingAddress: address(vesting),
+            poolFactoryAddress: _poolFactoryAddress
         });
 
         // Set accepted tokens
