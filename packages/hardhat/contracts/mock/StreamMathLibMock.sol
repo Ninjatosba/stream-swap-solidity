@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "./StreamMathLib.sol";
-import "./StreamTypes.sol";
-import "./PositionTypes.sol";
-import "./DecimalMath.sol";
+import "../StreamMathLib.sol";
+import "../StreamTypes.sol";
+import "../PositionTypes.sol";
+import "../DecimalMath.sol";
 
 contract StreamMathLibMock {
     function calculateDiff(
