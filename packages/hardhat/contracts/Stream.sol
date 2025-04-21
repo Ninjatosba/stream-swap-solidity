@@ -9,10 +9,11 @@ import "./StreamTypes.sol";
 import "./StreamFactory.sol";
 import "./DecimalMath.sol";
 import "./StreamMathLib.sol";
-import "./IERC20.sol";
+import "./interfaces/IERC20.sol";
 import "hardhat/console.sol";
 
-import "./IVesting.sol";
+import "./interfaces/IVesting.sol";
+import "./interfaces/IUniswapV2.sol";
 
 contract Stream is IStreamErrors, IStreamEvents {
     address public creator;
@@ -27,8 +28,7 @@ contract Stream is IStreamErrors, IStreamEvents {
     IStreamTypes.VestingInfo public creatorVestingInfo;
     IStreamTypes.VestingInfo public beneficiaryVestingInfo;
     IStreamTypes.PoolConfig public poolConfig;
-    address public factory;
-
+    address public streamFactoryAddress;
     PositionStorage public positionStorage;
 
     // constructor should return its address
@@ -132,7 +132,7 @@ contract Stream is IStreamErrors, IStreamEvents {
         });
 
         // Store the factory address
-        factory = msg.sender;
+        streamFactoryAddress = msg.sender;
     }
 
     function syncStream(
@@ -317,7 +317,6 @@ contract Stream is IStreamErrors, IStreamEvents {
         // Update the stream state
         state = syncStream(state);
 
-
         uint256 newShares = 0;
 
         if (position.shares == 0) {
@@ -410,18 +409,27 @@ contract Stream is IStreamErrors, IStreamEvents {
                 // Distribute earned output tokens
                 uint256 amountToDistribute = position.purchased;
                 // Load factory params
-                StreamFactory factoryContract = StreamFactory(factory);
+                StreamFactory factoryContract = StreamFactory(streamFactoryAddress);
                 StreamFactory.Params memory params = factoryContract.getParams();
                 address vestingContractAddress = params.vestingAddress;
                 IVesting vestingContract = IVesting(vestingContractAddress);
                 // Create vesting schedule
-                (uint256 cliffTime, uint256 endTime) = StreamMathLib.calculateVestingSchedule(block.timestamp, vestingInfo.cliffDuration, vestingInfo.vestingDuration);
+                (uint256 cliffTime, uint256 endTime) = StreamMathLib.calculateVestingSchedule(
+                    block.timestamp,
+                    vestingInfo.cliffDuration,
+                    vestingInfo.vestingDuration
+                );
                 // Transfer tokens to vesting contract
                 safeTokenTransfer(streamTokens.outSupplyToken, vestingContractAddress, amountToDistribute);
                 // Create vesting schedule
-                vestingContract.stakeFunds(msg.sender, streamTokens.outSupplyToken, cliffTime, endTime, amountToDistribute);
-            }
-            else {
+                vestingContract.stakeFunds(
+                    msg.sender,
+                    streamTokens.outSupplyToken,
+                    cliffTime,
+                    endTime,
+                    amountToDistribute
+                );
+            } else {
                 // Direct transfer if vesting is not enabled
                 safeTokenTransfer(streamTokens.outSupplyToken, msg.sender, position.purchased);
             }
@@ -476,7 +484,7 @@ contract Stream is IStreamErrors, IStreamEvents {
 
         if (thresholdReached) {
             // Get fee collector from factory
-            StreamFactory factoryContract = StreamFactory(factory);
+            StreamFactory factoryContract = StreamFactory(streamFactoryAddress);
             StreamFactory.Params memory params = factoryContract.getParams();
             address feeCollector = params.feeCollector;
             Decimal memory exitFeeRatio = params.exitFeeRatio;
@@ -499,16 +507,21 @@ contract Stream is IStreamErrors, IStreamEvents {
 
                 // Calculate pool amount based on ratio
                 uint256 totalRevenue = state.spentIn - feeAmount;
-                uint256 poolInSupplyAmount = DecimalMath.mul(
-                    DecimalMath.fromNumber(totalRevenue),
-                    poolRatio
-                ).value;
-                uint256 creatorAmount = totalRevenue - poolInSupplyAmount;
+                uint256 decimalTotalRevenue = DecimalMath.fromNumber(totalRevenue).value;
 
-                // Transfer pool inSupplyToken amount to the pool factory
-                safeTokenTransfer(streamTokens.inSupplyToken, params.poolFactoryAddress, poolInSupplyAmount);
-                // Send remaining revenue to creator
-                safeTokenTransfer(streamTokens.inSupplyToken, creator, creatorAmount);
+                Decimal memory decimalPoolInSupplyAmount = DecimalMath.mul(
+                    DecimalMath.fromNumber(decimalTotalRevenue),
+                    poolRatio
+                );
+                uint256 poolInSupplyAmount = DecimalMath.floor(decimalPoolInSupplyAmount);
+                uint256 creatorAmount = totalRevenue - poolInSupplyAmount;
+                // Create pool and add liquidity
+                createPoolAndAddLiquidity(
+                    streamTokens.inSupplyToken,
+                    streamTokens.outSupplyToken,
+                    poolInSupplyAmount,
+                    poolConfig.poolOutSupplyAmount
+                );
             } else {
                 // Send revenue to creator
                 safeTokenTransfer(streamTokens.inSupplyToken, creator, creatorRevenue);
@@ -651,9 +664,13 @@ contract Stream is IStreamErrors, IStreamEvents {
         address account,
         uint256 requiredAmount
     ) internal view returns (bool) {
-        IERC20 token = IERC20(tokenAddress);
-        uint256 balance = token.balanceOf(account);
-        return balance >= requiredAmount;
+        try IERC20(tokenAddress).balanceOf(account) returns (uint256 balance) {
+            return balance >= requiredAmount;
+        } catch Error(string memory) {
+            return false;
+        } catch {
+            return false;
+        }
     }
 
     // Load helpers
@@ -705,6 +722,44 @@ contract Stream is IStreamErrors, IStreamEvents {
         return state;
     }
 
+    function createPoolAndAddLiquidity(
+        address tokenA,
+        address tokenB,
+        uint256 amountADesired,
+        uint256 amountBDesired
+    ) internal {
+        StreamFactory factoryContract = StreamFactory(streamFactoryAddress);
+        StreamFactory.Params memory params = factoryContract.getParams();
+
+        address uniswapV2FactoryAddress = params.uniswapV2FactoryAddress;
+        address uniswapV2RouterAddress = params.uniswapV2RouterAddress;
+
+        IUniswapV2Factory factory = IUniswapV2Factory(uniswapV2FactoryAddress);
+        IUniswapV2Router02 router = IUniswapV2Router02(uniswapV2RouterAddress);
+
+        // Check if the pair exists; if not, create it
+        address pair = factory.getPair(tokenA, tokenB);
+        if (pair == address(0)) {
+            pair = factory.createPair(tokenA, tokenB);
+        }
+
+        // Approve tokens to the router
+        IERC20(tokenA).approve(address(router), amountADesired);
+        IERC20(tokenB).approve(address(router), amountBDesired);
+
+        // Add liquidity to the pool
+        router.addLiquidity(
+            tokenA,
+            tokenB,
+            amountADesired,
+            amountBDesired,
+            1, // Slippage tolerance can be adjusted
+            1,
+            address(this), // LP tokens are sent to the contract
+            block.timestamp
+        );
+    }
+
     // Refactored syncStreamStatus to work directly with a provided memory object
     function syncStreamStatus(
         IStreamTypes.Status status,
@@ -742,7 +797,7 @@ contract Stream is IStreamErrors, IStreamEvents {
      * @dev Ensure sender is the protocol admin
      */
     function assertIsProtocolAdmin() internal view {
-        StreamFactory factoryContract = StreamFactory(factory);
+        StreamFactory factoryContract = StreamFactory(streamFactoryAddress);
         address protocolAdmin = factoryContract.getParams().protocolAdmin;
         if (msg.sender != protocolAdmin) revert Unauthorized();
     }

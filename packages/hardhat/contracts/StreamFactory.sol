@@ -6,7 +6,9 @@ import "./StreamEvents.sol";
 import "./StreamErrors.sol";
 import "./Vesting.sol";
 import "./StreamTypes.sol";
-import "./IVesting.sol";
+import "./interfaces/IVesting.sol";
+import "hardhat/console.sol";
+
 contract StreamFactory is IStreamEvents, IStreamErrors {
     struct Params {
         uint256 streamCreationFee; // Fixed fee to create a stream
@@ -19,7 +21,8 @@ contract StreamFactory is IStreamEvents, IStreamErrors {
         address protocolAdmin; // Admin address for protocol
         string tosVersion; // Terms of service version
         address vestingAddress; // Address of the vesting contract
-        address poolFactoryAddress; // Address of the pool factory contract
+        address uniswapV2FactoryAddress; // Address of the uniswap v2 factory contract
+        address uniswapV2RouterAddress; // Address of the uniswap v2 router contract
     }
 
     mapping(address => bool) public acceptedInSupplyTokens;
@@ -44,7 +47,8 @@ contract StreamFactory is IStreamEvents, IStreamErrors {
         address _feeCollector,
         address _protocolAdmin,
         string memory _tosVersion,
-        address _poolFactoryAddress
+        address _uniswapV2FactoryAddress,
+        address _uniswapV2RouterAddress
     ) {
         if (_feeCollector == address(0)) revert InvalidFeeCollector();
         if (_protocolAdmin == address(0)) revert InvalidProtocolAdmin();
@@ -69,7 +73,8 @@ contract StreamFactory is IStreamEvents, IStreamErrors {
             protocolAdmin: _protocolAdmin,
             tosVersion: _tosVersion,
             vestingAddress: address(vesting),
-            poolFactoryAddress: _poolFactoryAddress
+            uniswapV2FactoryAddress: _uniswapV2FactoryAddress,
+            uniswapV2RouterAddress: _uniswapV2RouterAddress
         });
 
         // Set accepted tokens
@@ -206,10 +211,15 @@ contract StreamFactory is IStreamEvents, IStreamErrors {
 
         address predictedAddress = predictAddress(address(this), _salt, bytecodeHash);
         // Transfer out denom to stream contract
-        if (!IERC20(_outSupplyToken).transferFrom(msg.sender, predictedAddress, _streamOutAmount))
-            revert TokenTransferFailed();
+        if (
+            !IERC20(_outSupplyToken).transferFrom(
+                msg.sender,
+                predictedAddress,
+                _streamOutAmount + _poolConfig.poolOutSupplyAmount
+            )
+        ) revert TokenTransferFailed();
         // Deploy new stream contract with all parameters
-        Stream stream = new Stream{salt: _salt}(
+        Stream stream = new Stream{ salt: _salt }(
             _streamOutAmount,
             _outSupplyToken,
             _bootstrappingStartTime,

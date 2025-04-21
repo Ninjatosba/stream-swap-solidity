@@ -41,7 +41,7 @@ const config: HardhatUserConfig = {
       },
     ],
   },
-  defaultNetwork: "localhost",
+  defaultNetwork: "hardhat",
   mocha: {
     timeout: 100000, // 100 seconds max for running tests
   },
@@ -61,6 +61,7 @@ const config: HardhatUserConfig = {
       forking: {
         url: `https://eth-mainnet.alchemyapi.io/v2/${providerApiKey}`,
         enabled: process.env.MAINNET_FORKING_ENABLED === "true",
+        blockNumber: 19000000 // Fork from a recent block
       },
       mining: {
         auto: true,
