@@ -14,6 +14,22 @@ library StreamTypes {
         Cancelled
     }
 
+    struct createStreamMessage {
+        uint256 streamOutAmount;
+        address outSupplyToken;
+        uint256 bootstrappingStartTime;
+        uint256 streamStartTime;
+        uint256 streamEndTime;
+        uint256 threshold;
+        string name;
+        address inSupplyToken;
+        address creator;
+        VestingInfo creatorVesting;
+        VestingInfo beneficiaryVesting;
+        PoolConfig poolConfig;
+        bytes32 salt;
+        string tosVersion;
+    }
     struct StreamTimes {
         uint256 bootstrappingStartTime;
         uint256 streamStartTime;
