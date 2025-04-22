@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.0 <0.9.0;
 
-import "./DecimalMath.sol";
+import "../lib/math/DecimalMath.sol";
 
 library PositionTypes {
     struct Position {

@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "../StreamMathLib.sol";
-import "../StreamTypes.sol";
-import "../PositionTypes.sol";
-import "../DecimalMath.sol";
+import "../lib/math/StreamMathLib.sol";
+import "../types/StreamTypes.sol";
+import "../types/PositionTypes.sol";
+import "../lib/math/DecimalMath.sol";
 
 contract StreamMathLibMock {
     function calculateDiff(
@@ -17,12 +17,12 @@ contract StreamMathLibMock {
     }
 
     function calculateStreamStatus(
-        IStreamTypes.Status currentStatus,
+        StreamTypes.Status currentStatus,
         uint256 currentTime,
         uint256 bootstrappingStartTime,
         uint256 streamStartTime,
         uint256 streamEndTime
-    ) external pure returns (IStreamTypes.Status) {
+    ) external pure returns (StreamTypes.Status) {
         return
             StreamMathLib.calculateStreamStatus(
                 currentStatus,
@@ -34,9 +34,9 @@ contract StreamMathLibMock {
     }
 
     function calculateUpdatedState(
-        IStreamTypes.StreamState memory state,
+        StreamTypes.StreamState memory state,
         Decimal memory diff
-    ) external pure returns (IStreamTypes.StreamState memory) {
+    ) external pure returns (StreamTypes.StreamState memory) {
         return StreamMathLib.calculateUpdatedState(state, diff);
     }
 

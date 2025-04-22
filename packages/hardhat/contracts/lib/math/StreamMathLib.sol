@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "./StreamTypes.sol";
+import "../../types/StreamTypes.sol";
 import "./DecimalMath.sol";
-import "./PositionTypes.sol";
+import "../../types/PositionTypes.sol";
 
 import "hardhat/console.sol";
 
@@ -59,30 +59,30 @@ library StreamMathLib {
      * @return IStreamTypes.Status The calculated stream status
      */
     function calculateStreamStatus(
-        IStreamTypes.Status currentStatus,
+        StreamTypes.Status currentStatus,
         uint256 currentTime,
         uint256 bootstrappingStartTime,
         uint256 streamStartTime,
         uint256 streamEndTime
-    ) internal pure returns (IStreamTypes.Status) {
+    ) internal pure returns (StreamTypes.Status) {
         // Don't update if stream is in a final state
         if (
-            currentStatus == IStreamTypes.Status.Cancelled ||
-            currentStatus == IStreamTypes.Status.FinalizedRefunded ||
-            currentStatus == IStreamTypes.Status.FinalizedStreamed
+            currentStatus == StreamTypes.Status.Cancelled ||
+            currentStatus == StreamTypes.Status.FinalizedRefunded ||
+            currentStatus == StreamTypes.Status.FinalizedStreamed
         ) {
             return currentStatus;
         }
 
         // Update status based on current timestamp
         if (currentTime < bootstrappingStartTime) {
-            return IStreamTypes.Status.Waiting;
+            return StreamTypes.Status.Waiting;
         } else if (currentTime >= bootstrappingStartTime && currentTime < streamStartTime) {
-            return IStreamTypes.Status.Bootstrapping;
+            return StreamTypes.Status.Bootstrapping;
         } else if (currentTime >= streamStartTime && currentTime < streamEndTime) {
-            return IStreamTypes.Status.Active;
+            return StreamTypes.Status.Active;
         } else if (currentTime >= streamEndTime) {
-            return IStreamTypes.Status.Ended;
+            return StreamTypes.Status.Ended;
         }
 
         // This should never be reached, but return current status as fallback
@@ -96,11 +96,11 @@ library StreamMathLib {
      * @return Updated stream state
      */
     function calculateUpdatedState(
-        IStreamTypes.StreamState memory state,
+        StreamTypes.StreamState memory state,
         Decimal memory diff
-    ) internal pure returns (IStreamTypes.StreamState memory) {
+    ) internal pure returns (StreamTypes.StreamState memory) {
         // Create a copy of the state to avoid modifying the input
-        IStreamTypes.StreamState memory newState = state;
+        StreamTypes.StreamState memory newState = state;
 
         if (newState.shares > 0 && diff.value > 0) {
             // Calculate new distribution balance and spent in amount
@@ -120,7 +120,10 @@ library StreamMathLib {
             if (newDistributionBalance > 0) {
                 newState.outRemaining -= newDistributionBalance;
                 // Increment distribution index
-                Decimal memory distIndexIncrementAmount = DecimalMath.fromRatio(newDistributionBalance, newState.shares);
+                Decimal memory distIndexIncrementAmount = DecimalMath.fromRatio(
+                    newDistributionBalance,
+                    newState.shares
+                );
                 newState.distIndex = DecimalMath.add(newState.distIndex, distIndexIncrementAmount);
                 // Update current streamed price
                 newState.currentStreamedPrice = DecimalMath.fromRatio(spentIn, newDistributionBalance);
@@ -227,5 +230,4 @@ library StreamMathLib {
         endTime = nowTime + vestingDuration;
         return (cliffTime, endTime);
     }
-
 }

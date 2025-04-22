@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.0 <0.9.0;
 
-import "./PositionTypes.sol";
-import "./DecimalMath.sol";
+import "./types/PositionTypes.sol";
+import "./lib/math/DecimalMath.sol";
 
 contract PositionStorage {
     using PositionTypes for PositionTypes.Position;

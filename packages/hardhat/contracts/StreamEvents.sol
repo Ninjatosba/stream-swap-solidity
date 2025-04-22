@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.0 <0.9.0;
 
-import "./StreamTypes.sol";
-import "./DecimalMath.sol";
+import "./types/StreamTypes.sol";
+import "./lib/math/DecimalMath.sol";
 
 interface IStreamEvents {
     event StreamCreated(
@@ -20,7 +20,7 @@ interface IStreamEvents {
         uint16 streamId
     );
 
-    event StreamSynced(address indexed streamAddress, IStreamTypes.Status mainStatus, uint256 lastUpdated);
+    event StreamSynced(address indexed streamAddress, StreamTypes.Status mainStatus, uint256 lastUpdated);
 
     event Subscribed(
         address indexed streamAddress,
@@ -42,12 +42,7 @@ interface IStreamEvents {
         Decimal currentStreamedPrice
     );
 
-    event PositionSynced(
-        address indexed streamAddress,
-        address indexed subscriber,
-        uint256 inBalance,
-        uint256 shares
-    );
+    event PositionSynced(address indexed streamAddress, address indexed subscriber, uint256 inBalance, uint256 shares);
 
     event Withdrawn(
         address indexed streamAddress,
@@ -63,7 +58,6 @@ interface IStreamEvents {
         address indexed subscriber,
         uint256 refundedAmount,
         uint256 exitTimestamp
-
     );
     event ExitStreamed(
         address indexed streamAddress,
@@ -79,14 +73,14 @@ interface IStreamEvents {
         uint256 creatorRevenue,
         uint256 exitFeeAmount,
         uint256 refundedOutAmount,
-        IStreamTypes.Status status
+        StreamTypes.Status status
     );
 
     event FinalizedRefunded(
         address indexed streamAddress,
         address indexed creator,
         uint256 refundedOutAmount,
-        IStreamTypes.Status status
+        StreamTypes.Status status
     );
 
     event ParamsUpdated(
@@ -107,12 +101,7 @@ interface IStreamEvents {
 
     event AcceptedTokensUpdated(address indexed factory, address[] tokensAdded, address[] tokensRemoved);
 
-    event StreamCancelled(
-        address indexed streamAddress,
-        address creator,
-        uint256 outSupply,
-        IStreamTypes.Status status
-    );
+    event StreamCancelled(address indexed streamAddress, address creator, uint256 outSupply, StreamTypes.Status status);
 
     event VestingContractDeployed(address indexed factoryAddress, address vestingContract);
 }

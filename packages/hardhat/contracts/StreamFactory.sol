@@ -5,7 +5,7 @@ import "./Stream.sol";
 import "./StreamEvents.sol";
 import "./StreamErrors.sol";
 import "./Vesting.sol";
-import "./StreamTypes.sol";
+import "./types/StreamTypes.sol";
 import "./interfaces/IVesting.sol";
 import "hardhat/console.sol";
 
@@ -151,9 +151,9 @@ contract StreamFactory is IStreamEvents, IStreamErrors {
         address _inSupplyToken,
         string memory _tosVersion,
         bytes32 _salt,
-        IStreamTypes.VestingInfo memory _creatorVestingInfo,
-        IStreamTypes.VestingInfo memory _beneficiaryVestingInfo,
-        IStreamTypes.PoolConfig memory _poolConfig
+        StreamTypes.VestingInfo memory _creatorVestingInfo,
+        StreamTypes.VestingInfo memory _beneficiaryVestingInfo,
+        StreamTypes.PoolConfig memory _poolConfig
     ) external payable {
         // Check if contract is accepting new streams (not frozen)
         if (frozen) revert ContractFrozen();
