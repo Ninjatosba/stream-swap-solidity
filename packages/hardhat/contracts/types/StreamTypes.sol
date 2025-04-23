@@ -26,9 +26,24 @@ library StreamTypes {
         address creator;
         VestingInfo creatorVesting;
         VestingInfo beneficiaryVesting;
-        PoolConfig poolConfig;
+        PoolInfo poolInfo;
         bytes32 salt;
         string tosVersion;
+    }
+
+    struct constructFactoryMessage {
+        uint256 streamCreationFee;
+        address streamCreationFeeToken;
+        Decimal exitFeeRatio;
+        uint256 minWaitingDuration;
+        uint256 minBootstrappingDuration;
+        uint256 minStreamDuration;
+        address feeCollector;
+        address protocolAdmin;
+        string tosVersion;
+        address vestingAddress;
+        address uniswapV2FactoryAddress;
+        address uniswapV2RouterAddress;
     }
     struct StreamTimes {
         uint256 bootstrappingStartTime;
@@ -63,7 +78,7 @@ library StreamTypes {
         uint16 cliffDuration;
     }
 
-    struct PoolConfig {
+    struct PoolInfo {
         uint256 poolOutSupplyAmount;
     }
 }

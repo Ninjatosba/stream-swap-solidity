@@ -19,7 +19,6 @@ import "./interfaces/IUniswapV2.sol";
 contract Stream is IStreamErrors, IStreamEvents {
     address public creator;
     address public positionStorageAddress;
-    string public name;
 
     StreamTypes.StreamState public streamState;
     StreamTypes.StreamTokens public streamTokens;
@@ -28,107 +27,112 @@ contract Stream is IStreamErrors, IStreamEvents {
     StreamTypes.StreamTimes public streamTimes;
     StreamTypes.VestingInfo public creatorVestingInfo;
     StreamTypes.VestingInfo public beneficiaryVestingInfo;
-    StreamTypes.PoolConfig public poolConfig;
+    StreamTypes.PoolInfo public poolInfo;
     address public streamFactoryAddress;
     PositionStorage public positionStorage;
 
     // constructor should return its address
     constructor(StreamTypes.createStreamMessage memory createStreamMessage) {
-        (
-            uint256 streamOutAmount,
-            address outSupplyToken,
-            uint256 bootstrappingStartTime,
-            uint256 streamStartTime,
-            uint256 streamEndTime,
-            uint256 threshold,
-            string memory name,
-            address inSupplyToken,
-            address creator,
-            StreamTypes.VestingInfo memory creatorVesting,
-            StreamTypes.VestingInfo memory beneficiaryVesting,
-            StreamTypes.PoolConfig memory poolConfig
-        ) = createStreamMessage;
         // Validate that output token is a valid ERC20
-        if (!isValidERC20(outSupplyToken, msg.sender)) {
+        if (!isValidERC20(createStreamMessage.outSupplyToken, msg.sender)) {
             revert InvalidOutSupplyToken();
         }
 
         // Check if the contract has enough balance of output token
-        uint256 totalRequiredAmount = streamOutAmount + poolConfig.poolOutSupplyAmount;
-        if (!hasEnoughBalance(outSupplyToken, address(this), totalRequiredAmount)) {
+        uint256 totalRequiredAmount = createStreamMessage.streamOutAmount +
+            createStreamMessage.poolInfo.poolOutSupplyAmount;
+        if (!hasEnoughBalance(createStreamMessage.outSupplyToken, address(this), totalRequiredAmount)) {
             revert InsufficientOutAmount();
         }
 
         // Validate that in token is a valid ERC20
-        if (!isValidERC20(inSupplyToken, msg.sender)) {
+        if (!isValidERC20(createStreamMessage.inSupplyToken, msg.sender)) {
             revert InvalidInSupplyToken();
         }
 
         // Validate and set creator vesting info
-        if (creatorVesting.isVestingEnabled) {
+        if (createStreamMessage.creatorVesting.isVestingEnabled) {
             // Validate vesting duration
-            if (creatorVesting.vestingDuration == 0) {
+            if (createStreamMessage.creatorVesting.vestingDuration == 0) {
                 revert InvalidVestingDuration();
             }
-            if (creatorVesting.cliffDuration == 0) {
+            if (createStreamMessage.creatorVesting.cliffDuration == 0) {
                 revert InvalidVestingCliffDuration();
             }
-            if (creatorVesting.cliffDuration >= creatorVesting.vestingDuration) {
+            if (
+                createStreamMessage.creatorVesting.cliffDuration >= createStreamMessage.creatorVesting.vestingDuration
+            ) {
                 revert InvalidVestingCliffDuration();
             }
             // set vesting info
-            creatorVestingInfo = creatorVesting;
+            creatorVestingInfo = createStreamMessage.creatorVesting;
         }
 
         // Validate and set beneficiary vesting info
-        if (beneficiaryVesting.isVestingEnabled) {
+        if (createStreamMessage.beneficiaryVesting.isVestingEnabled) {
             // Validate vesting duration
-            if (beneficiaryVesting.vestingDuration == 0) {
+            if (createStreamMessage.beneficiaryVesting.vestingDuration == 0) {
                 revert InvalidVestingDuration();
             }
-            if (beneficiaryVesting.cliffDuration == 0) {
+            if (createStreamMessage.beneficiaryVesting.cliffDuration == 0) {
                 revert InvalidVestingCliffDuration();
             }
-            if (beneficiaryVesting.cliffDuration >= beneficiaryVesting.vestingDuration) {
+            if (
+                createStreamMessage.beneficiaryVesting.cliffDuration >=
+                createStreamMessage.beneficiaryVesting.vestingDuration
+            ) {
                 revert InvalidVestingCliffDuration();
             }
             // set vesting info
-            beneficiaryVestingInfo = beneficiaryVesting;
+            beneficiaryVestingInfo = createStreamMessage.beneficiaryVesting;
         }
 
         // Validate pool config
-        if (poolConfig.poolOutSupplyAmount > 0) {
+        if (createStreamMessage.poolInfo.poolOutSupplyAmount > 0) {
             // Validate pool amount is less than or equal to out amount
-            if (poolConfig.poolOutSupplyAmount > streamOutAmount) {
+            if (createStreamMessage.poolInfo.poolOutSupplyAmount > createStreamMessage.streamOutAmount) {
                 revert InvalidAmount();
             }
-            poolConfig = poolConfig;
+            poolInfo = createStreamMessage.poolInfo;
         }
+
+        // Create position storage
         positionStorage = new PositionStorage();
         positionStorageAddress = address(positionStorage);
 
+        // Set creator
+        creator = createStreamMessage.creator;
+
+        // Initialize stream state
         streamState = StreamTypes.StreamState({
             distIndex: DecimalMath.fromNumber(0),
-            outRemaining: streamOutAmount,
+            outRemaining: createStreamMessage.streamOutAmount,
             inSupply: 0,
             spentIn: 0,
             shares: 0,
             currentStreamedPrice: DecimalMath.fromNumber(0),
-            threshold: threshold,
-            outSupply: streamOutAmount,
+            threshold: createStreamMessage.threshold,
+            outSupply: createStreamMessage.streamOutAmount,
             lastUpdated: block.timestamp
         });
 
-        streamTokens = StreamTypes.StreamTokens({ inSupplyToken: inSupplyToken, outSupplyToken: outSupplyToken });
+        // Initialize stream tokens
+        streamTokens = StreamTypes.StreamTokens({
+            inSupplyToken: createStreamMessage.inSupplyToken,
+            outSupplyToken: createStreamMessage.outSupplyToken
+        });
 
-        streamMetadata = StreamTypes.StreamMetadata({ name: name });
+        // Initialize stream metadata
+        streamMetadata = StreamTypes.StreamMetadata({ name: createStreamMessage.name });
 
+        // Initialize stream status
         streamStatus = StreamTypes.Status.Waiting;
 
+        // Initialize stream times
         streamTimes = StreamTypes.StreamTimes({
-            bootstrappingStartTime: bootstrappingStartTime,
-            streamStartTime: streamStartTime,
-            streamEndTime: streamEndTime
+            bootstrappingStartTime: createStreamMessage.bootstrappingStartTime,
+            streamStartTime: createStreamMessage.streamStartTime,
+            streamEndTime: createStreamMessage.streamEndTime
         });
 
         // Store the factory address
@@ -498,10 +502,10 @@ contract Stream is IStreamErrors, IStreamEvents {
             }
 
             // Handle pool creation if configured
-            if (poolConfig.poolOutSupplyAmount > 0) {
+            if (poolInfo.poolOutSupplyAmount > 0) {
                 // Calculate pool ratio
                 Decimal memory poolRatio = DecimalMath.div(
-                    DecimalMath.fromNumber(poolConfig.poolOutSupplyAmount),
+                    DecimalMath.fromNumber(poolInfo.poolOutSupplyAmount),
                     DecimalMath.fromNumber(streamState.outSupply)
                 );
 
@@ -520,7 +524,7 @@ contract Stream is IStreamErrors, IStreamEvents {
                     streamTokens.inSupplyToken,
                     streamTokens.outSupplyToken,
                     poolInSupplyAmount,
-                    poolConfig.poolOutSupplyAmount
+                    poolInfo.poolOutSupplyAmount
                 );
                 // Send revenue to creator
                 safeTokenTransfer(streamTokens.inSupplyToken, creator, creatorAmount);

@@ -22,25 +22,13 @@ contract StreamFactory is IStreamEvents, IStreamErrors {
 
     bool public frozen;
 
-    constructor(
-        uint256 _streamCreationFee,
-        address _streamCreationFeeToken,
-        Decimal memory _exitFeeRatio,
-        uint256 _minWaitingDuration,
-        uint256 _minBootstrappingDuration,
-        uint256 _minStreamDuration,
-        address[] memory _acceptedInSupplyTokens,
-        address _feeCollector,
-        address _protocolAdmin,
-        string memory _tosVersion,
-        address _uniswapV2FactoryAddress,
-        address _uniswapV2RouterAddress
-    ) {
-        if (_feeCollector == address(0)) revert InvalidFeeCollector();
-        if (_protocolAdmin == address(0)) revert InvalidProtocolAdmin();
+    constructor(StreamFactoryTypes.constructFactoryMessage memory constructFactoryMessage) {
+        if (constructFactoryMessage.feeCollector == address(0)) revert InvalidFeeCollector();
+        if (constructFactoryMessage.protocolAdmin == address(0)) revert InvalidProtocolAdmin();
 
         // Check if exit fee ratio is between 0 and 1
-        if (DecimalMath.gt(_exitFeeRatio, DecimalMath.fromNumber(1))) revert InvalidExitFeeRatio();
+        if (DecimalMath.gt(constructFactoryMessage.exitFeeRatio, DecimalMath.fromNumber(1)))
+            revert InvalidExitFeeRatio();
 
         // Deploy vesting contract
         Vesting vesting = new Vesting();
@@ -49,23 +37,23 @@ contract StreamFactory is IStreamEvents, IStreamErrors {
         emit VestingContractDeployed(address(this), address(vesting));
 
         params = StreamFactoryTypes.Params({
-            streamCreationFee: _streamCreationFee,
-            streamCreationFeeToken: _streamCreationFeeToken,
-            exitFeeRatio: _exitFeeRatio,
-            minWaitingDuration: _minWaitingDuration,
-            minBootstrappingDuration: _minBootstrappingDuration,
-            minStreamDuration: _minStreamDuration,
-            feeCollector: _feeCollector,
-            protocolAdmin: _protocolAdmin,
-            tosVersion: _tosVersion,
+            streamCreationFee: constructFactoryMessage.streamCreationFee,
+            streamCreationFeeToken: constructFactoryMessage.streamCreationFeeToken,
+            exitFeeRatio: constructFactoryMessage.exitFeeRatio,
+            minWaitingDuration: constructFactoryMessage.minWaitingDuration,
+            minBootstrappingDuration: constructFactoryMessage.minBootstrappingDuration,
+            minStreamDuration: constructFactoryMessage.minStreamDuration,
+            feeCollector: constructFactoryMessage.feeCollector,
+            protocolAdmin: constructFactoryMessage.protocolAdmin,
+            tosVersion: constructFactoryMessage.tosVersion,
             vestingAddress: address(vesting),
-            uniswapV2FactoryAddress: _uniswapV2FactoryAddress,
-            uniswapV2RouterAddress: _uniswapV2RouterAddress
+            uniswapV2FactoryAddress: constructFactoryMessage.uniswapV2FactoryAddress,
+            uniswapV2RouterAddress: constructFactoryMessage.uniswapV2RouterAddress
         });
 
         // Set accepted tokens
-        for (uint i = 0; i < _acceptedInSupplyTokens.length; i++) {
-            acceptedInSupplyTokens[_acceptedInSupplyTokens[i]] = true;
+        for (uint i = 0; i < constructFactoryMessage.acceptedInSupplyTokens.length; i++) {
+            acceptedInSupplyTokens[constructFactoryMessage.acceptedInSupplyTokens[i]] = true;
         }
         currentStreamId = 0;
     }
@@ -127,32 +115,26 @@ contract StreamFactory is IStreamEvents, IStreamErrors {
     }
 
     function createStream(StreamTypes.createStreamMessage memory createStreamMessage) external payable {
-        uint256 streamOutAmount = createStreamMessage.streamOutAmount;
-        address outSupplyToken = createStreamMessage.outSupplyToken;
-        uint256 bootstrappingStartTime = createStreamMessage.bootstrappingStartTime;
-        uint256 streamStartTime = createStreamMessage.streamStartTime;
-        uint256 streamEndTime = createStreamMessage.streamEndTime;
-        uint256 threshold = createStreamMessage.threshold;
-        string memory name = createStreamMessage.name;
-        address inSupplyToken = createStreamMessage.inSupplyToken;
-        address creator = createStreamMessage.creator;
-        StreamTypes.PoolConfig memory poolConfig = createStreamMessage.poolConfig;
-        bytes32 salt = createStreamMessage.salt;
-        string memory tosVersion = createStreamMessage.tosVersion;
-
         // Check if contract is accepting new streams (not frozen)
         if (frozen) revert ContractFrozen();
 
         // Validate input parameters
-        if (streamOutAmount == 0) revert ZeroOutSupplyNotAllowed();
-        if (!acceptedInSupplyTokens[inSupplyToken]) revert StreamInputTokenNotAccepted();
+        if (createStreamMessage.streamOutAmount == 0) revert ZeroOutSupplyNotAllowed();
+        if (!acceptedInSupplyTokens[createStreamMessage.inSupplyToken]) revert StreamInputTokenNotAccepted();
 
         // Validate time parameters using validateStreamTimes
-        validateStreamTimes(block.timestamp, bootstrappingStartTime, streamStartTime, streamEndTime);
+        validateStreamTimes(
+            block.timestamp,
+            createStreamMessage.bootstrappingStartTime,
+            createStreamMessage.streamStartTime,
+            createStreamMessage.streamEndTime
+        );
 
         // Validate TOS version
-        if (keccak256(abi.encodePacked(tosVersion)) != keccak256(abi.encodePacked(params.tosVersion)))
-            revert InvalidToSVersion();
+        if (
+            keccak256(abi.encodePacked(createStreamMessage.tosVersion)) !=
+            keccak256(abi.encodePacked(params.tosVersion))
+        ) revert InvalidToSVersion();
 
         // Load creation fee
         uint256 creationFee = params.streamCreationFee;
@@ -176,31 +158,32 @@ contract StreamFactory is IStreamEvents, IStreamErrors {
         // Predict stream address
         bytes32 bytecodeHash = keccak256(abi.encodePacked(type(Stream).creationCode, abi.encode(createStreamMessage)));
 
-        address predictedAddress = predictAddress(address(this), salt, bytecodeHash);
+        address predictedAddress = predictAddress(address(this), createStreamMessage.salt, bytecodeHash);
         // Transfer out denom to stream contract
         if (
-            !IERC20(outSupplyToken).transferFrom(
+            !IERC20(createStreamMessage.outSupplyToken).transferFrom(
                 msg.sender,
                 predictedAddress,
-                streamOutAmount + poolConfig.poolOutSupplyAmount
+                createStreamMessage.streamOutAmount + createStreamMessage.poolInfo.poolOutSupplyAmount
             )
         ) revert TokenTransferFailed();
+
         // Deploy new stream contract with all parameters
-        Stream stream = new Stream{ salt: salt }(createStreamMessage);
+        Stream stream = new Stream{ salt: createStreamMessage.salt }(createStreamMessage);
 
         if (address(stream) != predictedAddress) revert StreamAddressPredictionFailed();
         streamAddresses[currentStreamId] = address(stream);
 
         emit StreamCreated(
-            outSupplyToken,
-            inSupplyToken,
+            createStreamMessage.outSupplyToken,
+            createStreamMessage.inSupplyToken,
             address(this),
-            streamOutAmount,
-            bootstrappingStartTime,
-            streamStartTime,
-            streamEndTime,
-            threshold,
-            name,
+            createStreamMessage.streamOutAmount,
+            createStreamMessage.bootstrappingStartTime,
+            createStreamMessage.streamStartTime,
+            createStreamMessage.streamEndTime,
+            createStreamMessage.threshold,
+            createStreamMessage.name,
             params.tosVersion,
             address(stream),
             currentStreamId
