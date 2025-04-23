@@ -2,15 +2,15 @@
 pragma solidity >=0.8.0 <0.9.0;
 
 import "./Stream.sol";
-import "./StreamEvents.sol";
-import "./StreamErrors.sol";
+import "./interfaces/IStreamEvents.sol";
+import "./interfaces/IStreamFactoryErrors.sol";
 import "./Vesting.sol";
 import "./types/StreamTypes.sol";
 import "./interfaces/IVesting.sol";
 import "hardhat/console.sol";
 import "./types/StreamFactoryTypes.sol";
 
-contract StreamFactory is IStreamEvents, IStreamErrors {
+contract StreamFactory is IStreamEvents, IStreamFactoryErrors {
     mapping(address => bool) public acceptedInSupplyTokens;
 
     address public constant NATIVE_TOKEN = address(0);

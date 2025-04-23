@@ -3,8 +3,8 @@ pragma solidity >=0.8.0 <0.9.0;
 
 import "./PositionStorage.sol";
 import "./types/PositionTypes.sol";
-import "./StreamEvents.sol";
-import "./StreamErrors.sol";
+import "./interfaces/IStreamEvents.sol";
+import "./interfaces/IStreamErrors.sol";
 import "./types/StreamTypes.sol";
 import "./StreamFactory.sol";
 import "./types/StreamFactoryTypes.sol";

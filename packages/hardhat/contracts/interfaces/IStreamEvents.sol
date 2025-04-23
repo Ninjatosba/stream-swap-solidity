@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.0 <0.9.0;
 
-import "./types/StreamTypes.sol";
-import "./lib/math/DecimalMath.sol";
+import "../types/StreamTypes.sol";
+import "../lib/math/DecimalMath.sol";
 
 interface IStreamEvents {
     event StreamCreated(
