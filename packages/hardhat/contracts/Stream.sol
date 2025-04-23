@@ -12,6 +12,7 @@ import "./lib/math/DecimalMath.sol";
 import "./lib/math/StreamMathLib.sol";
 import "./interfaces/IERC20.sol";
 import "hardhat/console.sol";
+import "./lib/helpers/TokenHelpers.sol";
 
 import "./interfaces/IVesting.sol";
 import "./interfaces/IUniswapV2.sol";
@@ -31,22 +32,21 @@ contract Stream is IStreamErrors, IStreamEvents {
     address public streamFactoryAddress;
     PositionStorage public positionStorage;
 
-    // constructor should return its address
     constructor(StreamTypes.createStreamMessage memory createStreamMessage) {
         // Validate that output token is a valid ERC20
-        if (!isValidERC20(createStreamMessage.outSupplyToken, msg.sender)) {
+        if (!TokenHelpers.isValidERC20(createStreamMessage.outSupplyToken, msg.sender)) {
             revert InvalidOutSupplyToken();
         }
 
         // Check if the contract has enough balance of output token
         uint256 totalRequiredAmount = createStreamMessage.streamOutAmount +
             createStreamMessage.poolInfo.poolOutSupplyAmount;
-        if (!hasEnoughBalance(createStreamMessage.outSupplyToken, address(this), totalRequiredAmount)) {
+        if (!TokenHelpers.hasEnoughBalance(createStreamMessage.outSupplyToken, address(this), totalRequiredAmount)) {
             revert InsufficientOutAmount();
         }
 
         // Validate that in token is a valid ERC20
-        if (!isValidERC20(createStreamMessage.inSupplyToken, msg.sender)) {
+        if (!TokenHelpers.isValidERC20(createStreamMessage.inSupplyToken, msg.sender)) {
             revert InvalidInSupplyToken();
         }
 
@@ -185,26 +185,6 @@ contract Stream is IStreamErrors, IStreamEvents {
     }
 
     /**
-     * @dev Safely transfers tokens from the contract to a recipient
-     * @param tokenAddress Address of the token to transfer
-     * @param recipient Address of the recipient
-     * @param amount Amount of tokens to transfer
-     * @return bool True if the transfer was successful
-     */
-    function safeTokenTransfer(address tokenAddress, address recipient, uint256 amount) internal returns (bool) {
-        if (amount == 0 || recipient == address(0)) {
-            return true;
-        }
-
-        IERC20 token = IERC20(tokenAddress);
-        bool success = token.transfer(recipient, amount);
-        if (!success) {
-            revert PaymentFailed();
-        }
-        return true;
-    }
-
-    /**
      * @dev Checks if the threshold has been reached for stream finalization
      * @return bool True if the threshold has been reached, false otherwise
      */
@@ -280,7 +260,7 @@ contract Stream is IStreamErrors, IStreamEvents {
         saveStream(state);
 
         // Token transfer
-        safeTokenTransfer(streamTokens.inSupplyToken, msg.sender, cap);
+        TokenHelpers.safeTokenTransfer(streamTokens.inSupplyToken, msg.sender, cap);
         emit Withdrawn(address(this), msg.sender, position.inBalance, position.shares, state.inSupply, state.shares);
     }
 
@@ -407,7 +387,7 @@ contract Stream is IStreamErrors, IStreamEvents {
         if (isSuccessfulExit(status, thresholdReached)) {
             // Return any unused input tokens
             if (position.inBalance > 0) {
-                safeTokenTransfer(streamTokens.inSupplyToken, msg.sender, position.inBalance);
+                TokenHelpers.safeTokenTransfer(streamTokens.inSupplyToken, msg.sender, position.inBalance);
             }
             if (vestingInfo.isVestingEnabled) {
                 // Distribute earned output tokens
@@ -424,7 +404,7 @@ contract Stream is IStreamErrors, IStreamEvents {
                     vestingInfo.vestingDuration
                 );
                 // Transfer tokens to vesting contract
-                safeTokenTransfer(streamTokens.outSupplyToken, vestingContractAddress, amountToDistribute);
+                TokenHelpers.safeTokenTransfer(streamTokens.outSupplyToken, vestingContractAddress, amountToDistribute);
                 // Create vesting schedule
                 vestingContract.stakeFunds(
                     msg.sender,
@@ -435,7 +415,7 @@ contract Stream is IStreamErrors, IStreamEvents {
                 );
             } else {
                 // Direct transfer if vesting is not enabled
-                safeTokenTransfer(streamTokens.outSupplyToken, msg.sender, position.purchased);
+                TokenHelpers.safeTokenTransfer(streamTokens.outSupplyToken, msg.sender, position.purchased);
             }
             emit ExitStreamed(address(this), msg.sender, position.purchased, position.spentIn, block.timestamp);
             return;
@@ -445,7 +425,7 @@ contract Stream is IStreamErrors, IStreamEvents {
         if (isRefundExit(status, thresholdReached)) {
             // Full refund of all input tokens (both spent and unspent)
             uint256 totalRefund = position.inBalance + position.spentIn;
-            safeTokenTransfer(streamTokens.inSupplyToken, msg.sender, totalRefund);
+            TokenHelpers.safeTokenTransfer(streamTokens.inSupplyToken, msg.sender, totalRefund);
             emit ExitRefunded(address(this), msg.sender, totalRefund, block.timestamp);
             return;
         }
@@ -498,7 +478,7 @@ contract Stream is IStreamErrors, IStreamEvents {
 
             // Transfer fee to fee collector if needed
             if (feeAmount > 0) {
-                safeTokenTransfer(streamTokens.inSupplyToken, feeCollector, feeAmount);
+                TokenHelpers.safeTokenTransfer(streamTokens.inSupplyToken, feeCollector, feeAmount);
             }
 
             // Handle pool creation if configured
@@ -527,10 +507,10 @@ contract Stream is IStreamErrors, IStreamEvents {
                     poolInfo.poolOutSupplyAmount
                 );
                 // Send revenue to creator
-                safeTokenTransfer(streamTokens.inSupplyToken, creator, creatorAmount);
+                TokenHelpers.safeTokenTransfer(streamTokens.inSupplyToken, creator, creatorAmount);
             } else {
                 // Send revenue to creator
-                safeTokenTransfer(streamTokens.inSupplyToken, creator, creatorRevenue);
+                TokenHelpers.safeTokenTransfer(streamTokens.inSupplyToken, creator, creatorRevenue);
             }
 
             // Update status
@@ -538,7 +518,7 @@ contract Stream is IStreamErrors, IStreamEvents {
 
             // Refund out tokens to creator if left any
             if (state.outRemaining > 0) {
-                safeTokenTransfer(streamTokens.outSupplyToken, creator, state.outRemaining);
+                TokenHelpers.safeTokenTransfer(streamTokens.outSupplyToken, creator, state.outRemaining);
             }
 
             emit FinalizedStreamed(address(this), creator, creatorRevenue, feeAmount, state.outRemaining, status);
@@ -547,7 +527,7 @@ contract Stream is IStreamErrors, IStreamEvents {
             status = StreamTypes.Status.FinalizedRefunded;
 
             // Refund out tokens to creator
-            safeTokenTransfer(streamTokens.outSupplyToken, creator, state.outSupply);
+            TokenHelpers.safeTokenTransfer(streamTokens.outSupplyToken, creator, state.outSupply);
 
             emit FinalizedRefunded(address(this), creator, state.outSupply, status);
         }
@@ -606,7 +586,7 @@ contract Stream is IStreamErrors, IStreamEvents {
         isOperationAllowed(status, allowedStatuses);
 
         // Refund out tokens to creator
-        safeTokenTransfer(streamTokens.outSupplyToken, creator, streamState.outSupply);
+        TokenHelpers.safeTokenTransfer(streamTokens.outSupplyToken, creator, streamState.outSupply);
 
         // Update status
         status = StreamTypes.Status.Cancelled;
@@ -631,52 +611,13 @@ contract Stream is IStreamErrors, IStreamEvents {
         isOperationAllowed(status, allowedStatuses);
 
         // Refund out tokens to creator
-        safeTokenTransfer(streamTokens.outSupplyToken, creator, streamState.outSupply);
+        TokenHelpers.safeTokenTransfer(streamTokens.outSupplyToken, creator, streamState.outSupply);
 
         // Update status
         status = StreamTypes.Status.Cancelled;
         saveStreamStatus(status);
 
         emit StreamCancelled(address(this), creator, streamState.outSupply, status);
-    }
-
-    /**
-     * @dev Checks if an address is a valid ERC20 token
-     * @param tokenAddress The token address to validate
-     * @param testAccount The account to use for testing the token interface
-     * @return isValid True if the address implements the ERC20 interface
-     */
-    function isValidERC20(address tokenAddress, address testAccount) internal view returns (bool isValid) {
-        if (tokenAddress == address(0)) {
-            return false;
-        }
-
-        try IERC20(tokenAddress).balanceOf(testAccount) returns (uint256) {
-            return true;
-        } catch {
-            return false;
-        }
-    }
-
-    /**
-     * @dev Checks if an account has sufficient token balance
-     * @param tokenAddress The ERC20 token address
-     * @param account The account to check balance for
-     * @param requiredAmount The minimum required balance
-     * @return hasEnoughBalance True if the account has sufficient balance
-     */
-    function hasEnoughBalance(
-        address tokenAddress,
-        address account,
-        uint256 requiredAmount
-    ) internal view returns (bool) {
-        try IERC20(tokenAddress).balanceOf(account) returns (uint256 balance) {
-            return balance >= requiredAmount;
-        } catch Error(string memory) {
-            return false;
-        } catch {
-            return false;
-        }
     }
 
     // Load helpers
