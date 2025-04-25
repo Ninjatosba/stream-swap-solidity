@@ -168,6 +168,7 @@ contract StreamFactory is IStreamEvents, IStreamFactoryErrors {
             )
         ) revert TokenTransferFailed();
 
+        console.log("createStreamMessage.streamOutAmount", createStreamMessage.streamOutAmount);
         // Deploy new stream contract with all parameters
         Stream stream = new Stream{ salt: createStreamMessage.salt }(createStreamMessage);
 

@@ -98,7 +98,9 @@ contract Stream is IStreamErrors, IStreamEvents {
         }
 
         // Create position storage
-        positionStorageAddress = address(new PositionStorage());
+        PositionStorage positionStorageContract = new PositionStorage();
+        positionStorageAddress = address(positionStorageContract);
+        positionStorage = IPositionStorage(positionStorageAddress);
 
         // Set creator
         creator = createStreamMessage.creator;
@@ -291,7 +293,6 @@ contract Stream is IStreamErrors, IStreamEvents {
         if (!success) {
             revert PaymentFailed();
         }
-
         // Load position once
         PositionTypes.Position memory position = loadPosition(msg.sender);
 

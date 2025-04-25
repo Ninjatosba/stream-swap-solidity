@@ -3,7 +3,8 @@ import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
 import { Contract } from "ethers";
 import { DecimalStruct } from "../../typechain-types/contracts/PositionStorage";
 import { VestingInterface } from "../../typechain-types/contracts/Vesting";
-import { IStreamTypes } from "../../typechain-types/contracts/StreamFactory";
+import { StreamFactoryTypes } from "../../typechain-types/contracts/StreamFactory";
+import { StreamTypes } from "../../typechain-types/contracts/Stream";
 
 export class StreamFixtureBuilder {
     private streamOutAmount: bigint = ethers.parseEther("1000")
@@ -21,13 +22,13 @@ export class StreamFixtureBuilder {
     private minBootstrappingDuration: number = 1;
     private minStreamDuration: number = 1;
     private nowSeconds?: number;
-    private streamCreationFee: number = 100;
-    private creatorVestingInfo: IStreamTypes.VestingInfoStruct = {
+    private streamCreationFee: number = 0;
+    private creatorVestingInfo: StreamTypes.VestingInfoStruct = {
         cliffDuration: 0,
         vestingDuration: 0,
         isVestingEnabled: false
     };
-    private beneficiaryVestingInfo: IStreamTypes.VestingInfoStruct = {
+    private beneficiaryVestingInfo: StreamTypes.VestingInfoStruct = {
         cliffDuration: 0,
         vestingDuration: 0,
         isVestingEnabled: false
@@ -155,20 +156,25 @@ export class StreamFixtureBuilder {
                 await inSupplyToken.mint(subscriber1.address, ethers.parseEther("100"));
                 await inSupplyToken.mint(subscriber2.address, ethers.parseEther("100"));
 
+                const streamFactoryMessage: StreamFactoryTypes.ConstructFactoryMessageStruct = {
+                    streamCreationFee: config.streamCreationFee,
+                    streamCreationFeeToken: ethers.ZeroAddress,
+                    exitFeeRatio: config.ExitFeeRatio,
+                    minWaitingDuration: config.minWaitingDuration,
+                    minBootstrappingDuration: config.minBootstrappingDuration,
+                    minStreamDuration: config.minStreamDuration,
+                    feeCollector: feeCollector.address,
+                    protocolAdmin: protocolAdmin.address,
+                    tosVersion: config.tosVersion,
+                    acceptedInSupplyTokens: [await inSupplyToken.getAddress()],
+                    uniswapV2FactoryAddress: "0x0000000000000000000000000000000000000000",
+                    uniswapV2RouterAddress: "0x0000000000000000000000000000000000000000"
+                };
+
                 // Deploy StreamFactory with deployer
                 const StreamFactoryFactory = await ethers.getContractFactory("StreamFactory");
-                const streamFactory = await StreamFactoryFactory.deploy(
-                    config.streamCreationFee,
-                    ethers.ZeroAddress,
-                    config.ExitFeeRatio,
-                    config.minWaitingDuration,
-                    config.minBootstrappingDuration,
-                    config.minStreamDuration,
-                    [await inSupplyToken.getAddress()],
-                    feeCollector.address,
-                    protocolAdmin.address,
-                    config.tosVersion
-                );
+                const streamFactory = await StreamFactoryFactory.deploy(streamFactoryMessage);
+
 
                 // IMPORTANT: Creator approves tokens
                 await outSupplyToken.connect(creator).approve(
@@ -190,24 +196,31 @@ export class StreamFixtureBuilder {
                 const streamStartTime = bootstrappingStartTime + config.bootstrappingDuration;
                 const streamEndTime = streamStartTime + config.streamDuration;
 
-                // Create stream with creator
-                const tx = await streamFactory.connect(creator).createStream(
-                    config.streamOutAmount,
-                    await outSupplyToken.getAddress(),
+                const createStreamMessage: StreamTypes.CreateStreamMessageStruct = {
+                    streamOutAmount: config.streamOutAmount,
+                    outSupplyToken: await outSupplyToken.getAddress(),
                     bootstrappingStartTime,
                     streamStartTime,
                     streamEndTime,
-                    config.threshold,
-                    config.streamName,
-                    await inSupplyToken.getAddress(),
-                    config.tosVersion,
-                    ethers.getBytes("0x0000000000000000000000000000000000000000000000000000000000000000"),
-                    config.creatorVestingInfo,
-                    config.beneficiaryVestingInfo,
-                    { value: config.streamCreationFee }
+                    threshold: config.threshold,
+                    name: config.streamName,
+                    inSupplyToken: await inSupplyToken.getAddress(),
+                    creator: creator.address,
+                    creatorVesting: config.creatorVestingInfo,
+                    beneficiaryVesting: config.beneficiaryVestingInfo,
+                    poolInfo: {
+                        poolOutSupplyAmount: 0
+                    },
+                    salt: ethers.getBytes("0x0000000000000000000000000000000000000000000000000000000000000000"),
+                    tosVersion: config.tosVersion
+                };
+
+                // Create stream with creator
+                const tx = await streamFactory.connect(creator).createStream(
+                    createStreamMessage
                 );
 
-                // Get stream address from event - MUCH SIMPLER APPROACH
+                // Get stream address from event
                 const receipt = await tx.wait();
 
                 // This automatically finds and parses the StreamCreated event

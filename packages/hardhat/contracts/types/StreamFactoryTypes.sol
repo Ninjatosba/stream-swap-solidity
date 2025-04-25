@@ -29,7 +29,6 @@ library StreamFactoryTypes {
         address feeCollector;
         address protocolAdmin;
         string tosVersion;
-        address vestingAddress;
         address uniswapV2FactoryAddress;
         address uniswapV2RouterAddress;
         address[] acceptedInSupplyTokens;

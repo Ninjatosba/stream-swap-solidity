@@ -2,6 +2,7 @@ import { expect } from "chai";
 import { ethers } from "hardhat";
 import { Stream, StreamFactory, ERC20Mock } from "../typechain-types";
 import { streamFactory } from "./helpers/StreamFactoryFixtureBuilder";
+import { StreamTypes } from "../typechain-types/contracts/Stream";
 
 describe("Stream Indexer Tests", function () {
     let factory: StreamFactory;
@@ -104,28 +105,34 @@ describe("Stream Indexer Tests", function () {
             );
 
             // Create stream
-            await factory.connect(accounts.creator).createStream(
+            const createStreamMessage: StreamTypes.CreateStreamMessageStruct = {
                 streamOutAmount,
-                await tokens.outSupplyToken.getAddress(),
+                outSupplyToken: await tokens.outSupplyToken.getAddress(),
                 bootstrappingStartTime,
                 streamStartTime,
                 streamEndTime,
                 threshold,
-                streamName,
-                await tokens.inSupplyToken.getAddress(),
-                tosVersion,
-                salt,
-                {
+                name: streamName,
+                inSupplyToken: await tokens.inSupplyToken.getAddress(),
+                creator: accounts.creator.address,
+                creatorVesting: {
                     cliffDuration: 0,
                     vestingDuration: 0,
                     isVestingEnabled: false
                 },
-                {
+                beneficiaryVesting: {
                     cliffDuration: 0,
                     vestingDuration: 0,
                     isVestingEnabled: false
-                }
-            );
+                },
+                poolInfo: {
+                    poolOutSupplyAmount: 0
+                },
+                salt,
+                tosVersion
+            };
+
+            await factory.connect(accounts.creator).createStream(createStreamMessage);
 
             await new Promise(resolve => setTimeout(resolve, 2000));
         });

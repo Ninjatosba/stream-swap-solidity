@@ -2,6 +2,7 @@
 import { ethers } from "hardhat";
 import { StreamFactory, ERC20Mock } from "../../typechain-types";
 import { DecimalStruct } from "../../typechain-types/contracts/PositionStorage";
+import { StreamFactoryTypes } from "../../typechain-types/contracts/StreamFactory";
 
 export class StreamFactoryFixtureBuilder {
     private streamCreationFee: number = 0;
@@ -80,18 +81,21 @@ export class StreamFactoryFixtureBuilder {
 
             // Deploy factory
             const StreamFactory = await ethers.getContractFactory("StreamFactory");
-            const factory = await StreamFactory.deploy(
-                config.streamCreationFee,
-                await inSupplyToken.getAddress(), // Use the token as fee token
-                config.ExitFeeRatio,
-                config.minWaitingDuration,
-                config.minBootstrappingDuration,
-                config.minStreamDuration,
-                acceptedInSupplyTokens,
-                feeCollectorAddress,
-                protocolAdminAddress,
-                config.tosVersion
-            );
+            const streamFactoryMessage: StreamFactoryTypes.ConstructFactoryMessageStruct = {
+                streamCreationFee: config.streamCreationFee,
+                streamCreationFeeToken: await inSupplyToken.getAddress(),
+                exitFeeRatio: config.ExitFeeRatio,
+                minWaitingDuration: config.minWaitingDuration,
+                minBootstrappingDuration: config.minBootstrappingDuration,
+                minStreamDuration: config.minStreamDuration,
+                feeCollector: feeCollectorAddress,
+                protocolAdmin: protocolAdminAddress,
+                tosVersion: config.tosVersion,
+                acceptedInSupplyTokens: acceptedInSupplyTokens,
+                uniswapV2FactoryAddress: "0x0000000000000000000000000000000000000000",
+                uniswapV2RouterAddress: "0x0000000000000000000000000000000000000000"
+            };
+            const factory = await StreamFactory.deploy(streamFactoryMessage);
 
             return {
                 factory,

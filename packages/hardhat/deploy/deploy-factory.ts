@@ -1,6 +1,7 @@
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { DeployFunction } from "hardhat-deploy/types";
 import { createFactoryConfig, createProductionFactoryConfig, createTestnetFactoryConfig, FactoryConfig } from "./config/factory-config";
+import { StreamFactoryTypes } from "../typechain-types/contracts/StreamFactory";
 
 const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     const { deployer } = await hre.getNamedAccounts();
@@ -36,21 +37,25 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
             config = createFactoryConfig(deployer, [inDenomAddress]);
     }
     try {
+        const deployFactoryMessage: StreamFactoryTypes.ConstructFactoryMessageStruct = {
+            streamCreationFee: config.streamCreationFee,
+            streamCreationFeeToken: config.streamCreationFeeToken,
+            exitFeeRatio: config.ExitFeeRatio,
+            minWaitingDuration: config.minWaitingDuration,
+            minBootstrappingDuration: config.minBootstrappingDuration,
+            minStreamDuration: config.minStreamDuration,
+            feeCollector: config.feeCollector,
+            protocolAdmin: config.protocolAdmin,
+            tosVersion: config.tosVersion,
+            acceptedInSupplyTokens: config.acceptedInDenoms,
+            uniswapV2FactoryAddress: config.uniswapV2FactoryAddress || "0x0000000000000000000000000000000000000000",
+            uniswapV2RouterAddress: config.uniswapV2RouterAddress || "0x0000000000000000000000000000000000000000",
+        };
+
         // Deploy StreamFactory contract
         const streamFactory = await deploy("StreamFactory", {
             from: deployer,
-            args: [
-                config.streamCreationFee,
-                config.streamCreationFeeToken,
-                config.ExitFeeRatio,
-                config.minWaitingDuration,
-                config.minBootstrappingDuration,
-                config.minStreamDuration,
-                config.acceptedInDenoms,
-                config.feeCollector,
-                config.protocolAdmin,
-                config.tosVersion
-            ],
+            args: [deployFactoryMessage],
             log: true,
             skipIfAlreadyDeployed: false,
             deterministicDeployment: false,
