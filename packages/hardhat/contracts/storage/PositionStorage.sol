@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.0 <0.9.0;
 
-import "./types/PositionTypes.sol";
-import "./lib/math/DecimalMath.sol";
+import "../types/PositionTypes.sol";
+import "../lib/math/DecimalMath.sol";
 
 contract PositionStorage {
     using PositionTypes for PositionTypes.Position;
@@ -18,7 +18,7 @@ contract PositionStorage {
         return positions[_owner];
     }
 
-    modifier onlySender() {
+    modifier onlyStreamContract() {
         require(msg.sender == streamContractAddress, "Position can only be set by the stream contract");
         _;
     }
@@ -28,7 +28,7 @@ contract PositionStorage {
         uint256 inBalance,
         uint256 shares,
         Decimal memory index
-    ) external onlySender {
+    ) external onlyStreamContract {
         positions[owner] = PositionTypes.Position(
             inBalance,
             shares,
@@ -41,11 +41,11 @@ contract PositionStorage {
         );
     }
 
-    function updatePosition(address owner, PositionTypes.Position memory position) external onlySender {
+    function updatePosition(address owner, PositionTypes.Position memory position) external onlyStreamContract {
         positions[owner] = position;
     }
 
-    function setExitDate(address owner, uint256 exitDate) external onlySender {
+    function setExitDate(address owner, uint256 exitDate) external onlyStreamContract {
         positions[owner].exitDate = exitDate;
     }
 }

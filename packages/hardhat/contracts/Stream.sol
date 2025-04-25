@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.0 <0.9.0;
 
-import "./PositionStorage.sol";
+import "./interfaces/IPositionStorage.sol";
 import "./types/PositionTypes.sol";
+import "./storage/PositionStorage.sol";
 import "./interfaces/IStreamEvents.sol";
 import "./interfaces/IStreamErrors.sol";
 import "./types/StreamTypes.sol";
@@ -30,7 +31,7 @@ contract Stream is IStreamErrors, IStreamEvents {
     StreamTypes.VestingInfo public beneficiaryVestingInfo;
     StreamTypes.PoolInfo public poolInfo;
     address public streamFactoryAddress;
-    PositionStorage public positionStorage;
+    IPositionStorage public positionStorage;
 
     constructor(StreamTypes.createStreamMessage memory createStreamMessage) {
         // Validate that output token is a valid ERC20
@@ -97,8 +98,7 @@ contract Stream is IStreamErrors, IStreamEvents {
         }
 
         // Create position storage
-        positionStorage = new PositionStorage();
-        positionStorageAddress = address(positionStorage);
+        positionStorageAddress = address(new PositionStorage());
 
         // Set creator
         creator = createStreamMessage.creator;

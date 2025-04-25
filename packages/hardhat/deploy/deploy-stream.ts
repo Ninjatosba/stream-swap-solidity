@@ -162,37 +162,23 @@ const deployStreamContract: DeployFunction = async function (hre: HardhatRuntime
     console.log(`Using salt: ${salt}`);
 
     // Create stream with appropriate fee handling
-    try {
-      const createStreamTx = await streamFactoryContract.createStream(
-        streamConfig.streamOutAmount,
-        outDenomAddress,
-        bootstrappingStartTime,
-        streamStartTime,
-        streamEndTime,
-        streamConfig.threshold,
-        streamConfig.streamName,
-        inDenomAddress,
-        streamConfig.tosVersion,
-        salt,
-        streamConfig.creatorVestingInfo,
-        streamConfig.beneficiaryVestingInfo,
-        txOptions
-      );
+    const createStreamTx = await streamFactoryContract.createStream(
+      streamConfig.streamOutAmount,
+      outDenomAddress,
+      bootstrappingStartTime,
+      streamStartTime,
+      streamEndTime,
+      streamConfig.threshold,
+      streamConfig.streamName,
+      inDenomAddress,
+      streamConfig.tosVersion,
+      salt,
+      streamConfig.creatorVestingInfo,
+      streamConfig.beneficiaryVestingInfo,
+      txOptions
+    );
 
-      console.log(`Stream creation transaction sent: ${createStreamTx.hash}`);
-    } catch (error: any) {
-      console.error("Stream creation failed with error:", error);
-      if (error.data) {
-        // Try to decode the revert reason
-        try {
-          const decodedError = streamFactoryContract.interface.parseError(error.data);
-          console.error("Decoded error:", decodedError);
-        } catch (e) {
-          console.error("Could not decode error data");
-        }
-      }
-      throw error;
-    }
+    console.log(`Stream creation transaction sent: ${createStreamTx.hash}`);
 
     // Wait for transaction confirmation
     const receipt = await createStreamTx.wait();
