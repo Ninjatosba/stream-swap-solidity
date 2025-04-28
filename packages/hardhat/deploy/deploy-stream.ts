@@ -2,7 +2,7 @@ import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { DeployFunction, Receipt } from "hardhat-deploy/types";
 import { Addressable, AddressLike, BigNumberish, ethers } from "ethers";
 import { defaultStreamConfig, calculateTimestamps, StreamConfig } from "./config/stream-config";
-import { StreamFactory } from "../typechain-types";
+import { StreamFactoryTypes, StreamTypes } from "../typechain-types/contracts/StreamFactory";
 
 /**
  * Deploys a Stream using an existing StreamFactory.
@@ -36,8 +36,12 @@ const deployStreamContract: DeployFunction = async function (hre: HardhatRuntime
     console.log(`Deploying stream with ${JSON.stringify(streamConfig, null, 2)} configuration`);
 
     // Get deployer account
-    const { deployer } = await hre.getNamedAccounts();
+    const { deployer, creator } = await hre.getNamedAccounts();
     console.log(`Deployer address: ${deployer}`);
+    console.log(`Creator address: ${creator}`);
+
+    // Get signers
+    const creatorSigner = await hre.ethers.getSigner(creator);
 
     // Get existing contracts
     const { get } = hre.deployments;
@@ -54,30 +58,42 @@ const deployStreamContract: DeployFunction = async function (hre: HardhatRuntime
     }
 
     // Check if tokens exist
-    let inDenomAddress, outDenomAddress;
+    let inTokenAddress, outTokenAddress;
     try {
-      const inDenomDeployment = await get("InDenomToken");
-      inDenomAddress = inDenomDeployment.address;
-      console.log(`Found inDenom token at: ${inDenomAddress}`);
+      const inTokenDeployment = await get("InToken");
+      inTokenAddress = inTokenDeployment.address;
+      console.log(`Found in token at: ${inTokenAddress}`);
     } catch (error) {
-      console.error("inDenom token not found. Please deploy it first.");
-      throw new Error("inDenom token not deployed");
+      console.error("in token not found. Please deploy it first.");
+      throw new Error("in token not deployed");
     }
 
     try {
-      const outDenomDeployment = await get("OutDenomToken");
-      outDenomAddress = outDenomDeployment.address;
-      console.log(`Found outDenom token at: ${outDenomAddress}`);
+      const outTokenDeployment = await get("OutToken");
+      outTokenAddress = outTokenDeployment.address;
+      console.log(`Found out token at: ${outTokenAddress}`);
     } catch (error) {
-      console.error("outDenom token not found. Please deploy it first.");
-      throw new Error("outDenom token not deployed");
+      console.error("out token not found. Please deploy it first.");
+      throw new Error("out token not deployed");
     }
 
     // Get contract instances
     const streamFactoryContract = await hre.ethers.getContractAt("StreamFactory", streamFactoryAddress);
+    const outTokenContract = await hre.ethers.getContractAt("ERC20Mock", outTokenAddress);
+
+    // Check and set allowance for out tokens
+    const outTokenAllowance = await outTokenContract.connect(creatorSigner).allowance(creator, streamFactoryAddress);
+    console.log(`Current out token allowance: ${outTokenAllowance}`);
+
+    if (BigInt(outTokenAllowance) < BigInt(streamConfig.streamOutAmount)) {
+      console.log(`Setting approval for StreamFactory to spend ${streamConfig.streamOutAmount} out tokens`);
+      const approveOutTokenTx = await outTokenContract.connect(creatorSigner).approve(streamFactoryAddress, streamConfig.streamOutAmount);
+      await approveOutTokenTx.wait();
+      console.log(`Out token approval transaction confirmed: ${approveOutTokenTx.hash}`);
+    }
 
     // Get factory fee information
-    const factoryParams: StreamFactory.ParamsStruct = await streamFactoryContract.getParams();
+    const factoryParams: StreamFactoryTypes.ParamsStruct = await streamFactoryContract.getParams();
     const streamCreationFee: BigNumberish = factoryParams.streamCreationFee;
     const streamCreationFeeToken: AddressLike = factoryParams.streamCreationFeeToken;
     console.log(`Factory fee: ${streamCreationFee} ${streamCreationFeeToken}`);
@@ -91,12 +107,12 @@ const deployStreamContract: DeployFunction = async function (hre: HardhatRuntime
       // Native token fee
       console.log(`Factory requires ${streamCreationFee} native tokens as fee`);
 
-      // Check if deployer has enough native balance
-      const deployerNativeBalance = await hre.ethers.provider.getBalance(deployer);
-      console.log(`Deployer native balance: ${deployerNativeBalance}`);
+      // Check if creator has enough native balance
+      const creatorNativeBalance = await hre.ethers.provider.getBalance(creator);
+      console.log(`Creator native balance: ${creatorNativeBalance}`);
 
-      if (BigInt(deployerNativeBalance) < BigInt(streamCreationFee)) {
-        console.error(`Insufficient native token balance. Required: ${streamCreationFee}, Available: ${deployerNativeBalance}`);
+      if (BigInt(creatorNativeBalance) < BigInt(streamCreationFee)) {
+        console.error(`Insufficient native token balance. Required: ${streamCreationFee}, Available: ${creatorNativeBalance}`);
         throw new Error("Insufficient native token balance for fee");
       }
 
@@ -109,21 +125,21 @@ const deployStreamContract: DeployFunction = async function (hre: HardhatRuntime
       const feeTokenContract = await hre.ethers.getContractAt("ERC20Mock", streamCreationFeeToken as Addressable);
 
       // Check fee token balance
-      const deployerFeeTokenBalance = await feeTokenContract.balanceOf(deployer);
-      console.log(`Deployer fee token balance: ${deployerFeeTokenBalance}`);
+      const creatorFeeTokenBalance = await feeTokenContract.balanceOf(creator);
+      console.log(`Creator fee token balance: ${creatorFeeTokenBalance}`);
 
-      if (BigInt(deployerFeeTokenBalance) < BigInt(streamCreationFee)) {
-        console.error(`Insufficient fee token balance. Required: ${streamCreationFee}, Available: ${deployerFeeTokenBalance}`);
+      if (BigInt(creatorFeeTokenBalance) < BigInt(streamCreationFee)) {
+        console.error(`Insufficient fee token balance. Required: ${streamCreationFee}, Available: ${creatorFeeTokenBalance}`);
         throw new Error("Insufficient fee token balance");
       }
 
       // Check and set allowance for fee token
-      const feeAllowance = await feeTokenContract.allowance(deployer, streamFactoryAddress);
+      const feeAllowance = await feeTokenContract.connect(creatorSigner).allowance(creator, streamFactoryAddress);
       console.log(`Current fee token allowance: ${feeAllowance}`);
 
       if (BigInt(feeAllowance) < BigInt(streamCreationFee)) {
         console.log(`Setting approval for StreamFactory to spend ${streamCreationFee} fee tokens`);
-        const approveFeeTokenTx = await feeTokenContract.approve(streamFactoryAddress, streamCreationFee);
+        const approveFeeTokenTx = await feeTokenContract.connect(creatorSigner).approve(streamFactoryAddress, streamCreationFee);
         await approveFeeTokenTx.wait();
         console.log(`Fee token approval transaction confirmed: ${approveFeeTokenTx.hash}`);
       }
@@ -148,33 +164,41 @@ const deployStreamContract: DeployFunction = async function (hre: HardhatRuntime
     // Create stream using factory
     console.log("Creating stream with parameters:");
     console.log(`- Stream out amount: ${streamConfig.streamOutAmount}`);
-    console.log(`- Stream out denom: ${outDenomAddress}`);
+    console.log(`- Stream out token: ${outTokenAddress}`);
     console.log(`- Bootstrapping start time: ${bootstrappingStartTime}`);
     console.log(`- Stream start time: ${streamStartTime}`);
     console.log(`- Stream end time: ${streamEndTime}`);
     console.log(`- Threshold: ${streamConfig.threshold}`);
     console.log(`- Stream name: ${streamConfig.streamName}`);
-    console.log(`- In denom: ${inDenomAddress}`);
+    console.log(`- In token: ${inTokenAddress}`);
     console.log(`- TOS version: ${streamConfig.tosVersion}`);
 
     // Generate a random salt for the stream creation
     const salt = ethers.hexlify(ethers.randomBytes(32));
     console.log(`Using salt: ${salt}`);
 
+    const createStreamMessage: StreamTypes.CreateStreamMessageStruct = {
+      streamOutAmount: streamConfig.streamOutAmount,
+      outSupplyToken: outTokenAddress,
+      bootstrappingStartTime: bootstrappingStartTime,
+      streamStartTime: streamStartTime,
+      streamEndTime: streamEndTime,
+      threshold: streamConfig.threshold,
+      name: streamConfig.streamName,
+      inSupplyToken: inTokenAddress,
+      tosVersion: streamConfig.tosVersion,
+      creator: creator,
+      creatorVesting: streamConfig.creatorVestingInfo,
+      beneficiaryVesting: streamConfig.beneficiaryVestingInfo,
+      poolInfo: {
+        poolOutSupplyAmount: 0
+      },
+      salt: salt,
+    }
+
     // Create stream with appropriate fee handling
-    const createStreamTx = await streamFactoryContract.createStream(
-      streamConfig.streamOutAmount,
-      outDenomAddress,
-      bootstrappingStartTime,
-      streamStartTime,
-      streamEndTime,
-      streamConfig.threshold,
-      streamConfig.streamName,
-      inDenomAddress,
-      streamConfig.tosVersion,
-      salt,
-      streamConfig.creatorVestingInfo,
-      streamConfig.beneficiaryVestingInfo,
+    const createStreamTx = await streamFactoryContract.connect(creatorSigner).createStream(
+      createStreamMessage,
       txOptions
     );
 

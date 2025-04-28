@@ -9,69 +9,71 @@ import { defaultStreamConfig, StreamConfig } from "./config/stream-config";
 const deployTokens: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     try {
         // Get deployer account
-        const { deployer } = await hre.getNamedAccounts();
+        const { deployer, creator, subscriber1, subscriber2 } = await hre.getNamedAccounts();
         console.log(`Deployer address: ${deployer}`);
+        console.log(`Creator address: ${creator}`);
+        console.log(`Subscriber1 address: ${subscriber1}`);
+        console.log(`Subscriber2 address: ${subscriber2}`);
 
         let deployerBalance = await hre.ethers.provider.getBalance(deployer);
         console.log(`Deployer balance: ${deployerBalance}`);
 
         const { deploy } = hre.deployments;
 
-        // Deploy inDenom token
-        console.log(`Deploying inDenom token...`);
-        const inDenomDeployment = await deploy("InDenomToken", {
+        // Deploy in token
+        console.log(`Deploying in token...`);
+        const inTokenDeployment = await deploy("InToken", {
             from: deployer,
             contract: "ERC20Mock", // Use ERC20Mock implementation
             args: [
-                "StreamInDenom",
-                "IN",
+                "StreamInToken",
+                "STI",
             ],
             log: true,
             autoMine: true, // Speed up deployment on local network
         });
 
-        console.log(`InDenomToken deployed at: ${inDenomDeployment.address}`);
+        console.log(`InToken deployed at: ${inTokenDeployment.address}`);
 
-        // Deploy outDenom token
-        console.log(`Deploying outDenom token...`);
-        const outDenomDeployment = await deploy("OutDenomToken", {
+        // Deploy out token
+        console.log(`Deploying out token...`);
+        const outTokenDeployment = await deploy("OutToken", {
             from: deployer,
             contract: "ERC20Mock", // Use ERC20Mock implementation
             args: [
-                "StreamOutDenom",
-                "OUT",
+                "StreamOutToken",
+                "STO",
             ],
             log: true,
             autoMine: true, // Speed up deployment on local network
         });
 
-        console.log(`OutDenomToken deployed at: ${outDenomDeployment.address}`);
+        console.log(`OutToken deployed at: ${outTokenDeployment.address}`);
 
         // Get contract instances
-        const inDenomContract = await hre.ethers.getContractAt("ERC20Mock", inDenomDeployment.address);
-        const outDenomContract = await hre.ethers.getContractAt("ERC20Mock", outDenomDeployment.address);
+        const inTokenContract = await hre.ethers.getContractAt("ERC20Mock", inTokenDeployment.address);
+        const outTokenContract = await hre.ethers.getContractAt("ERC20Mock", outTokenDeployment.address);
 
-        // Mint some inDenom tokens for testing
-        console.log("Minting inDenom tokens for testing...");
-        const inDenomMintAmount = 1000000n; // 1 million tokens for testing
-        const inDenomMintTx = await inDenomContract.mint(deployer, inDenomMintAmount);
-        await inDenomMintTx.wait();
-        console.log(`Minted ${inDenomMintAmount} inDenom tokens to deployer`);
+        // Mint some in tokens for testing for subscriber1
+        console.log("Minting in tokens for testing...");
+        const inTokenMintAmount = 1000000n; // 1 million tokens for testing
+        const inTokenMintTx = await inTokenContract.mint(subscriber1, inTokenMintAmount);
+        await inTokenMintTx.wait();
+        console.log(`Minted ${inTokenMintAmount} in tokens to subscriber1`);
 
-        // Mint some outDenom tokens for testing
-        console.log("Minting outDenom tokens for testing...");
-        const outDenomMintAmount = 1000000n; // 1 million tokens for testing
-        const outDenomMintTx = await outDenomContract.mint(deployer, outDenomMintAmount);
-        await outDenomMintTx.wait();
-        console.log(`Minted ${outDenomMintAmount} outDenom tokens to deployer`);
+        // Mint some in tokens for testing for subscriber2
+        console.log("Minting in tokens for testing...");
+        const inTokenMintAmount2 = 1000000n; // 1 million tokens for testing
+        const inTokenMintTx2 = await inTokenContract.mint(subscriber2, inTokenMintAmount2);
+        await inTokenMintTx2.wait();
+        console.log(`Minted ${inTokenMintAmount2} in tokens to subscriber2`);
 
-        // Mint some outDenom tokens for testing
-        console.log("Minting outDenom tokens for testing...");
-        const outDenomMintAmount2 = 1000000n; // 1 million tokens for testing
-        const outDenomMintTx2 = await outDenomContract.mint("0x9aae2dc9a514dfd9f56657ace26ca66667d7a833", outDenomMintAmount2);
-        await outDenomMintTx2.wait();
-        console.log(`Minted ${outDenomMintAmount2} outDenom tokens to deployer`);
-
+        // Mint some out tokens for testing for creator
+        console.log("Minting out tokens for testing...");
+        const outTokenMintAmount = 1000000n; // 1 million tokens for testing
+        const outTokenMintTx = await outTokenContract.mint(creator, outTokenMintAmount);
+        await outTokenMintTx.wait();
+        console.log(`Minted ${outTokenMintAmount} out tokens to creator`);
         return true;
     } catch (error: unknown) {
         console.error("Token deployment failed:", error instanceof Error ? error.message : error);

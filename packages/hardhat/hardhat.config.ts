@@ -50,8 +50,14 @@ const config: HardhatUserConfig = {
       // By default, it will take the first Hardhat account as the deployer
       default: 0,
     },
+    creator: {
+      default: 1, // Use the same account as deployer for testing
+    },
     subscriber1: {
-      default: 1,
+      default: 2,
+    },
+    subscriber2: {
+      default: 3,
     },
   },
   networks: {
@@ -67,6 +73,11 @@ const config: HardhatUserConfig = {
         auto: true,
         interval: 0  // Add a 1 second interval between blocks
       }
+    },
+    monadTestnet: {
+      url: "https://testnet-rpc.monad.xyz",
+      accounts: [deployerPrivateKey],
+      chainId: 10143,
     },
     localhost: {
       url: "http://127.0.0.1:8545",
@@ -183,6 +194,10 @@ const config: HardhatUserConfig = {
     },
     celoAlfajores: {
       url: "https://alfajores-forno.celo-testnet.org",
+      accounts: [deployerPrivateKey],
+    },
+    hyperliquidTestnet: {
+      url: "https://rpc.hyperliquid-testnet.xyz/evm",
       accounts: [deployerPrivateKey],
     },
   },

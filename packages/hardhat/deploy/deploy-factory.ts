@@ -13,28 +13,26 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     // Get environment from args
     const environment = process.argv.indexOf("--network") !== -1 ? process.argv[process.argv.indexOf("--network") + 1] : "default";
 
-    // get in denom address
-    let inDenomAddress;
+    // get in token address
+    let inTokenAddress;
     try {
-        const inDenomDeployment = await get("InDenomToken");
-        inDenomAddress = inDenomDeployment.address;
-        console.log(`Found inDenom token at: ${inDenomAddress}`);
+        const inTokenDeployment = await get("InToken");
+        inTokenAddress = inTokenDeployment.address;
+        console.log(`Found in token at: ${inTokenAddress}`);
     } catch (error) {
-        console.error("inDenom token not found. Please deploy it first.");
-        throw new Error("inDenom token not deployed");
+        console.error("in token not found. Please deploy it first.");
+        throw new Error("in token not deployed");
     }
-
-
 
     switch (environment) {
         case "sepolia":
-            config = createTestnetFactoryConfig(deployer, inDenomAddress);
+            config = createTestnetFactoryConfig(deployer, inTokenAddress);
             break;
         case "production":
-            config = createProductionFactoryConfig(deployer, inDenomAddress);
+            config = createProductionFactoryConfig(deployer, inTokenAddress);
             break;
         default:
-            config = createFactoryConfig(deployer, [inDenomAddress]);
+            config = createFactoryConfig(deployer, [inTokenAddress]);
     }
     try {
         const deployFactoryMessage: StreamFactoryTypes.ConstructFactoryMessageStruct = {
@@ -47,7 +45,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
             feeCollector: config.feeCollector,
             protocolAdmin: config.protocolAdmin,
             tosVersion: config.tosVersion,
-            acceptedInSupplyTokens: config.acceptedInDenoms,
+            acceptedInSupplyTokens: config.acceptedInTokens,
             uniswapV2FactoryAddress: config.uniswapV2FactoryAddress || "0x0000000000000000000000000000000000000000",
             uniswapV2RouterAddress: config.uniswapV2RouterAddress || "0x0000000000000000000000000000000000000000",
         };

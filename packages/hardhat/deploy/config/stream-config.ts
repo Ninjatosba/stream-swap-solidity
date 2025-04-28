@@ -1,7 +1,7 @@
 // packages/hardhat/deploy/config/stream-config.ts
 
 import { ethers } from "ethers";
-import { IStreamTypes } from "../../typechain-types/contracts/StreamFactory";
+import { StreamTypes } from "../../typechain-types/contracts/StreamFactory";
 
 export interface StreamConfig {
     // Token configuration
@@ -22,8 +22,8 @@ export interface StreamConfig {
     customStreamStartTime?: number;
     customStreamEndTime?: number;
     metadata?: string;
-    creatorVestingInfo: IStreamTypes.VestingInfoStruct;
-    beneficiaryVestingInfo: IStreamTypes.VestingInfoStruct;
+    creatorVestingInfo: StreamTypes.VestingInfoStruct;
+    beneficiaryVestingInfo: StreamTypes.VestingInfoStruct;
 }
 
 // Default configuration
