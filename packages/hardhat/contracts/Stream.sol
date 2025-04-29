@@ -14,9 +14,9 @@ import "./lib/math/StreamMathLib.sol";
 import "./interfaces/IERC20.sol";
 import "hardhat/console.sol";
 import "./lib/helpers/TokenHelpers.sol";
-
+import "./interfaces/IPoolWrapper.sol";
 import "./interfaces/IVesting.sol";
-import "./interfaces/IUniswapV2.sol";
+import "./types/PoolWrapperTypes.sol";
 
 contract Stream is IStreamErrors, IStreamEvents {
     address public creator;
@@ -27,9 +27,7 @@ contract Stream is IStreamErrors, IStreamEvents {
     StreamTypes.StreamMetadata public streamMetadata;
     StreamTypes.Status public streamStatus;
     StreamTypes.StreamTimes public streamTimes;
-    StreamTypes.VestingInfo public creatorVestingInfo;
-    StreamTypes.VestingInfo public beneficiaryVestingInfo;
-    StreamTypes.PoolInfo public poolInfo;
+    StreamTypes.PostStreamActions public postStreamActions;
     address public streamFactoryAddress;
     IPositionStorage public positionStorage;
 
@@ -66,7 +64,7 @@ contract Stream is IStreamErrors, IStreamEvents {
                 revert InvalidVestingCliffDuration();
             }
             // set vesting info
-            creatorVestingInfo = createStreamMessage.creatorVesting;
+            postStreamActions.creatorVesting = createStreamMessage.creatorVesting;
         }
 
         // Validate and set beneficiary vesting info
@@ -85,7 +83,7 @@ contract Stream is IStreamErrors, IStreamEvents {
                 revert InvalidVestingCliffDuration();
             }
             // set vesting info
-            beneficiaryVestingInfo = createStreamMessage.beneficiaryVesting;
+            postStreamActions.beneficiaryVesting = createStreamMessage.beneficiaryVesting;
         }
 
         // Validate pool config
@@ -94,7 +92,7 @@ contract Stream is IStreamErrors, IStreamEvents {
             if (createStreamMessage.poolInfo.poolOutSupplyAmount > createStreamMessage.streamOutAmount) {
                 revert InvalidAmount();
             }
-            poolInfo = createStreamMessage.poolInfo;
+            postStreamActions.poolInfo = createStreamMessage.poolInfo;
         }
 
         // Create position storage
@@ -367,7 +365,7 @@ contract Stream is IStreamErrors, IStreamEvents {
         bool thresholdReached = isThresholdReached(state);
 
         // Handle token distributions based on exit scenario
-        handleExitDistribution(status, thresholdReached, position, beneficiaryVestingInfo);
+        handleExitDistribution(status, thresholdReached, position, postStreamActions.beneficiaryVesting);
 
         // Set exit date
         position.exitDate = block.timestamp;
@@ -448,8 +446,28 @@ contract Stream is IStreamErrors, IStreamEvents {
             (status == StreamTypes.Status.Ended && !thresholdReached);
     }
 
+    function deductExitFee(
+        Decimal memory exitFeeRatio,
+        address tokenAddress,
+        address feeCollector,
+        uint256 spentIn
+    ) internal returns (uint256, uint256) {
+        // Calculate exit fee
+        (uint256 feeAmount, uint256 creatorRevenue) = StreamMathLib.calculateExitFee(spentIn, exitFeeRatio);
+
+        // Transfer fee to fee collector if needed
+        if (feeAmount > 0) {
+            TokenHelpers.safeTokenTransfer(tokenAddress, feeCollector, feeAmount);
+        }
+        return (creatorRevenue, feeAmount);
+    }
+
     function finalizeStream() external {
         assertIsCreator();
+
+        // Get factory params
+        StreamFactory factoryContract = StreamFactory(streamFactoryAddress);
+        StreamFactoryTypes.Params memory params = factoryContract.getParams();
 
         // Load and update status
         StreamTypes.Status status = loadStreamStatus();
@@ -468,49 +486,57 @@ contract Stream is IStreamErrors, IStreamEvents {
         bool thresholdReached = isThresholdReached(state);
 
         if (thresholdReached) {
-            // Get fee collector from factory
-            StreamFactory factoryContract = StreamFactory(streamFactoryAddress);
-            StreamFactoryTypes.Params memory params = factoryContract.getParams();
             address feeCollector = params.feeCollector;
             Decimal memory exitFeeRatio = params.exitFeeRatio;
 
             // Calculate exit fee
-            (uint256 feeAmount, uint256 creatorRevenue) = StreamMathLib.calculateExitFee(state.spentIn, exitFeeRatio);
-
-            // Transfer fee to fee collector if needed
-            if (feeAmount > 0) {
-                TokenHelpers.safeTokenTransfer(streamTokens.inSupplyToken, feeCollector, feeAmount);
-            }
+            (uint256 creatorRevenue, uint256 feeAmount) = deductExitFee(
+                exitFeeRatio,
+                streamTokens.inSupplyToken,
+                feeCollector,
+                state.spentIn
+            );
 
             // Handle pool creation if configured
-            if (poolInfo.poolOutSupplyAmount > 0) {
+            if (postStreamActions.poolInfo.poolOutSupplyAmount > 0) {
                 // Calculate pool ratio
                 Decimal memory poolRatio = DecimalMath.div(
-                    DecimalMath.fromNumber(poolInfo.poolOutSupplyAmount),
+                    DecimalMath.fromNumber(postStreamActions.poolInfo.poolOutSupplyAmount),
                     DecimalMath.fromNumber(streamState.outSupply)
                 );
 
-                // Calculate pool amount based on ratio
-                uint256 totalRevenue = state.spentIn - feeAmount;
-                uint256 decimalTotalRevenue = DecimalMath.fromNumber(totalRevenue).value;
+                uint256 poolInSupplyAmount = StreamMathLib.calculatePoolAmount(creatorRevenue, poolRatio);
+                uint256 poolOutSupplyAmount = postStreamActions.poolInfo.poolOutSupplyAmount;
+                // Calculate remaining revenue
+                creatorRevenue = creatorRevenue - poolInSupplyAmount;
 
-                Decimal memory decimalPoolInSupplyAmount = DecimalMath.mul(
-                    DecimalMath.fromNumber(decimalTotalRevenue),
-                    poolRatio
-                );
-                uint256 poolInSupplyAmount = DecimalMath.floor(decimalPoolInSupplyAmount);
-                uint256 creatorAmount = totalRevenue - poolInSupplyAmount;
                 // Create pool and add liquidity
                 createPoolAndAddLiquidity(
                     streamTokens.inSupplyToken,
                     streamTokens.outSupplyToken,
                     poolInSupplyAmount,
-                    poolInfo.poolOutSupplyAmount
+                    poolOutSupplyAmount
                 );
-                // Send revenue to creator
-                TokenHelpers.safeTokenTransfer(streamTokens.inSupplyToken, creator, creatorAmount);
+            }
+
+            // Handle vesting if enabled
+            if (postStreamActions.creatorVesting.isVestingEnabled) {
+                // Create vesting schedule
+                (uint256 cliffTime, uint256 endTime) = StreamMathLib.calculateVestingSchedule(
+                    block.timestamp,
+                    postStreamActions.creatorVesting.cliffDuration,
+                    postStreamActions.creatorVesting.vestingDuration
+                );
+                createVesting(
+                    streamTokens.inSupplyToken,
+                    creator,
+                    params.vestingAddress,
+                    creatorRevenue,
+                    cliffTime,
+                    endTime
+                );
             } else {
-                // Send revenue to creator
+                // Transfer creator revenue to creator
                 TokenHelpers.safeTokenTransfer(streamTokens.inSupplyToken, creator, creatorRevenue);
             }
 
@@ -679,33 +705,32 @@ contract Stream is IStreamErrors, IStreamEvents {
         StreamFactory factoryContract = StreamFactory(streamFactoryAddress);
         StreamFactoryTypes.Params memory params = factoryContract.getParams();
 
-        address uniswapV2FactoryAddress = params.uniswapV2FactoryAddress;
-        address uniswapV2RouterAddress = params.uniswapV2RouterAddress;
+        address poolWrapperAddress = params.poolWrapperAddress;
+        IPoolWrapper poolWrapper = IPoolWrapper(poolWrapperAddress);
 
-        IUniswapV2Factory factory = IUniswapV2Factory(uniswapV2FactoryAddress);
-        IUniswapV2Router02 router = IUniswapV2Router02(uniswapV2RouterAddress);
+        PoolWrapperTypes.CreatePoolMsg memory createPoolMsg = PoolWrapperTypes.CreatePoolMsg({
+            token0: tokenA,
+            token1: tokenB,
+            amount0: amountADesired,
+            amount1: amountBDesired
+        });
+        poolWrapper.createPool(createPoolMsg);
 
-        // Check if the pair exists; if not, create it
-        address pair = factory.getPair(tokenA, tokenB);
-        if (pair == address(0)) {
-            pair = factory.createPair(tokenA, tokenB);
-        }
+        // Transfer pool tokens to stream
+        TokenHelpers.safeTokenTransfer(tokenA, poolWrapperAddress, amountADesired);
+        TokenHelpers.safeTokenTransfer(tokenB, poolWrapperAddress, amountBDesired);
+    }
 
-        // Approve tokens to the router
-        IERC20(tokenA).approve(address(router), amountADesired);
-        IERC20(tokenB).approve(address(router), amountBDesired);
-
-        // Add liquidity to the pool
-        router.addLiquidity(
-            tokenA,
-            tokenB,
-            amountADesired,
-            amountBDesired,
-            1, // Slippage tolerance can be adjusted
-            1,
-            address(this), // LP tokens are sent to the contract
-            block.timestamp
-        );
+    function createVesting(
+        address token,
+        address beneficiary,
+        address vestingAddress,
+        uint256 amount,
+        uint256 cliffDuration,
+        uint256 vestingDuration
+    ) internal {
+        IVesting vesting = IVesting(vestingAddress);
+        vesting.stakeFunds(token, beneficiary, cliffDuration, vestingDuration, amount);
     }
 
     // Refactored syncStreamStatus to work directly with a provided memory object

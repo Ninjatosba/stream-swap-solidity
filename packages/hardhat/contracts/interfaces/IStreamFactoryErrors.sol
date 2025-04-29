@@ -25,4 +25,5 @@ interface IStreamFactoryErrors {
     error InvalidFeeCollector();
     error InvalidProtocolAdmin();
     error NotAdmin();
+    error InvalidPoolWrapper();
 }

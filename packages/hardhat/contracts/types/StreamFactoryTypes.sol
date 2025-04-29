@@ -15,8 +15,7 @@ library StreamFactoryTypes {
         address protocolAdmin;
         string tosVersion;
         address vestingAddress;
-        address uniswapV2FactoryAddress;
-        address uniswapV2RouterAddress;
+        address poolWrapperAddress;
     }
 
     struct constructFactoryMessage {
@@ -29,8 +28,7 @@ library StreamFactoryTypes {
         address feeCollector;
         address protocolAdmin;
         string tosVersion;
-        address uniswapV2FactoryAddress;
-        address uniswapV2RouterAddress;
+        address poolWrapperAddress;
         address[] acceptedInSupplyTokens;
     }
 }

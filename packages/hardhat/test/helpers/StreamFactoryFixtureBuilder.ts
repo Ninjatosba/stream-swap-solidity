@@ -71,13 +71,17 @@ export class StreamFactoryFixtureBuilder {
             const outSupplyToken = await OutSupplyToken.deploy("OutSupply Token", "OUT");
 
             // Mint tokens to the creator
-            await inSupplyToken.mint(creator.address, 1000000000000);
-            await outSupplyToken.mint(creator.address, 1000000000000);
+            await inSupplyToken.mint(creator.address, ethers.parseEther("100000"));
+            await outSupplyToken.mint(creator.address, ethers.parseEther("100000"));
 
             // List of accepted tokens
             const acceptedInSupplyTokens = [await inSupplyToken.getAddress()];
             const feeCollectorAddress = await feeCollector.getAddress();
             const protocolAdminAddress = await protocolAdmin.getAddress();
+
+            // Deploy pool wrapper contract
+            const PoolWrapperFactory = await ethers.getContractFactory("PoolWrapper");
+            const poolWrapper = await PoolWrapperFactory.deploy();
 
             // Deploy factory
             const StreamFactory = await ethers.getContractFactory("StreamFactory");
@@ -92,8 +96,7 @@ export class StreamFactoryFixtureBuilder {
                 protocolAdmin: protocolAdminAddress,
                 tosVersion: config.tosVersion,
                 acceptedInSupplyTokens: acceptedInSupplyTokens,
-                uniswapV2FactoryAddress: "0x0000000000000000000000000000000000000000",
-                uniswapV2RouterAddress: "0x0000000000000000000000000000000000000000"
+                poolWrapperAddress: await poolWrapper.getAddress(),
             };
             const factory = await StreamFactory.deploy(streamFactoryMessage);
 

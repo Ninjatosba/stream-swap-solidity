@@ -20,6 +20,12 @@ const providerApiKey = process.env.ALCHEMY_API_KEY || "oKxs-03sij-U_N0iOlrSsZFr2
 // You can generate a random account with `yarn generate` or `yarn account:import` to import your existing PK
 const deployerPrivateKey =
   process.env.__RUNTIME_DEPLOYER_PRIVATE_KEY ?? "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
+const creatorPrivateKey =
+  process.env.__RUNTIME_CREATOR_PRIVATE_KEY ?? "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d";
+const subscriber1PrivateKey =
+  process.env.__RUNTIME_SUBSCRIBER1_PRIVATE_KEY ?? "0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a";
+const subscriber2PrivateKey =
+  process.env.__RUNTIME_SUBSCRIBER2_PRIVATE_KEY ?? "0x7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6";
 // If not set, it uses our block explorers default API keys.
 const etherscanApiKey = process.env.ETHERSCAN_MAINNET_API_KEY || "DNXJA8RX2Q3VZ4URQIWP7Z68CJXQZSC6AW";
 const etherscanOptimisticApiKey = process.env.ETHERSCAN_OPTIMISTIC_API_KEY || "RM62RDISS1RH448ZY379NX625ASG1N633R";
@@ -98,7 +104,7 @@ const config: HardhatUserConfig = {
     },
     sepolia: {
       url: `https://eth-sepolia.g.alchemy.com/v2/${providerApiKey}`,
-      accounts: [deployerPrivateKey],
+      accounts: [deployerPrivateKey, creatorPrivateKey, subscriber1PrivateKey, subscriber2PrivateKey],
     },
     arbitrum: {
       url: `https://arb-mainnet.g.alchemy.com/v2/${providerApiKey}`,
@@ -198,7 +204,9 @@ const config: HardhatUserConfig = {
     },
     hyperliquidTestnet: {
       url: "https://rpc.hyperliquid-testnet.xyz/evm",
-      accounts: [deployerPrivateKey],
+      accounts: [deployerPrivateKey, creatorPrivateKey, subscriber1PrivateKey, subscriber2PrivateKey],
+      gas: 30_000_00,
+      gasPrice: "auto"
     },
   },
   // configuration for harhdat-verify plugin

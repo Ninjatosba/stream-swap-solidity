@@ -1,140 +1,170 @@
 import { ethers } from "hardhat";
 import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
-import { Contract } from "ethers";
+import { Contract, TransactionRequest } from "ethers";
 import { DecimalStruct } from "../../typechain-types/contracts/PositionStorage";
-import { VestingInterface } from "../../typechain-types/contracts/Vesting";
-import { StreamFactoryTypes } from "../../typechain-types/contracts/StreamFactory";
 import { StreamTypes } from "../../typechain-types/contracts/Stream";
+import { StreamFactoryTypes } from "../../typechain-types/contracts/StreamFactory";
+
+interface StreamTimeConfig {
+    waitSeconds: number;
+    bootstrappingDuration: number;
+    streamDuration: number;
+}
+
+interface StreamAmountConfig {
+    streamOutAmount: bigint;
+    threshold: bigint;
+}
+
+interface StreamMetadataConfig {
+    name: string;
+    tosVersion: string;
+}
+
+interface StreamVestingConfig {
+    creator: StreamTypes.VestingInfoStruct;
+    beneficiary: StreamTypes.VestingInfoStruct;
+}
+
+interface PoolConfig {
+    poolOutSupplyAmount: bigint;
+}
+
+interface FactoryConfig {
+    streamCreationFee: number;
+    streamCreationFeeToken: string;
+    exitFeeRatio: DecimalStruct;
+    minWaitingDuration: number;
+    minBootstrappingDuration: number;
+    minStreamDuration: number;
+}
 
 export class StreamFixtureBuilder {
-    private streamOutAmount: bigint = ethers.parseEther("1000")
-    private waitSeconds: number = 50;
-    private bootstrappingDuration: number = 50;
-    private streamDuration: number = 100;
-    private threshold: bigint = ethers.parseEther("10");
-    private streamName: string = "Test Stream";
-    private tosVersion: string = "1.0.0";
-    private ExitFeeRatio: DecimalStruct = {
-        // 1%
-        value: 1e5
+    private timeConfig: StreamTimeConfig = {
+        waitSeconds: 50,
+        bootstrappingDuration: 50,
+        streamDuration: 100
     };
-    private minWaitingDuration: number = 1;
-    private minBootstrappingDuration: number = 1;
-    private minStreamDuration: number = 1;
+
+    private amountConfig: StreamAmountConfig = {
+        streamOutAmount: ethers.parseEther("1000"),
+        threshold: ethers.parseEther("100")
+    };
+
+    private metadataConfig: StreamMetadataConfig = {
+        name: "Test Stream",
+        tosVersion: "1.0.0"
+    };
+
+    private vestingConfig: StreamVestingConfig = {
+        creator: {
+            cliffDuration: 0,
+            vestingDuration: 0,
+            isVestingEnabled: false
+        },
+        beneficiary: {
+            cliffDuration: 0,
+            vestingDuration: 0,
+            isVestingEnabled: false
+        }
+    };
+
+    private poolConfig: PoolConfig = {
+        poolOutSupplyAmount: ethers.parseEther("0")
+    };
+
+    private factoryConfig: FactoryConfig = {
+        streamCreationFee: 0,
+        streamCreationFeeToken: ethers.ZeroAddress,
+        exitFeeRatio: { value: 1e5 }, // 1%
+        minWaitingDuration: 1,
+        minBootstrappingDuration: 1,
+        minStreamDuration: 1
+    };
+
     private nowSeconds?: number;
-    private streamCreationFee: number = 0;
-    private creatorVestingInfo: StreamTypes.VestingInfoStruct = {
-        cliffDuration: 0,
-        vestingDuration: 0,
-        isVestingEnabled: false
-    };
-    private beneficiaryVestingInfo: StreamTypes.VestingInfoStruct = {
-        cliffDuration: 0,
-        vestingDuration: 0,
-        isVestingEnabled: false
-    };
 
-    // Method to set stream out amount
-    public streamOut(amount: bigint): StreamFixtureBuilder {
-        this.streamOutAmount = amount;
-        return this;
-    }
-
-    // Method to set time parameters
+    // Time configuration methods
     public timeParams(waitSeconds: number, bootstrappingDuration: number, streamDuration: number): StreamFixtureBuilder {
-        this.waitSeconds = waitSeconds;
-        this.bootstrappingDuration = bootstrappingDuration;
-        this.streamDuration = streamDuration;
+        this.timeConfig = { waitSeconds, bootstrappingDuration, streamDuration };
         return this;
     }
-    // Method to set threshold
+
+    // Amount configuration methods
+    public streamOut(amount: bigint): StreamFixtureBuilder {
+        this.amountConfig.streamOutAmount = amount;
+        return this;
+    }
+
     public setThreshold(threshold: bigint): StreamFixtureBuilder {
-        this.threshold = threshold;
+        this.amountConfig.threshold = threshold;
         return this;
     }
 
-    // Method to set stream name
+    // Metadata configuration methods
     public name(name: string): StreamFixtureBuilder {
-        this.streamName = name;
+        this.metadataConfig.name = name;
         return this;
     }
 
-    // Method to set version
     public tos(version: string): StreamFixtureBuilder {
-        this.tosVersion = version;
+        this.metadataConfig.tosVersion = version;
         return this;
     }
 
-    // Method to set factory fee
-    public factoryFee(fee: number): StreamFixtureBuilder {
-        this.streamCreationFee = fee;
-        return this;
-    }
-
-    // Method to set exit fee percent
-    public exitRatio(ratio: number): StreamFixtureBuilder {
-        this.ExitFeeRatio = {
-            value: ratio
+    // Vesting configuration methods
+    public creatorVesting(cliffDuration: number, vestingDuration: number): StreamFixtureBuilder {
+        this.vestingConfig.creator = {
+            cliffDuration,
+            vestingDuration,
+            isVestingEnabled: true
         };
         return this;
     }
 
-    // Method to set minimum durations
-    public minDurations(waiting: number, bootstrapping: number, stream: number): StreamFixtureBuilder {
-        this.minWaitingDuration = waiting;
-        this.minBootstrappingDuration = bootstrapping;
-        this.minStreamDuration = stream;
+    public beneficiaryVesting(cliffDuration: number, vestingDuration: number): StreamFixtureBuilder {
+        this.vestingConfig.beneficiary = {
+            cliffDuration,
+            vestingDuration,
+            isVestingEnabled: true
+        };
         return this;
     }
 
-    // Method to set a custom current time
+    // Pool configuration methods
+    public poolOutSupply(amount: bigint): StreamFixtureBuilder {
+        this.poolConfig.poolOutSupplyAmount = amount;
+        return this;
+    }
+
+    // Factory configuration methods
+    public factoryFee(fee: number, token: string = ethers.ZeroAddress): StreamFixtureBuilder {
+        this.factoryConfig.streamCreationFee = fee;
+        this.factoryConfig.streamCreationFeeToken = token;
+        return this;
+    }
+
+    public exitRatio(ratio: number): StreamFixtureBuilder {
+        this.factoryConfig.exitFeeRatio = { value: ratio };
+        return this;
+    }
+
+    public minDurations(waiting: number, bootstrapping: number, stream: number): StreamFixtureBuilder {
+        this.factoryConfig.minWaitingDuration = waiting;
+        this.factoryConfig.minBootstrappingDuration = bootstrapping;
+        this.factoryConfig.minStreamDuration = stream;
+        return this;
+    }
+
+    // Time manipulation method
     public currentTime(timestamp: number): StreamFixtureBuilder {
         this.nowSeconds = timestamp;
         return this;
     }
 
-    // Method to set creator vesting info
-    public creatorVesting(cliffDuration: number, vestingDuration: number): StreamFixtureBuilder {
-        this.creatorVestingInfo = {
-            cliffDuration,
-            vestingDuration,
-            isVestingEnabled: true
-        };
-        return this;
-    }
-
-    // Method to set beneficiary vesting info
-    public beneficiaryVesting(cliffDuration: number, vestingDuration: number): StreamFixtureBuilder {
-        this.beneficiaryVestingInfo = {
-            cliffDuration,
-            vestingDuration,
-            isVestingEnabled: true
-        };
-        return this;
-    }
-
-    // Build method that returns the fixture function
+    // Build method
     public build() {
-        // Store the current configuration in variables that will be captured in the closure
-        const config = {
-            streamOutAmount: this.streamOutAmount,
-            waitSeconds: this.waitSeconds,
-            bootstrappingDuration: this.bootstrappingDuration,
-            streamDuration: this.streamDuration,
-            threshold: this.threshold,
-            streamName: this.streamName,
-            tosVersion: this.tosVersion,
-            ExitFeeRatio: this.ExitFeeRatio,
-            minWaitingDuration: this.minWaitingDuration,
-            minBootstrappingDuration: this.minBootstrappingDuration,
-            minStreamDuration: this.minStreamDuration,
-            nowSeconds: this.nowSeconds,
-            streamCreationFee: this.streamCreationFee,
-            creatorVestingInfo: this.creatorVestingInfo,
-            beneficiaryVestingInfo: this.beneficiaryVestingInfo
-        };
-
-        // Return the fixture function
+        const self = this;
         return async function deployStreamFixture() {
             try {
                 // Reset the Hardhat Network
@@ -149,81 +179,98 @@ export class StreamFixtureBuilder {
 
                 const OutSupplyToken = await ethers.getContractFactory("ERC20Mock");
                 const outSupplyToken = await OutSupplyToken.deploy("StreamOutSupply Token", "OUT");
-                // Mint tokens for stream creator
-                await outSupplyToken.mint(creator.address, config.streamOutAmount);
 
-                // Mint tokens for subscribers
-                await inSupplyToken.mint(subscriber1.address, ethers.parseEther("100"));
-                await inSupplyToken.mint(subscriber2.address, ethers.parseEther("100"));
+                // Deploy pool wrapper contract
+                const PoolWrapperFactory = await ethers.getContractFactory("PoolWrapper");
+                const poolWrapper = await PoolWrapperFactory.deploy();
 
-                const streamFactoryMessage: StreamFactoryTypes.ConstructFactoryMessageStruct = {
-                    streamCreationFee: config.streamCreationFee,
-                    streamCreationFeeToken: ethers.ZeroAddress,
-                    exitFeeRatio: config.ExitFeeRatio,
-                    minWaitingDuration: config.minWaitingDuration,
-                    minBootstrappingDuration: config.minBootstrappingDuration,
-                    minStreamDuration: config.minStreamDuration,
+                // Deploy StreamFactory
+                const StreamFactoryFactory = await ethers.getContractFactory("StreamFactory");
+                const streamFactory = await StreamFactoryFactory.deploy({
+                    streamCreationFee: self.factoryConfig.streamCreationFee,
+                    streamCreationFeeToken: self.factoryConfig.streamCreationFeeToken,
+                    exitFeeRatio: self.factoryConfig.exitFeeRatio,
+                    minWaitingDuration: self.factoryConfig.minWaitingDuration,
+                    minBootstrappingDuration: self.factoryConfig.minBootstrappingDuration,
+                    minStreamDuration: self.factoryConfig.minStreamDuration,
                     feeCollector: feeCollector.address,
                     protocolAdmin: protocolAdmin.address,
-                    tosVersion: config.tosVersion,
+                    tosVersion: self.metadataConfig.tosVersion,
                     acceptedInSupplyTokens: [await inSupplyToken.getAddress()],
-                    uniswapV2FactoryAddress: "0x0000000000000000000000000000000000000000",
-                    uniswapV2RouterAddress: "0x0000000000000000000000000000000000000000"
-                };
+                    poolWrapperAddress: await poolWrapper.getAddress(),
+                });
 
-                // Deploy StreamFactory with deployer
-                const StreamFactoryFactory = await ethers.getContractFactory("StreamFactory");
-                const streamFactory = await StreamFactoryFactory.deploy(streamFactoryMessage);
+                // Get factory params
+                const factoryParams = await streamFactory.getParams();
+                const streamCreationFee = factoryParams.streamCreationFee;
+                const streamCreationFeeToken = factoryParams.streamCreationFeeToken;
 
+                // Mint tokens
+                await outSupplyToken.mint(creator.address, self.amountConfig.streamOutAmount);
+                await inSupplyToken.mint(subscriber1.address, ethers.parseEther("100000"));
+                await inSupplyToken.mint(subscriber2.address, ethers.parseEther("100000"));
 
-                // IMPORTANT: Creator approves tokens
+                // Mint pool tokens if needed
+                if (self.poolConfig.poolOutSupplyAmount > 0) {
+                    await outSupplyToken.mint(creator.address, self.poolConfig.poolOutSupplyAmount);
+                }
+
+                // Approve tokens
                 await outSupplyToken.connect(creator).approve(
                     await streamFactory.getAddress(),
-                    config.streamOutAmount
+                    self.amountConfig.streamOutAmount + self.poolConfig.poolOutSupplyAmount
                 );
 
-                // Get current time
-                let nowSeconds: number;
-                if (config.nowSeconds) {
-                    nowSeconds = config.nowSeconds;
-                } else {
-                    const latestBlock = await ethers.provider.getBlock("latest");
-                    nowSeconds = latestBlock?.timestamp ?? Math.floor(Date.now() / 1000);
+                let txOptions: TransactionRequest = {
+                    value: 0
+                };
+
+                // If stream creation fee is set, we need to approve the stream factory to spend the creation fee token
+                if (streamCreationFee > 0) {
+                    switch (streamCreationFeeToken) {
+                        case ethers.ZeroAddress:
+                            txOptions.value = streamCreationFee;
+                            break;
+                        default:
+                            // Define fee token contract
+                            const feeToken = await ethers.getContractAt("ERC20Mock", streamCreationFeeToken);
+                            // Approve fee token
+                            await feeToken.connect(creator).approve(
+                                await streamFactory.getAddress(),
+                                streamCreationFee
+                            );
+                            break;
+                    }
                 }
 
                 // Set up stream times
-                const bootstrappingStartTime = nowSeconds + config.waitSeconds;
-                const streamStartTime = bootstrappingStartTime + config.bootstrappingDuration;
-                const streamEndTime = streamStartTime + config.streamDuration;
+                const nowSeconds = self.nowSeconds ?? (await ethers.provider.getBlock("latest"))?.timestamp ?? Math.floor(Date.now() / 1000);
+                const bootstrappingStartTime = nowSeconds + self.timeConfig.waitSeconds;
+                const streamStartTime = bootstrappingStartTime + self.timeConfig.bootstrappingDuration;
+                const streamEndTime = streamStartTime + self.timeConfig.streamDuration;
 
-                const createStreamMessage: StreamTypes.CreateStreamMessageStruct = {
-                    streamOutAmount: config.streamOutAmount,
+                // Create stream
+                const tx = await streamFactory.connect(creator).createStream({
+                    streamOutAmount: self.amountConfig.streamOutAmount,
                     outSupplyToken: await outSupplyToken.getAddress(),
                     bootstrappingStartTime,
                     streamStartTime,
                     streamEndTime,
-                    threshold: config.threshold,
-                    name: config.streamName,
+                    threshold: self.amountConfig.threshold,
+                    name: self.metadataConfig.name,
                     inSupplyToken: await inSupplyToken.getAddress(),
                     creator: creator.address,
-                    creatorVesting: config.creatorVestingInfo,
-                    beneficiaryVesting: config.beneficiaryVestingInfo,
+                    creatorVesting: self.vestingConfig.creator,
+                    beneficiaryVesting: self.vestingConfig.beneficiary,
                     poolInfo: {
-                        poolOutSupplyAmount: 0
+                        poolOutSupplyAmount: self.poolConfig.poolOutSupplyAmount
                     },
                     salt: ethers.getBytes("0x0000000000000000000000000000000000000000000000000000000000000000"),
-                    tosVersion: config.tosVersion
-                };
-
-                // Create stream with creator
-                const tx = await streamFactory.connect(creator).createStream(
-                    createStreamMessage
-                );
+                    tosVersion: self.metadataConfig.tosVersion
+                }, txOptions);
 
                 // Get stream address from event
                 const receipt = await tx.wait();
-
-                // This automatically finds and parses the StreamCreated event
                 const event = receipt?.logs.find(
                     log => log.topics[0] === streamFactory.interface.getEvent("StreamCreated").topicHash
                 );
@@ -232,29 +279,26 @@ export class StreamFixtureBuilder {
                     throw new Error("StreamCreated event not found in transaction logs");
                 }
 
-                // Parse the event with the contract's interface
                 const parsedEvent = streamFactory.interface.parseLog({
                     topics: event.topics,
                     data: event.data
                 });
 
-                // Get the stream address directly from the parsed event
                 const streamAddress = parsedEvent?.args.streamAddress || ethers.ZeroAddress;
 
                 if (streamAddress === ethers.ZeroAddress) {
                     throw new Error("Invalid stream address (zero address)");
                 }
 
-                // Connect to stream contract
                 const stream = await ethers.getContractAt("Stream", streamAddress);
 
-                // Return structured result
                 return {
                     contracts: {
                         stream,
                         streamFactory,
                         inSupplyToken,
-                        outSupplyToken
+                        outSupplyToken,
+                        poolWrapper
                     },
                     accounts: {
                         deployer,
@@ -271,18 +315,21 @@ export class StreamFixtureBuilder {
                         nowSeconds
                     },
                     config: {
-                        streamOutAmount: config.streamOutAmount,
-                        threshold: config.threshold,
-                        creatorVestingInfo: config.creatorVestingInfo,
-                        beneficiaryVestingInfo: config.beneficiaryVestingInfo
+                        streamOutAmount: self.amountConfig.streamOutAmount,
+                        threshold: self.amountConfig.threshold,
+                        creatorVestingInfo: self.vestingConfig.creator,
+                        beneficiaryVestingInfo: self.vestingConfig.beneficiary,
+                        poolConfig: self.poolConfig,
+                        exitFeeRatio: self.factoryConfig.exitFeeRatio
                     },
                     factoryParams: {
-                        streamCreationFee: config.streamCreationFee,
-                        exitFeeRatio: config.ExitFeeRatio,
-                        minWaitingDuration: config.minWaitingDuration,
-                        minBootstrappingDuration: config.minBootstrappingDuration,
-                        minStreamDuration: config.minStreamDuration,
-                        tosVersion: config.tosVersion
+                        streamCreationFee: self.factoryConfig.streamCreationFee,
+                        streamCreationFeeToken: self.factoryConfig.streamCreationFeeToken,
+                        exitFeeRatio: self.factoryConfig.exitFeeRatio,
+                        minWaitingDuration: self.factoryConfig.minWaitingDuration,
+                        minBootstrappingDuration: self.factoryConfig.minBootstrappingDuration,
+                        minStreamDuration: self.factoryConfig.minStreamDuration,
+                        tosVersion: self.metadataConfig.tosVersion
                     }
                 };
             } catch (error) {
