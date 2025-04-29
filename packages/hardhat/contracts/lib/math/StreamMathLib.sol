@@ -170,6 +170,12 @@ library StreamMathLib {
         return (exitFeeAmount, remainingAmount);
     }
 
+    function calculatePoolAmount(uint256 creatorRevenue, Decimal memory poolRatio) internal pure returns (uint256) {
+        Decimal memory decimalCreatorRevenue = DecimalMath.fromNumber(creatorRevenue);
+        Decimal memory decimalPoolAmount = DecimalMath.mul(decimalCreatorRevenue, poolRatio);
+        return DecimalMath.floor(decimalPoolAmount);
+    }
+
     function syncPosition(
         PositionTypes.Position memory position,
         Decimal memory distIndex,

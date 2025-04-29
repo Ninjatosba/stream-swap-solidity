@@ -66,4 +66,10 @@ library StreamTypes {
     struct PoolInfo {
         uint256 poolOutSupplyAmount;
     }
+
+    struct PostStreamActions {
+        PoolInfo poolInfo;
+        VestingInfo creatorVesting;
+        VestingInfo beneficiaryVesting;
+    }
 }

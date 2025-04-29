@@ -104,4 +104,6 @@ interface IStreamEvents {
     event StreamCancelled(address indexed streamAddress, address creator, uint256 outSupply, StreamTypes.Status status);
 
     event VestingContractDeployed(address indexed factoryAddress, address vestingContract);
+
+    event PoolWrapperUpdated(address indexed factoryAddress, address poolWrapper);
 }

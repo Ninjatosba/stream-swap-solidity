@@ -34,6 +34,18 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
         default:
             config = createFactoryConfig(deployer, [inTokenAddress]);
     }
+
+    // Deploy pool wrapper
+    const poolWrapper = await deploy("PoolWrapper", {
+        from: deployer,
+        args: [],
+        log: true,
+        skipIfAlreadyDeployed: false,
+        deterministicDeployment: false,
+    });
+    const poolWrapperAddress = poolWrapper.address;
+    console.log(`PoolWrapper contract deployed at: ${poolWrapperAddress}`);
+
     try {
         const deployFactoryMessage: StreamFactoryTypes.ConstructFactoryMessageStruct = {
             streamCreationFee: config.streamCreationFee,
@@ -46,8 +58,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
             protocolAdmin: config.protocolAdmin,
             tosVersion: config.tosVersion,
             acceptedInSupplyTokens: config.acceptedInTokens,
-            uniswapV2FactoryAddress: config.uniswapV2FactoryAddress || "0x0000000000000000000000000000000000000000",
-            uniswapV2RouterAddress: config.uniswapV2RouterAddress || "0x0000000000000000000000000000000000000000",
+            poolWrapperAddress: poolWrapperAddress,
         };
 
         // Deploy StreamFactory contract
@@ -69,4 +80,4 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
 
 export default func;
 func.tags = ["stream-factory"];
-
+func.dependencies = ["tokens"];

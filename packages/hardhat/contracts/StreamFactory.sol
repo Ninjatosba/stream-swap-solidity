@@ -47,8 +47,7 @@ contract StreamFactory is IStreamEvents, IStreamFactoryErrors {
             protocolAdmin: constructFactoryMessage.protocolAdmin,
             tosVersion: constructFactoryMessage.tosVersion,
             vestingAddress: address(vesting),
-            uniswapV2FactoryAddress: constructFactoryMessage.uniswapV2FactoryAddress,
-            uniswapV2RouterAddress: constructFactoryMessage.uniswapV2RouterAddress
+            poolWrapperAddress: constructFactoryMessage.poolWrapperAddress
         });
 
         // Set accepted tokens
@@ -114,6 +113,12 @@ contract StreamFactory is IStreamEvents, IStreamFactoryErrors {
         emit AcceptedTokensUpdated(address(this), tokens_to_add, tokens_to_remove);
     }
 
+    function updatePoolWrapper(address _poolWrapper) external onlyAdmin {
+        if (_poolWrapper == address(0)) revert InvalidPoolWrapper();
+        params.poolWrapperAddress = _poolWrapper;
+        emit PoolWrapperUpdated(address(this), _poolWrapper);
+    }
+
     function createStream(StreamTypes.createStreamMessage memory createStreamMessage) external payable {
         // Check if contract is accepting new streams (not frozen)
         if (frozen) revert ContractFrozen();
@@ -167,8 +172,6 @@ contract StreamFactory is IStreamEvents, IStreamFactoryErrors {
                 createStreamMessage.streamOutAmount + createStreamMessage.poolInfo.poolOutSupplyAmount
             )
         ) revert TokenTransferFailed();
-
-        console.log("createStreamMessage.streamOutAmount", createStreamMessage.streamOutAmount);
         // Deploy new stream contract with all parameters
         Stream stream = new Stream{ salt: createStreamMessage.salt }(createStreamMessage);
 
