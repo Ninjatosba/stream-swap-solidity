@@ -100,11 +100,10 @@ export class StreamFactoryFixtureBuilder {
 
         // Return the fixture function
         return async function deployFactoryFixture(): Promise<StreamFactoryFixture> {
-            // Get signers
             const [creator, feeCollector, protocolAdmin] = await ethers.getSigners();
 
-            // Deploy token contracts with proper error handling
             try {
+                // Deploy token contracts
                 const InSupplyToken = await ethers.getContractFactory("ERC20Mock");
                 const inSupplyToken = await InSupplyToken.deploy("InSupply Token", "IN");
                 await inSupplyToken.waitForDeployment();
@@ -122,41 +121,47 @@ export class StreamFactoryFixtureBuilder {
                 const poolWrapper = await PoolWrapperFactory.deploy();
                 await poolWrapper.waitForDeployment();
 
-                // Deploy Stream Factory with proper error handling
-                const StreamFactoryFactory = await ethers.getContractFactory("StreamFactory");
-                const streamFactory = await StreamFactoryFactory.deploy(protocolAdmin.address);
-                await streamFactory.waitForDeployment();
-                const streamFactoryAddress = await streamFactory.getAddress();
+                // Deploy StreamFactory implementation first
+                const StreamFactoryImplementation = await ethers.getContractFactory("StreamFactory");
+                const factoryImplementation = await StreamFactoryImplementation.deploy(protocolAdmin.address);
+                await factoryImplementation.waitForDeployment();
 
-                // Deploy stream implementation contract
+                // Deploy StreamFactory proxy
+                const StreamFactoryProxy = await ethers.getContractFactory("TransparentUpgradeableProxy");
+                const factoryProxy = await StreamFactoryProxy.deploy(
+                    await factoryImplementation.getAddress(),
+                    protocolAdmin.address,
+                    "0x" // No initialization data yet
+                );
+                await factoryProxy.waitForDeployment();
+
+                // Get the StreamFactory interface through the proxy
+                const streamFactory = StreamFactoryImplementation.attach(await factoryProxy.getAddress()) as StreamFactory;
+
+                // Deploy Stream implementation
                 const StreamImplementationFactory = await ethers.getContractFactory("Stream");
-                const streamImplementation = await StreamImplementationFactory.deploy(streamFactoryAddress);
+                const streamImplementation = await StreamImplementationFactory.deploy(await streamFactory.getAddress());
                 await streamImplementation.waitForDeployment();
-                const streamImplementationAddress = await streamImplementation.getAddress();
 
-                // List of accepted tokens
-                const acceptedInSupplyTokens = [await inSupplyToken.getAddress()];
-                const feeCollectorAddress = await feeCollector.getAddress();
-
-                // Initialize Stream Factory with proper message structure
-                const streamFactoryMessage: StreamFactoryTypes.InitializeStreamMessageStruct = {
+                // Initialize the factory through the proxy
+                const initMessage: StreamFactoryTypes.InitializeStreamMessageStruct = {
                     streamCreationFee: config.streamCreationFee,
                     streamCreationFeeToken: await inSupplyToken.getAddress(),
                     exitFeeRatio: config.ExitFeeRatio,
                     minWaitingDuration: config.minWaitingDuration,
                     minBootstrappingDuration: config.minBootstrappingDuration,
                     minStreamDuration: config.minStreamDuration,
-                    feeCollector: feeCollectorAddress,
+                    feeCollector: feeCollector.address,
                     protocolAdmin: protocolAdmin.address,
                     tosVersion: config.tosVersion,
-                    acceptedInSupplyTokens: acceptedInSupplyTokens,
+                    acceptedInSupplyTokens: [await inSupplyToken.getAddress()],
                     poolWrapperAddress: await poolWrapper.getAddress(),
-                    streamImplementationAddress: streamImplementationAddress
+                    streamImplementationAddress: await streamImplementation.getAddress()
                 };
 
                 // Initialize with proper error handling
-                const tx = await streamFactory.connect(protocolAdmin).initialize(streamFactoryMessage);
-                await tx.wait(); // Wait for the initialization to be mined
+                const tx = await streamFactory.connect(protocolAdmin).initialize(initMessage);
+                await tx.wait();
 
                 return {
                     contracts: {
@@ -175,7 +180,6 @@ export class StreamFactoryFixtureBuilder {
                 };
 
             } catch (error) {
-                // Provide more detailed error information for debugging
                 console.error("Error in deployFactoryFixture:", error);
                 throw error;
             }

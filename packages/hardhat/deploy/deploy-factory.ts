@@ -47,7 +47,31 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     console.log(`PoolWrapper contract deployed at: ${poolWrapperAddress}`);
 
     try {
-        const deployFactoryMessage: StreamFactoryTypes.ConstructFactoryMessageStruct = {
+        // Deploy StreamFactory with just the protocol admin
+        const streamFactory = await deploy("StreamFactory", {
+            from: deployer,
+            args: [deployer],
+            log: true,
+            skipIfAlreadyDeployed: false,
+            deterministicDeployment: false,
+        });
+        console.log(`StreamFactory contract deployed at: ${streamFactory.address}`);
+
+        // Deploy Stream implementation
+        const streamImplementation = await deploy("Stream", {
+            from: deployer,
+            args: [streamFactory.address],
+            log: true,
+            skipIfAlreadyDeployed: false,
+            deterministicDeployment: false,
+        });
+        console.log(`Stream implementation deployed at: ${streamImplementation.address}`);
+
+        // Get contract instance for initialization
+        const StreamFactory = await hre.ethers.getContractFactory("StreamFactory");
+
+        // Prepare initialization message
+        const initMessage: StreamFactoryTypes.InitializeStreamMessageStruct = {
             streamCreationFee: config.streamCreationFee,
             streamCreationFeeToken: config.streamCreationFeeToken,
             exitFeeRatio: config.ExitFeeRatio,
@@ -59,18 +83,14 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
             tosVersion: config.tosVersion,
             acceptedInSupplyTokens: config.acceptedInTokens,
             poolWrapperAddress: poolWrapperAddress,
+            streamImplementationAddress: streamImplementation.address
         };
 
-        // Deploy StreamFactory contract
-        const streamFactory = await deploy("StreamFactory", {
-            from: deployer,
-            args: [deployFactoryMessage],
-            log: true,
-            skipIfAlreadyDeployed: false,
-            deterministicDeployment: false,
-        });
-
-        console.log(`StreamFactory contract deployed at: ${streamFactory.address} with ${environment} configuration`);
+        // Initialize the factory
+        const factory = StreamFactory.attach(streamFactory.address);
+        const tx = await factory.initialize(initMessage);
+        await tx.wait();
+        console.log(`StreamFactory initialized with ${environment} configuration`);
 
     } catch (error: unknown) {
         console.error("Deployment failed:", error instanceof Error ? error.message : error);
