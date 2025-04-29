@@ -82,7 +82,7 @@ const config: HardhatUserConfig = {
     },
     monadTestnet: {
       url: "https://testnet-rpc.monad.xyz",
-      accounts: [deployerPrivateKey],
+      accounts: [deployerPrivateKey, creatorPrivateKey, subscriber1PrivateKey, subscriber2PrivateKey],
       chainId: 10143,
     },
     localhost: {
