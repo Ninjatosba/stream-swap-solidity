@@ -22,41 +22,55 @@ contract StreamFactory is IStreamEvents, IStreamFactoryErrors {
     mapping(uint16 => address) public streamAddresses;
 
     bool public frozen;
+    bool public initialized;
 
-    constructor(StreamFactoryTypes.constructFactoryMessage memory constructFactoryMessage) {
-        if (constructFactoryMessage.feeCollector == address(0)) revert InvalidFeeCollector();
-        if (constructFactoryMessage.protocolAdmin == address(0)) revert InvalidProtocolAdmin();
+    constructor(address _protocolAdmin) {
+        if (_protocolAdmin == address(0)) revert InvalidProtocolAdmin();
+        params.protocolAdmin = _protocolAdmin;
+    }
 
-        // Check if exit fee ratio is between 0 and 1
-        if (DecimalMath.gt(constructFactoryMessage.exitFeeRatio, DecimalMath.fromNumber(1)))
-            revert InvalidExitFeeRatio();
+    // Only once
+    modifier onlyOnce() {
+        require(!initialized, "Already initialized");
+        _;
+        initialized = true;
+    }
+
+    function initialize(
+        uint256 _streamCreationFee,
+        address _streamCreationFeeToken,
+        Decimal memory _exitFeeRatio,
+        uint256 _minWaitingDuration,
+        uint256 _minBootstrappingDuration,
+        uint256 _minStreamDuration,
+        address _feeCollector,
+        string memory _tosVersion,
+        address _poolWrapperAddress,
+        address[] memory _acceptedInSupplyTokens,
+        address _streamImplementationAddress
+    ) external onlyAdmin onlyOnce {
+        if (_feeCollector == address(0)) revert InvalidFeeCollector();
+        if (DecimalMath.gt(_exitFeeRatio, DecimalMath.fromNumber(1))) revert InvalidExitFeeRatio();
 
         // Deploy vesting contract
         Vesting vesting = new Vesting();
-
-        // Emit event for vesting contract deployment
         emit VestingContractDeployed(address(this), address(vesting));
 
-        params = StreamFactoryTypes.Params({
-            streamCreationFee: constructFactoryMessage.streamCreationFee,
-            streamCreationFeeToken: constructFactoryMessage.streamCreationFeeToken,
-            exitFeeRatio: constructFactoryMessage.exitFeeRatio,
-            minWaitingDuration: constructFactoryMessage.minWaitingDuration,
-            minBootstrappingDuration: constructFactoryMessage.minBootstrappingDuration,
-            minStreamDuration: constructFactoryMessage.minStreamDuration,
-            feeCollector: constructFactoryMessage.feeCollector,
-            protocolAdmin: constructFactoryMessage.protocolAdmin,
-            tosVersion: constructFactoryMessage.tosVersion,
-            vestingAddress: address(vesting),
-            poolWrapperAddress: constructFactoryMessage.poolWrapperAddress,
-            streamImplementationAddress: constructFactoryMessage.streamImplementationAddress
-        });
-
+        params.streamCreationFee = _streamCreationFee;
+        params.streamCreationFeeToken = _streamCreationFeeToken;
+        params.exitFeeRatio = _exitFeeRatio;
+        params.minWaitingDuration = _minWaitingDuration;
+        params.minBootstrappingDuration = _minBootstrappingDuration;
+        params.minStreamDuration = _minStreamDuration;
+        params.feeCollector = _feeCollector;
+        params.tosVersion = _tosVersion;
+        params.vestingAddress = address(vesting);
+        params.poolWrapperAddress = _poolWrapperAddress;
+        params.streamImplementationAddress = _streamImplementationAddress;
         // Set accepted tokens
-        for (uint i = 0; i < constructFactoryMessage.acceptedInSupplyTokens.length; i++) {
-            acceptedInSupplyTokens[constructFactoryMessage.acceptedInSupplyTokens[i]] = true;
+        for (uint i = 0; i < _acceptedInSupplyTokens.length; i++) {
+            acceptedInSupplyTokens[_acceptedInSupplyTokens[i]] = true;
         }
-        currentStreamId = 0;
     }
 
     modifier onlyAdmin() {
@@ -246,10 +260,6 @@ contract StreamFactory is IStreamEvents, IStreamFactoryErrors {
         emit FrozenStateUpdated(address(this), _frozen);
     }
 
-    function predictAddress(address creator, bytes32 _salt, bytes32 bytecodeHash) public pure returns (address) {
-        return address(uint160(uint(keccak256(abi.encodePacked(bytes1(0xff), creator, _salt, bytecodeHash)))));
-    }
-
     function validateStreamTimes(
         uint256 nowTime,
         uint256 _bootstrappingStartTime,
@@ -263,5 +273,24 @@ contract StreamFactory is IStreamEvents, IStreamFactoryErrors {
         if (_startTime - _bootstrappingStartTime < params.minBootstrappingDuration)
             revert BootstrappingDurationTooShort();
         if (_bootstrappingStartTime - nowTime < params.minWaitingDuration) revert WaitingDurationTooShort();
+    }
+
+    function setImplementation(address _implementation) external onlyAdmin {
+        if (_implementation == address(0)) revert InvalidImplementationAddress();
+
+        params.streamImplementationAddress = _implementation;
+    }
+
+    function setStreamCreationFee(uint256 _fee) external onlyAdmin {
+        params.streamCreationFee = _fee;
+    }
+
+    function setStreamCreationFeeToken(address _token) external onlyAdmin {
+        params.streamCreationFeeToken = _token;
+    }
+
+    function setExitFeeRatio(Decimal memory _ratio) external onlyAdmin {
+        if (DecimalMath.gt(_ratio, DecimalMath.fromNumber(1))) revert InvalidExitFeeRatio();
+        params.exitFeeRatio = _ratio;
     }
 }

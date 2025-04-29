@@ -19,4 +19,5 @@ interface IStreamErrors {
     error InvalidAmount();
     error StreamFactoryAddressAlreadySet();
     error InvalidStreamFactoryAddress();
+    error InvalidImplementationAddress();
 }

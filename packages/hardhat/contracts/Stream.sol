@@ -3,7 +3,6 @@ pragma solidity >=0.8.0 <0.9.0;
 
 import "./interfaces/IPositionStorage.sol";
 import "./types/PositionTypes.sol";
-import "./storage/PositionStorage.sol";
 import "./interfaces/IStreamEvents.sol";
 import "./interfaces/IStreamErrors.sol";
 import "./types/StreamTypes.sol";
@@ -22,6 +21,7 @@ contract Stream is IStreamErrors, IStreamEvents {
     address public creator;
     address immutable streamFactoryAddress;
     address public positionStorageAddress;
+    bool private initialized;
 
     StreamTypes.StreamState public streamState;
     StreamTypes.StreamTokens public streamTokens;
@@ -30,27 +30,25 @@ contract Stream is IStreamErrors, IStreamEvents {
     StreamTypes.StreamTimes public streamTimes;
     StreamTypes.PostStreamActions public postStreamActions;
 
-    constructor() {}
+    modifier onlyOnce() {
+        if (initialized) revert Unauthorized();
+        _;
+        initialized = true;
+    }
 
-    function setStreamFactoryAddress(address _streamFactoryAddress) external {
-        if (streamFactoryAddress != address(0)) {
-            revert StreamFactoryAddressAlreadySet();
-        }
-        // Validate that factory address is valid
-        if (_streamFactoryAddress == address(0)) {
-            revert InvalidStreamFactoryAddress();
-        }
+    modifier onlyAdmin() {
+        if (msg.sender != streamFactoryAddress) revert Unauthorized();
+        _;
+    }
+
+    constructor(address _streamFactoryAddress) {
         streamFactoryAddress = _streamFactoryAddress;
     }
 
     function initialize(
         StreamTypes.createStreamMessage memory createStreamMessage,
         address _positionStorageAddress
-    ) external {
-        // Initialize can only be called by the factory
-        if (msg.sender != streamFactoryAddress) {
-            revert Unauthorized();
-        }
+    ) external onlyOnce onlyAdmin {
         // Validate that output token is a valid ERC20
         if (!TokenHelpers.isValidERC20(createStreamMessage.outSupplyToken, msg.sender)) {
             revert InvalidOutSupplyToken();
@@ -108,9 +106,8 @@ contract Stream is IStreamErrors, IStreamEvents {
             }
             postStreamActions.poolInfo = createStreamMessage.poolInfo;
         }
-        // Create position storage
-        PositionStorage positionStorageContract = new PositionStorage();
-        positionStorageAddress = address(positionStorageContract);
+        // Save position storage address
+        positionStorageAddress = _positionStorageAddress;
         // Set creator
         creator = createStreamMessage.creator;
         // Initialize stream state
@@ -140,8 +137,6 @@ contract Stream is IStreamErrors, IStreamEvents {
             streamStartTime: createStreamMessage.streamStartTime,
             streamEndTime: createStreamMessage.streamEndTime
         });
-        // Store the factory address
-        streamFactoryAddress = msg.sender;
     }
 
     function syncStream(
