@@ -176,17 +176,28 @@ export class StreamFixtureBuilder {
                 // Deploy token contracts with deployer
                 const InSupplyToken = await ethers.getContractFactory("ERC20Mock");
                 const inSupplyToken = await InSupplyToken.deploy("StreamInSupply Token", "IN");
+                const inSupplyTokenAddress = await inSupplyToken.getAddress();
 
                 const OutSupplyToken = await ethers.getContractFactory("ERC20Mock");
                 const outSupplyToken = await OutSupplyToken.deploy("StreamOutSupply Token", "OUT");
-
+                const outSupplyTokenAddress = await outSupplyToken.getAddress();
                 // Deploy pool wrapper contract
                 const PoolWrapperFactory = await ethers.getContractFactory("PoolWrapper");
                 const poolWrapper = await PoolWrapperFactory.deploy();
+                const poolWrapperAddress = await poolWrapper.getAddress();
 
                 // Deploy StreamFactory
                 const StreamFactoryFactory = await ethers.getContractFactory("StreamFactory");
-                const streamFactory = await StreamFactoryFactory.deploy({
+                const streamFactory = await StreamFactoryFactory.deploy(protocolAdmin.address);
+                const streamFactoryAddress = await streamFactory.getAddress();
+
+                // Deploy Stream Implementation
+                const StreamImplementationFactory = await ethers.getContractFactory("Stream");
+                const streamImplementation = await StreamImplementationFactory.deploy(streamFactoryAddress);
+                const streamImplementationAddress = await streamImplementation.getAddress();
+
+                // Initialize Stream Factory
+                const streamFactoryMessage: StreamFactoryTypes.InitializeStreamMessageStruct = {
                     streamCreationFee: self.factoryConfig.streamCreationFee,
                     streamCreationFeeToken: self.factoryConfig.streamCreationFeeToken,
                     exitFeeRatio: self.factoryConfig.exitFeeRatio,
@@ -196,9 +207,12 @@ export class StreamFixtureBuilder {
                     feeCollector: feeCollector.address,
                     protocolAdmin: protocolAdmin.address,
                     tosVersion: self.metadataConfig.tosVersion,
-                    acceptedInSupplyTokens: [await inSupplyToken.getAddress()],
-                    poolWrapperAddress: await poolWrapper.getAddress(),
-                });
+                    acceptedInSupplyTokens: [inSupplyTokenAddress],
+                    poolWrapperAddress: poolWrapperAddress,
+                    streamImplementationAddress: streamImplementationAddress
+                };
+
+                await streamFactory.connect(protocolAdmin).initialize(streamFactoryMessage);
 
                 // Get factory params
                 const factoryParams = await streamFactory.getParams();
@@ -252,13 +266,13 @@ export class StreamFixtureBuilder {
                 // Create stream
                 const tx = await streamFactory.connect(creator).createStream({
                     streamOutAmount: self.amountConfig.streamOutAmount,
-                    outSupplyToken: await outSupplyToken.getAddress(),
+                    outSupplyToken: outSupplyTokenAddress,
                     bootstrappingStartTime,
                     streamStartTime,
                     streamEndTime,
                     threshold: self.amountConfig.threshold,
                     name: self.metadataConfig.name,
-                    inSupplyToken: await inSupplyToken.getAddress(),
+                    inSupplyToken: inSupplyTokenAddress,
                     creator: creator.address,
                     creatorVesting: self.vestingConfig.creator,
                     beneficiaryVesting: self.vestingConfig.beneficiary,

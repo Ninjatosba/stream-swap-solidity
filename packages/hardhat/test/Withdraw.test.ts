@@ -24,7 +24,7 @@ describe("Stream Withdraw", function () {
             await contracts.stream.connect(accounts.subscriber1).subscribe(subscriptionAmount);
 
             // Get PositionStorage contract instance
-            const positionStorageAddr = await contracts.stream.positionStorage();
+            const positionStorageAddr = await contracts.stream.positionStorageAddress();
             const positionStorage = await ethers.getContractAt("PositionStorage", positionStorageAddr) as PositionStorage;
 
             // Verify position was created correctly
@@ -109,7 +109,7 @@ describe("Stream Withdraw", function () {
             await contracts.stream.connect(accounts.subscriber1).withdraw(withdrawAmount2);
 
             // Get PositionStorage contract instance
-            const positionStorageAddr = await contracts.stream.positionStorage();
+            const positionStorageAddr = await contracts.stream.positionStorageAddress();
             const positionStorage = await ethers.getContractAt("PositionStorage", positionStorageAddr) as PositionStorage;
 
             // Verify position was updated correctly
@@ -203,7 +203,7 @@ describe("Stream Withdraw", function () {
             await contracts.stream.connect(accounts.subscriber1).subscribe(subscriptionAmount);
 
             // Get PositionStorage contract instance
-            const positionStorageAddr = await contracts.stream.positionStorage();
+            const positionStorageAddr = await contracts.stream.positionStorageAddress();
             const positionStorage = await ethers.getContractAt("PositionStorage", positionStorageAddr) as PositionStorage;
 
             // Verify position was created correctly
@@ -236,7 +236,7 @@ describe("Stream Withdraw", function () {
             await contracts.stream.connect(accounts.subscriber1).subscribe(subscriptionAmount);
 
             // Get PositionStorage contract instance
-            const positionStorageAddr = await contracts.stream.positionStorage();
+            const positionStorageAddr = await contracts.stream.positionStorageAddress();
             const positionStorage = await ethers.getContractAt("PositionStorage", positionStorageAddr) as PositionStorage;
 
             // Verify position was created correctly
@@ -271,7 +271,7 @@ describe("Stream Withdraw", function () {
             await contracts.stream.connect(accounts.subscriber1).subscribe(subscriptionAmount);
 
             // Get PositionStorage contract instance
-            const positionStorageAddr = await contracts.stream.positionStorage();
+            const positionStorageAddr = await contracts.stream.positionStorageAddress();
             const positionStorage = await ethers.getContractAt("PositionStorage", positionStorageAddr) as PositionStorage;
 
             // Verify position was created correctly

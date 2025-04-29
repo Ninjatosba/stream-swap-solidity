@@ -10,8 +10,8 @@ contract PositionStorage {
     mapping(address => PositionTypes.Position) private positions;
     address public immutable streamContractAddress;
 
-    constructor() {
-        streamContractAddress = msg.sender;
+    constructor(address _streamContractAddress) {
+        streamContractAddress = _streamContractAddress;
     }
 
     function getPosition(address _owner) external view returns (PositionTypes.Position memory) {

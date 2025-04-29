@@ -21,15 +21,15 @@ describe("Stream Indexer Tests", function () {
         const deployment = await streamFactory()
             .build()();
 
-        factory = deployment.factory;
+        factory = deployment.contracts.streamFactory;
         accounts = {
-            creator: deployment.creator,
-            protocolAdmin: deployment.protocolAdmin,
-            feeCollector: deployment.feeCollector
+            creator: deployment.accounts.creator,
+            protocolAdmin: deployment.accounts.protocolAdmin,
+            feeCollector: deployment.accounts.feeCollector
         };
         tokens = {
-            inSupplyToken: deployment.inSupplyToken,
-            outSupplyToken: deployment.outSupplyToken
+            inSupplyToken: deployment.contracts.inSupplyToken,
+            outSupplyToken: deployment.contracts.outSupplyToken
         };
 
         console.log("Factory address:", await factory.getAddress());

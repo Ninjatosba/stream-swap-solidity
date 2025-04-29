@@ -15,13 +15,6 @@ export interface FactoryConfig {
     streamCreationFee: BigNumberish;
     streamCreationFeeToken: AddressLike;
     tosVersion: string;
-    uniswapV2FactoryAddress?: string;
-    uniswapV2RouterAddress?: string;
-    streamFactoryAdmin: string;
-    streamFactoryTreasury: string;
-    streamFactoryOperator: string;
-    streamFactoryPauser: string;
-    streamFactoryUpgrader: string;
 }
 
 export const createFactoryConfig = (deployer: string, acceptedInTokens: AddressLike[]): FactoryConfig => ({
@@ -37,13 +30,6 @@ export const createFactoryConfig = (deployer: string, acceptedInTokens: AddressL
     streamCreationFeeToken: "0x0000000000000000000000000000000000000000",
     protocolAdmin: deployer,
     tosVersion: "1.0.0",
-    uniswapV2FactoryAddress: "0x0000000000000000000000000000000000000000",
-    uniswapV2RouterAddress: "0x0000000000000000000000000000000000000000",
-    streamFactoryAdmin: deployer,
-    streamFactoryTreasury: deployer,
-    streamFactoryOperator: deployer,
-    streamFactoryPauser: deployer,
-    streamFactoryUpgrader: deployer,
 });
 
 export const createTestnetFactoryConfig = (deployer: string, inToken: string): FactoryConfig => ({

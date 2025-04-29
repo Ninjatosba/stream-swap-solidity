@@ -4,7 +4,6 @@ import "./interfaces/IStreamEvents.sol";
 import "./interfaces/IStreamFactoryErrors.sol";
 import "./Vesting.sol";
 import "./types/StreamTypes.sol";
-import "./interfaces/IVesting.sol";
 import "./interfaces/IStream.sol";
 import "hardhat/console.sol";
 import "./types/StreamFactoryTypes.sol";
@@ -37,39 +36,29 @@ contract StreamFactory is IStreamEvents, IStreamFactoryErrors {
     }
 
     function initialize(
-        uint256 _streamCreationFee,
-        address _streamCreationFeeToken,
-        Decimal memory _exitFeeRatio,
-        uint256 _minWaitingDuration,
-        uint256 _minBootstrappingDuration,
-        uint256 _minStreamDuration,
-        address _feeCollector,
-        string memory _tosVersion,
-        address _poolWrapperAddress,
-        address[] memory _acceptedInSupplyTokens,
-        address _streamImplementationAddress
+        StreamFactoryTypes.initializeStreamMessage memory initializeStreamMessage
     ) external onlyAdmin onlyOnce {
-        if (_feeCollector == address(0)) revert InvalidFeeCollector();
-        if (DecimalMath.gt(_exitFeeRatio, DecimalMath.fromNumber(1))) revert InvalidExitFeeRatio();
+        if (DecimalMath.gt(initializeStreamMessage.exitFeeRatio, DecimalMath.fromNumber(1)))
+            revert InvalidExitFeeRatio();
 
         // Deploy vesting contract
         Vesting vesting = new Vesting();
         emit VestingContractDeployed(address(this), address(vesting));
 
-        params.streamCreationFee = _streamCreationFee;
-        params.streamCreationFeeToken = _streamCreationFeeToken;
-        params.exitFeeRatio = _exitFeeRatio;
-        params.minWaitingDuration = _minWaitingDuration;
-        params.minBootstrappingDuration = _minBootstrappingDuration;
-        params.minStreamDuration = _minStreamDuration;
-        params.feeCollector = _feeCollector;
-        params.tosVersion = _tosVersion;
+        params.streamCreationFee = initializeStreamMessage.streamCreationFee;
+        params.streamCreationFeeToken = initializeStreamMessage.streamCreationFeeToken;
+        params.exitFeeRatio = initializeStreamMessage.exitFeeRatio;
+        params.minWaitingDuration = initializeStreamMessage.minWaitingDuration;
+        params.minBootstrappingDuration = initializeStreamMessage.minBootstrappingDuration;
+        params.minStreamDuration = initializeStreamMessage.minStreamDuration;
+        params.feeCollector = initializeStreamMessage.feeCollector;
+        params.tosVersion = initializeStreamMessage.tosVersion;
         params.vestingAddress = address(vesting);
-        params.poolWrapperAddress = _poolWrapperAddress;
-        params.streamImplementationAddress = _streamImplementationAddress;
+        params.poolWrapperAddress = initializeStreamMessage.poolWrapperAddress;
+        params.streamImplementationAddress = initializeStreamMessage.streamImplementationAddress;
         // Set accepted tokens
-        for (uint i = 0; i < _acceptedInSupplyTokens.length; i++) {
-            acceptedInSupplyTokens[_acceptedInSupplyTokens[i]] = true;
+        for (uint i = 0; i < initializeStreamMessage.acceptedInSupplyTokens.length; i++) {
+            acceptedInSupplyTokens[initializeStreamMessage.acceptedInSupplyTokens[i]] = true;
         }
     }
 
@@ -138,7 +127,6 @@ contract StreamFactory is IStreamEvents, IStreamFactoryErrors {
     function createStream(StreamTypes.createStreamMessage memory createStreamMessage) external payable {
         // Check if contract is accepting new streams (not frozen)
         if (frozen) revert ContractFrozen();
-
         // Validate input parameters
         if (createStreamMessage.streamOutAmount == 0) revert ZeroOutSupplyNotAllowed();
         if (!acceptedInSupplyTokens[createStreamMessage.inSupplyToken]) revert StreamInputTokenNotAccepted();
@@ -182,7 +170,7 @@ contract StreamFactory is IStreamEvents, IStreamFactoryErrors {
         IStream stream = IStream(clone);
 
         // Deploy PositionStorage
-        PositionStorage positionStorage = new PositionStorage();
+        PositionStorage positionStorage = new PositionStorage(address(stream));
 
         // Transfer tokens before initialization
         if (

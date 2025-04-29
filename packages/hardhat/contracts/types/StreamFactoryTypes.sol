@@ -19,7 +19,7 @@ library StreamFactoryTypes {
         address streamImplementationAddress;
     }
 
-    struct constructFactoryMessage {
+    struct initializeStreamMessage {
         uint256 streamCreationFee;
         address streamCreationFeeToken;
         Decimal exitFeeRatio;
