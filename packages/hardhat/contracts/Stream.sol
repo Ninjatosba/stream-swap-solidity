@@ -20,7 +20,6 @@ import "./types/PoolWrapperTypes.sol";
 
 contract Stream is IStreamErrors, IStreamEvents {
     address public creator;
-    address public positionStorageAddress;
 
     StreamTypes.StreamState public streamState;
     StreamTypes.StreamTokens public streamTokens;
@@ -29,7 +28,7 @@ contract Stream is IStreamErrors, IStreamEvents {
     StreamTypes.StreamTimes public streamTimes;
     StreamTypes.PostStreamActions public postStreamActions;
     address immutable streamFactoryAddress;
-    IPositionStorage public positionStorage;
+    address public positionStorageAddress;
 
     constructor() {}
 
@@ -109,7 +108,6 @@ contract Stream is IStreamErrors, IStreamEvents {
         // Create position storage
         PositionStorage positionStorageContract = new PositionStorage();
         positionStorageAddress = address(positionStorageContract);
-        positionStorage = IPositionStorage(positionStorageAddress);
         // Set creator
         creator = createStreamMessage.creator;
         // Initialize stream state
@@ -661,6 +659,7 @@ contract Stream is IStreamErrors, IStreamEvents {
     }
 
     function loadPosition(address user) internal view returns (PositionTypes.Position memory) {
+        PositionStorage positionStorage = PositionStorage(positionStorageAddress);
         return positionStorage.getPosition(user);
     }
 
@@ -678,6 +677,7 @@ contract Stream is IStreamErrors, IStreamEvents {
     }
 
     function savePosition(address user, PositionTypes.Position memory position) internal {
+        PositionStorage positionStorage = PositionStorage(positionStorageAddress);
         positionStorage.updatePosition(user, position);
     }
 
@@ -822,6 +822,7 @@ contract Stream is IStreamErrors, IStreamEvents {
     }
 
     function getPosition(address user) external view returns (PositionTypes.Position memory) {
+        PositionStorage positionStorage = PositionStorage(positionStorageAddress);
         return positionStorage.getPosition(user);
     }
 }
