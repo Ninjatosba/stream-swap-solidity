@@ -20,6 +20,8 @@ import "./types/PoolWrapperTypes.sol";
 
 contract Stream is IStreamErrors, IStreamEvents {
     address public creator;
+    address immutable streamFactoryAddress;
+    address public positionStorageAddress;
 
     StreamTypes.StreamState public streamState;
     StreamTypes.StreamTokens public streamTokens;
@@ -27,8 +29,6 @@ contract Stream is IStreamErrors, IStreamEvents {
     StreamTypes.Status public streamStatus;
     StreamTypes.StreamTimes public streamTimes;
     StreamTypes.PostStreamActions public postStreamActions;
-    address immutable streamFactoryAddress;
-    address public positionStorageAddress;
 
     constructor() {}
 
@@ -43,7 +43,10 @@ contract Stream is IStreamErrors, IStreamEvents {
         streamFactoryAddress = _streamFactoryAddress;
     }
 
-    function initialize(StreamTypes.createStreamMessage memory createStreamMessage) external {
+    function initialize(
+        StreamTypes.createStreamMessage memory createStreamMessage,
+        address _positionStorageAddress
+    ) external {
         // Initialize can only be called by the factory
         if (msg.sender != streamFactoryAddress) {
             revert Unauthorized();

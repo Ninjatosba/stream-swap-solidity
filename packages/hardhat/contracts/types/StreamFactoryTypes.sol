@@ -16,6 +16,7 @@ library StreamFactoryTypes {
         string tosVersion;
         address vestingAddress;
         address poolWrapperAddress;
+        address streamImplementationAddress;
     }
 
     struct constructFactoryMessage {
@@ -30,5 +31,6 @@ library StreamFactoryTypes {
         string tosVersion;
         address poolWrapperAddress;
         address[] acceptedInSupplyTokens;
+        address streamImplementationAddress;
     }
 }

@@ -1,14 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.0 <0.9.0;
-
-import "./Stream.sol";
 import "./interfaces/IStreamEvents.sol";
 import "./interfaces/IStreamFactoryErrors.sol";
 import "./Vesting.sol";
 import "./types/StreamTypes.sol";
 import "./interfaces/IVesting.sol";
+import "./interfaces/IStream.sol";
 import "hardhat/console.sol";
 import "./types/StreamFactoryTypes.sol";
+import "@openzeppelin/contracts/proxy/Clones.sol";
+import "./storage/PositionStorage.sol";
 
 contract StreamFactory is IStreamEvents, IStreamFactoryErrors {
     mapping(address => bool) public acceptedInSupplyTokens;
@@ -47,7 +48,8 @@ contract StreamFactory is IStreamEvents, IStreamFactoryErrors {
             protocolAdmin: constructFactoryMessage.protocolAdmin,
             tosVersion: constructFactoryMessage.tosVersion,
             vestingAddress: address(vesting),
-            poolWrapperAddress: constructFactoryMessage.poolWrapperAddress
+            poolWrapperAddress: constructFactoryMessage.poolWrapperAddress,
+            streamImplementationAddress: constructFactoryMessage.streamImplementationAddress
         });
 
         // Set accepted tokens
@@ -160,22 +162,27 @@ contract StreamFactory is IStreamEvents, IStreamFactoryErrors {
                 ) revert TokenTransferFailed();
             }
         }
-        // Predict stream address
-        bytes32 bytecodeHash = keccak256(abi.encodePacked(type(Stream).creationCode, abi.encode(createStreamMessage)));
 
-        address predictedAddress = predictAddress(address(this), createStreamMessage.salt, bytecodeHash);
-        // Transfer out denom to stream contract
+        // Clone stream contract
+        address clone = Clones.clone(params.streamImplementationAddress);
+        IStream stream = IStream(clone);
+
+        // Deploy PositionStorage
+        PositionStorage positionStorage = new PositionStorage();
+
+        // Transfer tokens before initialization
         if (
             !IERC20(createStreamMessage.outSupplyToken).transferFrom(
                 msg.sender,
-                predictedAddress,
+                address(stream),
                 createStreamMessage.streamOutAmount + createStreamMessage.poolInfo.poolOutSupplyAmount
             )
         ) revert TokenTransferFailed();
-        // Deploy new stream contract with all parameters
-        Stream stream = new Stream{ salt: createStreamMessage.salt }(createStreamMessage);
 
-        if (address(stream) != predictedAddress) revert StreamAddressPredictionFailed();
+        // Initialize the cloned stream
+        stream.initialize(createStreamMessage, address(positionStorage));
+
+        // Store stream address
         streamAddresses[currentStreamId] = address(stream);
 
         emit StreamCreated(
