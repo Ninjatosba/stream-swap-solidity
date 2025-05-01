@@ -2,6 +2,7 @@ import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { DeployFunction } from "hardhat-deploy/types";
 import { createFactoryConfig, createProductionFactoryConfig, createTestnetFactoryConfig, FactoryConfig } from "./config/factory-config";
 import { StreamFactoryTypes } from "../typechain-types/contracts/StreamFactory";
+import { StreamFactory } from "../typechain-types";
 
 const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     const { deployer } = await hre.getNamedAccounts();
@@ -14,7 +15,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     const environment = process.argv.indexOf("--network") !== -1 ? process.argv[process.argv.indexOf("--network") + 1] : "default";
 
     // get in token address
-    let inTokenAddress;
+    let inTokenAddress: string;
     try {
         const inTokenDeployment = await get("InToken");
         inTokenAddress = inTokenDeployment.address;
@@ -70,7 +71,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
         console.log(`Stream implementation deployed at: ${streamImplementation.address}`);
 
         // Get contract instance for initialization
-        const StreamFactory = await hre.ethers.getContractFactory("StreamFactory");
+        const StreamFactoryContract = await hre.ethers.getContractFactory("StreamFactory");
 
         // Prepare initialization message
         const initMessage: StreamFactoryTypes.InitializeStreamMessageStruct = {
@@ -89,7 +90,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
         };
 
         // Initialize the factory
-        const factory = StreamFactory.attach(streamFactory.address);
+        const factory = (await StreamFactoryContract.attach(streamFactory.address)) as StreamFactory;
         const tx = await factory.initialize(initMessage);
         await tx.wait();
         console.log(`StreamFactory initialized with ${environment} configuration`);
