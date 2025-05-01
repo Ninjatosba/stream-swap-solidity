@@ -33,8 +33,8 @@ export const defaultStreamConfig: StreamConfig = {
 
     // Time configuration
     waitSeconds: 500,
-    bootstrappingDuration: 600,
-    streamDuration: 1000,
+    bootstrappingDuration: 6000,
+    streamDuration: 100000,
 
     // Stream parameters
     threshold: 1000,

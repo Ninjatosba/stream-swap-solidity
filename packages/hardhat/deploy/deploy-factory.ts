@@ -45,6 +45,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     });
     const poolWrapperAddress = poolWrapper.address;
     console.log(`PoolWrapper contract deployed at: ${poolWrapperAddress}`);
+    console.log(`Deployer: ${deployer}`);
 
     try {
         // Deploy StreamFactory with just the protocol admin
@@ -54,6 +55,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
             log: true,
             skipIfAlreadyDeployed: false,
             deterministicDeployment: false,
+            gasLimit: 30_000_000,
         });
         console.log(`StreamFactory contract deployed at: ${streamFactory.address}`);
 
@@ -91,6 +93,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
         const tx = await factory.initialize(initMessage);
         await tx.wait();
         console.log(`StreamFactory initialized with ${environment} configuration`);
+        console.log(`Factory params: ${JSON.stringify(initMessage)}`);
 
     } catch (error: unknown) {
         console.error("Deployment failed:", error instanceof Error ? error.message : error);

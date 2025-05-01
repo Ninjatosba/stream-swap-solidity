@@ -7,7 +7,7 @@ import { GenericContractsDeclaration } from "~~/utils/scaffold-eth/contract";
 const deployedContracts = {
   998: {
     InToken: {
-      address: "0x5FF192811166b3C4Ca441392F5854daB1fB44027",
+      address: "0x0467a031b34b0138Ae91088f48969fEBD1934DD7",
       abi: [
         {
           inputs: [
@@ -355,7 +355,7 @@ const deployedContracts = {
       inheritedFunctions: {},
     },
     OutToken: {
-      address: "0xA8D535a9128Fe821Cc34F2B0c8Ef869E621c27b4",
+      address: "0x2B3Db98aC7De966AE2422b26FB887870633C6E28",
       abi: [
         {
           inputs: [
@@ -703,7 +703,7 @@ const deployedContracts = {
       inheritedFunctions: {},
     },
     PoolWrapper: {
-      address: "0x4CC44bD9eF15F34BE37668db1364eD77fa105b1F",
+      address: "0x0BC833710fa32bcAA99b16782AC7CDf0e2BeDb27",
       abi: [
         {
           inputs: [],
@@ -764,6 +764,12 @@ const deployedContracts = {
               indexed: true,
               internalType: "address",
               name: "pool",
+              type: "address",
+            },
+            {
+              indexed: true,
+              internalType: "address",
+              name: "poolWrapper",
               type: "address",
             },
             {
@@ -957,79 +963,20 @@ const deployedContracts = {
         transferOwnership: "@openzeppelin/contracts/access/Ownable.sol",
       },
     },
+    Stream: {
+      address: "0xFDccC6a69Fbc8C94c0c2401e0Ec11f6CAE4D51f6",
+      abi: [],
+      inheritedFunctions: {},
+    },
     StreamFactory: {
-      address: "0xa80FEf11F0eb53Db3c2e8998dcFc2d0d3665cE26",
+      address: "0xA3E5DfE71aE3e6DeC4D98fa28821dF355d7244B3",
       abi: [
         {
           inputs: [
             {
-              components: [
-                {
-                  internalType: "uint256",
-                  name: "streamCreationFee",
-                  type: "uint256",
-                },
-                {
-                  internalType: "address",
-                  name: "streamCreationFeeToken",
-                  type: "address",
-                },
-                {
-                  components: [
-                    {
-                      internalType: "uint256",
-                      name: "value",
-                      type: "uint256",
-                    },
-                  ],
-                  internalType: "struct Decimal",
-                  name: "exitFeeRatio",
-                  type: "tuple",
-                },
-                {
-                  internalType: "uint256",
-                  name: "minWaitingDuration",
-                  type: "uint256",
-                },
-                {
-                  internalType: "uint256",
-                  name: "minBootstrappingDuration",
-                  type: "uint256",
-                },
-                {
-                  internalType: "uint256",
-                  name: "minStreamDuration",
-                  type: "uint256",
-                },
-                {
-                  internalType: "address",
-                  name: "feeCollector",
-                  type: "address",
-                },
-                {
-                  internalType: "address",
-                  name: "protocolAdmin",
-                  type: "address",
-                },
-                {
-                  internalType: "string",
-                  name: "tosVersion",
-                  type: "string",
-                },
-                {
-                  internalType: "address",
-                  name: "poolWrapperAddress",
-                  type: "address",
-                },
-                {
-                  internalType: "address[]",
-                  name: "acceptedInSupplyTokens",
-                  type: "address[]",
-                },
-              ],
-              internalType: "struct StreamFactoryTypes.constructFactoryMessage",
-              name: "constructFactoryMessage",
-              type: "tuple",
+              internalType: "address",
+              name: "_protocolAdmin",
+              type: "address",
             },
           ],
           stateMutability: "nonpayable",
@@ -1043,6 +990,11 @@ const deployedContracts = {
         {
           inputs: [],
           name: "ContractFrozen",
+          type: "error",
+        },
+        {
+          inputs: [],
+          name: "ERC1167FailedCreateClone",
           type: "error",
         },
         {
@@ -1073,6 +1025,11 @@ const deployedContracts = {
         {
           inputs: [],
           name: "InvalidFeeCollector",
+          type: "error",
+        },
+        {
+          inputs: [],
+          name: "InvalidImplementationAddress",
           type: "error",
         },
         {
@@ -1963,6 +1920,19 @@ const deployedContracts = {
         },
         {
           inputs: [],
+          name: "getAcceptedInSupplyTokens",
+          outputs: [
+            {
+              internalType: "address[]",
+              name: "",
+              type: "address[]",
+            },
+          ],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
           name: "getParams",
           outputs: [
             {
@@ -2029,10 +1999,180 @@ const deployedContracts = {
                   name: "poolWrapperAddress",
                   type: "address",
                 },
+                {
+                  internalType: "address",
+                  name: "streamImplementationAddress",
+                  type: "address",
+                },
               ],
               internalType: "struct StreamFactoryTypes.Params",
               name: "",
               type: "tuple",
+            },
+          ],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              internalType: "uint16",
+              name: "_streamId",
+              type: "uint16",
+            },
+          ],
+          name: "getStream",
+          outputs: [
+            {
+              internalType: "address",
+              name: "",
+              type: "address",
+            },
+          ],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "getStreams",
+          outputs: [
+            {
+              internalType: "address[]",
+              name: "",
+              type: "address[]",
+            },
+          ],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              components: [
+                {
+                  internalType: "uint256",
+                  name: "streamCreationFee",
+                  type: "uint256",
+                },
+                {
+                  internalType: "address",
+                  name: "streamCreationFeeToken",
+                  type: "address",
+                },
+                {
+                  components: [
+                    {
+                      internalType: "uint256",
+                      name: "value",
+                      type: "uint256",
+                    },
+                  ],
+                  internalType: "struct Decimal",
+                  name: "exitFeeRatio",
+                  type: "tuple",
+                },
+                {
+                  internalType: "uint256",
+                  name: "minWaitingDuration",
+                  type: "uint256",
+                },
+                {
+                  internalType: "uint256",
+                  name: "minBootstrappingDuration",
+                  type: "uint256",
+                },
+                {
+                  internalType: "uint256",
+                  name: "minStreamDuration",
+                  type: "uint256",
+                },
+                {
+                  internalType: "address",
+                  name: "feeCollector",
+                  type: "address",
+                },
+                {
+                  internalType: "address",
+                  name: "protocolAdmin",
+                  type: "address",
+                },
+                {
+                  internalType: "string",
+                  name: "tosVersion",
+                  type: "string",
+                },
+                {
+                  internalType: "address",
+                  name: "poolWrapperAddress",
+                  type: "address",
+                },
+                {
+                  internalType: "address[]",
+                  name: "acceptedInSupplyTokens",
+                  type: "address[]",
+                },
+                {
+                  internalType: "address",
+                  name: "streamImplementationAddress",
+                  type: "address",
+                },
+              ],
+              internalType: "struct StreamFactoryTypes.initializeStreamMessage",
+              name: "initializeStreamMessage",
+              type: "tuple",
+            },
+          ],
+          name: "initialize",
+          outputs: [],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "initialized",
+          outputs: [
+            {
+              internalType: "bool",
+              name: "",
+              type: "bool",
+            },
+          ],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              internalType: "address",
+              name: "token",
+              type: "address",
+            },
+          ],
+          name: "isAcceptedInSupplyToken",
+          outputs: [
+            {
+              internalType: "bool",
+              name: "",
+              type: "bool",
+            },
+          ],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              internalType: "address",
+              name: "_streamAddress",
+              type: "address",
+            },
+          ],
+          name: "isStream",
+          outputs: [
+            {
+              internalType: "bool",
+              name: "",
+              type: "bool",
             },
           ],
           stateMutability: "view",
@@ -2104,6 +2244,11 @@ const deployedContracts = {
               name: "poolWrapperAddress",
               type: "address",
             },
+            {
+              internalType: "address",
+              name: "streamImplementationAddress",
+              type: "address",
+            },
           ],
           stateMutability: "view",
           type: "function",
@@ -2111,30 +2256,73 @@ const deployedContracts = {
         {
           inputs: [
             {
-              internalType: "address",
-              name: "creator",
-              type: "address",
-            },
-            {
-              internalType: "bytes32",
-              name: "_salt",
-              type: "bytes32",
-            },
-            {
-              internalType: "bytes32",
-              name: "bytecodeHash",
-              type: "bytes32",
+              components: [
+                {
+                  internalType: "uint256",
+                  name: "value",
+                  type: "uint256",
+                },
+              ],
+              internalType: "struct Decimal",
+              name: "_ratio",
+              type: "tuple",
             },
           ],
-          name: "predictAddress",
-          outputs: [
+          name: "setExitFeeRatio",
+          outputs: [],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              internalType: "bool",
+              name: "_frozen",
+              type: "bool",
+            },
+          ],
+          name: "setFrozen",
+          outputs: [],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [
             {
               internalType: "address",
-              name: "",
+              name: "_implementation",
               type: "address",
             },
           ],
-          stateMutability: "pure",
+          name: "setImplementation",
+          outputs: [],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              internalType: "uint256",
+              name: "_fee",
+              type: "uint256",
+            },
+          ],
+          name: "setStreamCreationFee",
+          outputs: [],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              internalType: "address",
+              name: "_token",
+              type: "address",
+            },
+          ],
+          name: "setStreamCreationFeeToken",
+          outputs: [],
+          stateMutability: "nonpayable",
           type: "function",
         },
         {
