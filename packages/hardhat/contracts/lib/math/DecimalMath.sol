@@ -6,7 +6,6 @@ pragma solidity >=0.8.0 <0.9.0;
  * @dev Library for handling decimal math operations with fixed-point arithmetic
  */
 
-// Define the Decimal struct at the top level for easier imports
 struct Decimal {
     uint256 value; // Value scaled by DECIMAL_PRECISION
 }
