@@ -16,9 +16,10 @@ library StreamFactoryTypes {
         string tosVersion;
         address vestingAddress;
         address poolWrapperAddress;
+        address streamImplementationAddress;
     }
 
-    struct constructFactoryMessage {
+    struct initializeStreamMessage {
         uint256 streamCreationFee;
         address streamCreationFeeToken;
         Decimal exitFeeRatio;
@@ -30,5 +31,6 @@ library StreamFactoryTypes {
         string tosVersion;
         address poolWrapperAddress;
         address[] acceptedInSupplyTokens;
+        address streamImplementationAddress;
     }
 }

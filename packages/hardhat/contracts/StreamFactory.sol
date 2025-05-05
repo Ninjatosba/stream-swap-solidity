@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.0 <0.9.0;
-
-import "./Stream.sol";
 import "./interfaces/IStreamEvents.sol";
 import "./interfaces/IStreamFactoryErrors.sol";
 import "./Vesting.sol";
 import "./types/StreamTypes.sol";
-import "./interfaces/IVesting.sol";
+import "./interfaces/IStream.sol";
 import "hardhat/console.sol";
 import "./types/StreamFactoryTypes.sol";
+import "@openzeppelin/contracts/proxy/Clones.sol";
+import "./storage/PositionStorage.sol";
 
 contract StreamFactory is IStreamEvents, IStreamFactoryErrors {
     mapping(address => bool) public acceptedInSupplyTokens;
@@ -21,40 +21,45 @@ contract StreamFactory is IStreamEvents, IStreamFactoryErrors {
     mapping(uint16 => address) public streamAddresses;
 
     bool public frozen;
+    bool public initialized;
 
-    constructor(StreamFactoryTypes.constructFactoryMessage memory constructFactoryMessage) {
-        if (constructFactoryMessage.feeCollector == address(0)) revert InvalidFeeCollector();
-        if (constructFactoryMessage.protocolAdmin == address(0)) revert InvalidProtocolAdmin();
+    constructor(address _protocolAdmin) {
+        if (_protocolAdmin == address(0)) revert InvalidProtocolAdmin();
+        params.protocolAdmin = _protocolAdmin;
+    }
 
-        // Check if exit fee ratio is between 0 and 1
-        if (DecimalMath.gt(constructFactoryMessage.exitFeeRatio, DecimalMath.fromNumber(1)))
+    // Only once
+    modifier onlyOnce() {
+        require(!initialized, "Already initialized");
+        _;
+        initialized = true;
+    }
+
+    function initialize(
+        StreamFactoryTypes.initializeStreamMessage memory initializeStreamMessage
+    ) external onlyAdmin onlyOnce {
+        if (DecimalMath.gt(initializeStreamMessage.exitFeeRatio, DecimalMath.fromNumber(1)))
             revert InvalidExitFeeRatio();
 
         // Deploy vesting contract
         Vesting vesting = new Vesting();
-
-        // Emit event for vesting contract deployment
         emit VestingContractDeployed(address(this), address(vesting));
 
-        params = StreamFactoryTypes.Params({
-            streamCreationFee: constructFactoryMessage.streamCreationFee,
-            streamCreationFeeToken: constructFactoryMessage.streamCreationFeeToken,
-            exitFeeRatio: constructFactoryMessage.exitFeeRatio,
-            minWaitingDuration: constructFactoryMessage.minWaitingDuration,
-            minBootstrappingDuration: constructFactoryMessage.minBootstrappingDuration,
-            minStreamDuration: constructFactoryMessage.minStreamDuration,
-            feeCollector: constructFactoryMessage.feeCollector,
-            protocolAdmin: constructFactoryMessage.protocolAdmin,
-            tosVersion: constructFactoryMessage.tosVersion,
-            vestingAddress: address(vesting),
-            poolWrapperAddress: constructFactoryMessage.poolWrapperAddress
-        });
-
+        params.streamCreationFee = initializeStreamMessage.streamCreationFee;
+        params.streamCreationFeeToken = initializeStreamMessage.streamCreationFeeToken;
+        params.exitFeeRatio = initializeStreamMessage.exitFeeRatio;
+        params.minWaitingDuration = initializeStreamMessage.minWaitingDuration;
+        params.minBootstrappingDuration = initializeStreamMessage.minBootstrappingDuration;
+        params.minStreamDuration = initializeStreamMessage.minStreamDuration;
+        params.feeCollector = initializeStreamMessage.feeCollector;
+        params.tosVersion = initializeStreamMessage.tosVersion;
+        params.vestingAddress = address(vesting);
+        params.poolWrapperAddress = initializeStreamMessage.poolWrapperAddress;
+        params.streamImplementationAddress = initializeStreamMessage.streamImplementationAddress;
         // Set accepted tokens
-        for (uint i = 0; i < constructFactoryMessage.acceptedInSupplyTokens.length; i++) {
-            acceptedInSupplyTokens[constructFactoryMessage.acceptedInSupplyTokens[i]] = true;
+        for (uint i = 0; i < initializeStreamMessage.acceptedInSupplyTokens.length; i++) {
+            acceptedInSupplyTokens[initializeStreamMessage.acceptedInSupplyTokens[i]] = true;
         }
-        currentStreamId = 0;
     }
 
     modifier onlyAdmin() {
@@ -122,7 +127,6 @@ contract StreamFactory is IStreamEvents, IStreamFactoryErrors {
     function createStream(StreamTypes.createStreamMessage memory createStreamMessage) external payable {
         // Check if contract is accepting new streams (not frozen)
         if (frozen) revert ContractFrozen();
-
         // Validate input parameters
         if (createStreamMessage.streamOutAmount == 0) revert ZeroOutSupplyNotAllowed();
         if (!acceptedInSupplyTokens[createStreamMessage.inSupplyToken]) revert StreamInputTokenNotAccepted();
@@ -160,22 +164,27 @@ contract StreamFactory is IStreamEvents, IStreamFactoryErrors {
                 ) revert TokenTransferFailed();
             }
         }
-        // Predict stream address
-        bytes32 bytecodeHash = keccak256(abi.encodePacked(type(Stream).creationCode, abi.encode(createStreamMessage)));
 
-        address predictedAddress = predictAddress(address(this), createStreamMessage.salt, bytecodeHash);
-        // Transfer out denom to stream contract
+        // Clone stream contract
+        address clone = Clones.clone(params.streamImplementationAddress);
+        IStream stream = IStream(clone);
+
+        // Deploy PositionStorage
+        PositionStorage positionStorage = new PositionStorage(address(stream));
+
+        // Transfer tokens before initialization
         if (
             !IERC20(createStreamMessage.outSupplyToken).transferFrom(
                 msg.sender,
-                predictedAddress,
+                address(stream),
                 createStreamMessage.streamOutAmount + createStreamMessage.poolInfo.poolOutSupplyAmount
             )
         ) revert TokenTransferFailed();
-        // Deploy new stream contract with all parameters
-        Stream stream = new Stream{ salt: createStreamMessage.salt }(createStreamMessage);
 
-        if (address(stream) != predictedAddress) revert StreamAddressPredictionFailed();
+        // Initialize the cloned stream
+        stream.initialize(createStreamMessage, address(positionStorage));
+
+        // Store stream address
         streamAddresses[currentStreamId] = address(stream);
 
         emit StreamCreated(
@@ -239,10 +248,6 @@ contract StreamFactory is IStreamEvents, IStreamFactoryErrors {
         emit FrozenStateUpdated(address(this), _frozen);
     }
 
-    function predictAddress(address creator, bytes32 _salt, bytes32 bytecodeHash) public pure returns (address) {
-        return address(uint160(uint(keccak256(abi.encodePacked(bytes1(0xff), creator, _salt, bytecodeHash)))));
-    }
-
     function validateStreamTimes(
         uint256 nowTime,
         uint256 _bootstrappingStartTime,
@@ -256,5 +261,24 @@ contract StreamFactory is IStreamEvents, IStreamFactoryErrors {
         if (_startTime - _bootstrappingStartTime < params.minBootstrappingDuration)
             revert BootstrappingDurationTooShort();
         if (_bootstrappingStartTime - nowTime < params.minWaitingDuration) revert WaitingDurationTooShort();
+    }
+
+    function setImplementation(address _implementation) external onlyAdmin {
+        if (_implementation == address(0)) revert InvalidImplementationAddress();
+
+        params.streamImplementationAddress = _implementation;
+    }
+
+    function setStreamCreationFee(uint256 _fee) external onlyAdmin {
+        params.streamCreationFee = _fee;
+    }
+
+    function setStreamCreationFeeToken(address _token) external onlyAdmin {
+        params.streamCreationFeeToken = _token;
+    }
+
+    function setExitFeeRatio(Decimal memory _ratio) external onlyAdmin {
+        if (DecimalMath.gt(_ratio, DecimalMath.fromNumber(1))) revert InvalidExitFeeRatio();
+        params.exitFeeRatio = _ratio;
     }
 }

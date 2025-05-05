@@ -3,7 +3,6 @@ pragma solidity >=0.8.0 <0.9.0;
 
 import "./interfaces/IPositionStorage.sol";
 import "./types/PositionTypes.sol";
-import "./storage/PositionStorage.sol";
 import "./interfaces/IStreamEvents.sol";
 import "./interfaces/IStreamErrors.sol";
 import "./types/StreamTypes.sol";
@@ -20,7 +19,9 @@ import "./types/PoolWrapperTypes.sol";
 
 contract Stream is IStreamErrors, IStreamEvents {
     address public creator;
+    address immutable streamFactoryAddress;
     address public positionStorageAddress;
+    bool private initialized;
 
     StreamTypes.StreamState public streamState;
     StreamTypes.StreamTokens public streamTokens;
@@ -28,27 +29,40 @@ contract Stream is IStreamErrors, IStreamEvents {
     StreamTypes.Status public streamStatus;
     StreamTypes.StreamTimes public streamTimes;
     StreamTypes.PostStreamActions public postStreamActions;
-    address public streamFactoryAddress;
-    IPositionStorage public positionStorage;
 
-    constructor(StreamTypes.createStreamMessage memory createStreamMessage) {
+    modifier onlyOnce() {
+        if (initialized) revert Unauthorized();
+        _;
+        initialized = true;
+    }
+
+    modifier onlyAdmin() {
+        if (msg.sender != streamFactoryAddress) revert Unauthorized();
+        _;
+    }
+
+    constructor(address _streamFactoryAddress) {
+        streamFactoryAddress = _streamFactoryAddress;
+    }
+
+    function initialize(
+        StreamTypes.createStreamMessage memory createStreamMessage,
+        address _positionStorageAddress
+    ) external onlyOnce onlyAdmin {
         // Validate that output token is a valid ERC20
         if (!TokenHelpers.isValidERC20(createStreamMessage.outSupplyToken, msg.sender)) {
             revert InvalidOutSupplyToken();
         }
-
         // Check if the contract has enough balance of output token
         uint256 totalRequiredAmount = createStreamMessage.streamOutAmount +
             createStreamMessage.poolInfo.poolOutSupplyAmount;
         if (!TokenHelpers.hasEnoughBalance(createStreamMessage.outSupplyToken, address(this), totalRequiredAmount)) {
             revert InsufficientOutAmount();
         }
-
         // Validate that in token is a valid ERC20
         if (!TokenHelpers.isValidERC20(createStreamMessage.inSupplyToken, msg.sender)) {
             revert InvalidInSupplyToken();
         }
-
         // Validate and set creator vesting info
         if (createStreamMessage.creatorVesting.isVestingEnabled) {
             // Validate vesting duration
@@ -66,7 +80,6 @@ contract Stream is IStreamErrors, IStreamEvents {
             // set vesting info
             postStreamActions.creatorVesting = createStreamMessage.creatorVesting;
         }
-
         // Validate and set beneficiary vesting info
         if (createStreamMessage.beneficiaryVesting.isVestingEnabled) {
             // Validate vesting duration
@@ -85,7 +98,6 @@ contract Stream is IStreamErrors, IStreamEvents {
             // set vesting info
             postStreamActions.beneficiaryVesting = createStreamMessage.beneficiaryVesting;
         }
-
         // Validate pool config
         if (createStreamMessage.poolInfo.poolOutSupplyAmount > 0) {
             // Validate pool amount is less than or equal to out amount
@@ -94,15 +106,10 @@ contract Stream is IStreamErrors, IStreamEvents {
             }
             postStreamActions.poolInfo = createStreamMessage.poolInfo;
         }
-
-        // Create position storage
-        PositionStorage positionStorageContract = new PositionStorage();
-        positionStorageAddress = address(positionStorageContract);
-        positionStorage = IPositionStorage(positionStorageAddress);
-
+        // Save position storage address
+        positionStorageAddress = _positionStorageAddress;
         // Set creator
         creator = createStreamMessage.creator;
-
         // Initialize stream state
         streamState = StreamTypes.StreamState({
             distIndex: DecimalMath.fromNumber(0),
@@ -115,28 +122,21 @@ contract Stream is IStreamErrors, IStreamEvents {
             outSupply: createStreamMessage.streamOutAmount,
             lastUpdated: block.timestamp
         });
-
         // Initialize stream tokens
         streamTokens = StreamTypes.StreamTokens({
             inSupplyToken: createStreamMessage.inSupplyToken,
             outSupplyToken: createStreamMessage.outSupplyToken
         });
-
         // Initialize stream metadata
         streamMetadata = StreamTypes.StreamMetadata({ name: createStreamMessage.name });
-
         // Initialize stream status
         streamStatus = StreamTypes.Status.Waiting;
-
         // Initialize stream times
         streamTimes = StreamTypes.StreamTimes({
             bootstrappingStartTime: createStreamMessage.bootstrappingStartTime,
             streamStartTime: createStreamMessage.streamStartTime,
             streamEndTime: createStreamMessage.streamEndTime
         });
-
-        // Store the factory address
-        streamFactoryAddress = msg.sender;
     }
 
     function syncStream(
@@ -657,6 +657,7 @@ contract Stream is IStreamErrors, IStreamEvents {
     }
 
     function loadPosition(address user) internal view returns (PositionTypes.Position memory) {
+        PositionStorage positionStorage = PositionStorage(positionStorageAddress);
         return positionStorage.getPosition(user);
     }
 
@@ -674,6 +675,7 @@ contract Stream is IStreamErrors, IStreamEvents {
     }
 
     function savePosition(address user, PositionTypes.Position memory position) internal {
+        PositionStorage positionStorage = PositionStorage(positionStorageAddress);
         positionStorage.updatePosition(user, position);
     }
 
@@ -818,6 +820,7 @@ contract Stream is IStreamErrors, IStreamEvents {
     }
 
     function getPosition(address user) external view returns (PositionTypes.Position memory) {
+        PositionStorage positionStorage = PositionStorage(positionStorageAddress);
         return positionStorage.getPosition(user);
     }
 }

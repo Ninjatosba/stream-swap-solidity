@@ -19,7 +19,7 @@ const providerApiKey = process.env.ALCHEMY_API_KEY || "oKxs-03sij-U_N0iOlrSsZFr2
 // If not set, it uses the hardhat account 0 private key.
 // You can generate a random account with `yarn generate` or `yarn account:import` to import your existing PK
 const deployerPrivateKey =
-  process.env.__RUNTIME_DEPLOYER_PRIVATE_KEY ?? "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
+  "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
 const creatorPrivateKey =
   process.env.__RUNTIME_CREATOR_PRIVATE_KEY ?? "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d";
 const subscriber1PrivateKey =
@@ -205,8 +205,10 @@ const config: HardhatUserConfig = {
     hyperliquidTestnet: {
       url: "https://rpc.hyperliquid-testnet.xyz/evm",
       accounts: [deployerPrivateKey, creatorPrivateKey, subscriber1PrivateKey, subscriber2PrivateKey],
-      gas: 30_000_00,
-      gasPrice: "auto"
+      gas: 50_000_000,  // Increased gas limit
+      gasPrice: "auto",
+      blockGasLimit: 50_000_000,
+      allowUnlimitedContractSize: true
     },
   },
   // configuration for harhdat-verify plugin
