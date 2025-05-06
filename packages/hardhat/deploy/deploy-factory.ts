@@ -48,6 +48,8 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     console.log(`PoolWrapper contract deployed at: ${poolWrapperAddress}`);
     console.log(`Deployer: ${deployer}`);
 
+    console.log("deployer balance ", await hre.ethers.provider.getBalance(deployer));
+
     try {
         // Deploy StreamFactory with just the protocol admin
         const streamFactory = await deploy("StreamFactory", {
@@ -55,8 +57,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
             args: [deployer],
             log: true,
             skipIfAlreadyDeployed: false,
-            deterministicDeployment: false,
-            gasLimit: 30_000_000,
+            deterministicDeployment: false
         });
         console.log(`StreamFactory contract deployed at: ${streamFactory.address}`);
 
