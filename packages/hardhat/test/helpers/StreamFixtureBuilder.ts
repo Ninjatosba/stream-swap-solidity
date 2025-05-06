@@ -221,8 +221,8 @@ export class StreamFixtureBuilder {
 
                 // Mint tokens
                 await outSupplyToken.mint(creator.address, self.amountConfig.streamOutAmount);
-                await inSupplyToken.mint(subscriber1.address, ethers.parseEther("100000"));
-                await inSupplyToken.mint(subscriber2.address, ethers.parseEther("100000"));
+                await inSupplyToken.mint(subscriber1.address, ethers.parseEther("1000000000"));
+                await inSupplyToken.mint(subscriber2.address, ethers.parseEther("1000000000"));
 
                 // Mint pool tokens if needed
                 if (self.poolConfig.poolOutSupplyAmount > 0) {
