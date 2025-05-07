@@ -30,7 +30,7 @@ describe("High Value Stream Scenarios", function () {
             await contracts.inSupplyToken.connect(accounts.subscriber1).approve(contracts.stream.getAddress(), whaleAmount);
             await contracts.stream.connect(accounts.subscriber1).subscribe(whaleAmount);
 
-            // Large subscriber (40% of threshold)
+            // Large subscriber (30% of threshold)
             const largeAmount = HIGH_THRESHOLD * BigInt(40) / BigInt(100);
             await contracts.inSupplyToken.connect(accounts.subscriber2).approve(contracts.stream.getAddress(), largeAmount);
             await contracts.stream.connect(accounts.subscriber2).subscribe(largeAmount);
@@ -40,13 +40,13 @@ describe("High Value Stream Scenarios", function () {
             await ethers.provider.send("evm_mine", []);
             await contracts.stream.syncStreamExternal();
 
+
             // Update positions at 25% through stream
             const streamDuration = BigInt(timeParams.streamEndTime - timeParams.streamStartTime);
             const quarterStreamTime = BigInt(timeParams.streamStartTime) + (streamDuration / BigInt(4));
             await ethers.provider.send("evm_setNextBlockTimestamp", [Number(quarterStreamTime)]);
             await ethers.provider.send("evm_mine", []);
             await contracts.stream.syncStreamExternal();
-
             // Update positions
             await contracts.stream.connect(accounts.subscriber1).syncPosition(accounts.subscriber1.address);
             await contracts.stream.connect(accounts.subscriber2).syncPosition(accounts.subscriber2.address);
