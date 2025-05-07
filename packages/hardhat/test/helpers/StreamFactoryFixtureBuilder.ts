@@ -121,29 +121,17 @@ export class StreamFactoryFixtureBuilder {
                 const poolWrapper = await PoolWrapperFactory.deploy();
                 await poolWrapper.waitForDeployment();
 
-                // Deploy StreamFactory implementation first
-                const StreamFactoryImplementation = await ethers.getContractFactory("StreamFactory");
-                const factoryImplementation = await StreamFactoryImplementation.deploy(protocolAdmin.address);
-                await factoryImplementation.waitForDeployment();
+                // Deploy StreamFactory
+                const StreamFactoryFactory = await ethers.getContractFactory("StreamFactory");
+                const streamFactory = await StreamFactoryFactory.deploy(protocolAdmin.address);
+                await streamFactory.waitForDeployment();
 
-                // Deploy StreamFactory proxy
-                const StreamFactoryProxy = await ethers.getContractFactory("TransparentUpgradeableProxy");
-                const factoryProxy = await StreamFactoryProxy.deploy(
-                    await factoryImplementation.getAddress(),
-                    protocolAdmin.address,
-                    "0x" // No initialization data yet
-                );
-                await factoryProxy.waitForDeployment();
-
-                // Get the StreamFactory interface through the proxy
-                const streamFactory = StreamFactoryImplementation.attach(await factoryProxy.getAddress()) as StreamFactory;
-
-                // Deploy Stream implementation
+                // Deploy Stream Implementation
                 const StreamImplementationFactory = await ethers.getContractFactory("Stream");
                 const streamImplementation = await StreamImplementationFactory.deploy(await streamFactory.getAddress());
                 await streamImplementation.waitForDeployment();
 
-                // Initialize the factory through the proxy
+                // Initialize the factory
                 const initMessage: StreamFactoryTypes.InitializeStreamMessageStruct = {
                     streamCreationFee: config.streamCreationFee,
                     streamCreationFeeToken: await inSupplyToken.getAddress(),
