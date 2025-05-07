@@ -402,8 +402,8 @@ contract Stream is IStreamErrors, IStreamEvents {
                     vestingInfo.cliffDuration,
                     vestingInfo.vestingDuration
                 );
-                // Transfer tokens to vesting contract
-                TokenHelpers.safeTokenTransfer(streamTokens.outSupplyToken, vestingContractAddress, amountToDistribute);
+                // Approve vesting contract
+                TokenHelpers.safeTokenApprove(streamTokens.outSupplyToken, vestingContractAddress, amountToDistribute);
                 // Create vesting schedule
                 vestingContract.stakeFunds(
                     msg.sender,
@@ -528,8 +528,8 @@ contract Stream is IStreamErrors, IStreamEvents {
                     postStreamActions.creatorVesting.vestingDuration
                 );
                 createVesting(
-                    streamTokens.inSupplyToken,
                     creator,
+                    streamTokens.inSupplyToken,
                     params.vestingAddress,
                     creatorRevenue,
                     cliffTime,
@@ -724,15 +724,16 @@ contract Stream is IStreamErrors, IStreamEvents {
     }
 
     function createVesting(
-        address token,
         address beneficiary,
+        address token,
         address vestingAddress,
         uint256 amount,
-        uint256 cliffDuration,
-        uint256 vestingDuration
+        uint256 cliffTime,
+        uint256 endTime
     ) internal {
         IVesting vesting = IVesting(vestingAddress);
-        vesting.stakeFunds(token, beneficiary, cliffDuration, vestingDuration, amount);
+        TokenHelpers.safeTokenTransfer(token, vestingAddress, amount);
+        vesting.stakeFunds(beneficiary, token, cliffTime, endTime, amount);
     }
 
     // Refactored syncStreamStatus to work directly with a provided memory object

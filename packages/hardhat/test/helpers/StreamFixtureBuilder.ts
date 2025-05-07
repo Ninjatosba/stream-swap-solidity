@@ -171,7 +171,7 @@ export class StreamFixtureBuilder {
                 await ethers.provider.send("hardhat_reset", []);
 
                 // Get signers
-                const [deployer, creator, subscriber1, subscriber2, protocolAdmin, feeCollector] = await ethers.getSigners();
+                const [deployer, creator, subscriber1, subscriber2, subscriber3, subscriber4, protocolAdmin, feeCollector] = await ethers.getSigners();
 
                 // Deploy token contracts with deployer
                 const InSupplyToken = await ethers.getContractFactory("ERC20Mock");
@@ -221,8 +221,10 @@ export class StreamFixtureBuilder {
 
                 // Mint tokens
                 await outSupplyToken.mint(creator.address, self.amountConfig.streamOutAmount);
-                await inSupplyToken.mint(subscriber1.address, ethers.parseEther("100000"));
-                await inSupplyToken.mint(subscriber2.address, ethers.parseEther("100000"));
+                await inSupplyToken.mint(subscriber1.address, ethers.parseEther("1000000000"));
+                await inSupplyToken.mint(subscriber2.address, ethers.parseEther("1000000000"));
+                await inSupplyToken.mint(subscriber3.address, ethers.parseEther("1000000000"));
+                await inSupplyToken.mint(subscriber4.address, ethers.parseEther("1000000000"));
 
                 // Mint pool tokens if needed
                 if (self.poolConfig.poolOutSupplyAmount > 0) {
@@ -320,7 +322,9 @@ export class StreamFixtureBuilder {
                         feeCollector,
                         creator,
                         subscriber1,
-                        subscriber2
+                        subscriber2,
+                        subscriber3,
+                        subscriber4
                     },
                     timeParams: {
                         bootstrappingStartTime,
