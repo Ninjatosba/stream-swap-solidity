@@ -59,8 +59,8 @@ library StreamTypes {
 
     struct VestingInfo {
         bool isVestingEnabled;
-        uint16 vestingDuration;
-        uint16 cliffDuration;
+        uint32 vestingDuration;
+        uint32 cliffDuration;
     }
 
     struct PoolInfo {

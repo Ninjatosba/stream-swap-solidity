@@ -135,22 +135,40 @@ describe("High Value Stream Scenarios", function () {
             // Query vesting contract for sub1
             const sub1Vesting = await vestingContract.getStakesForBeneficiary(accounts.subscriber1.address, contracts.outSupplyToken.getAddress());
             expect(sub1Vesting.length).to.be.equal(1);
-            expect(sub1Vesting[0].totalAmount).to.be.equal(sub1Amount);
-            expect(sub1Vesting[0].cliffTime).to.be.equal(timeParams.streamEndTime + 24 * 60 * 60);
-            expect(sub1Vesting[0].endTime).to.be.equal(timeParams.streamEndTime + 2 * 24 * 60 * 60);
+            expect(sub1Vesting[0].totalAmount).to.be.equal(LARGE_STREAM_OUT * BigInt(60) / BigInt(100));
+            expect(sub1Vesting[0].cliffTime).to.be.equal(timeParams.streamEndTime + 60 * 60 * 24 + 3);
+            expect(sub1Vesting[0].endTime).to.be.equal(timeParams.streamEndTime + 60 * 60 * 24 * 2 + 3);
 
             // Query vesting contract for sub2
             const sub2Vesting = await vestingContract.getStakesForBeneficiary(accounts.subscriber2.address, contracts.outSupplyToken.getAddress());
             expect(sub2Vesting.length).to.be.equal(1);
-            expect(sub2Vesting[0].totalAmount).to.be.equal(sub2Amount);
-            expect(sub2Vesting[0].cliffTime).to.be.equal(timeParams.streamEndTime + 24 * 60 * 60);
-            expect(sub2Vesting[0].endTime).to.be.equal(timeParams.streamEndTime + 2 * 24 * 60 * 60);
+            expect(sub2Vesting[0].totalAmount).to.be.equal(LARGE_STREAM_OUT * BigInt(40) / BigInt(100));
+            expect(sub2Vesting[0].cliffTime).to.be.equal(timeParams.streamEndTime + 60 * 60 * 24 + 4);
+            expect(sub2Vesting[0].endTime).to.be.equal(timeParams.streamEndTime + 60 * 60 * 24 * 2 + 4);
 
             // Verify proportional final distribution
-            expect(sub1Vesting[0].releasedAmount).to.be.gt(sub2Vesting[0].releasedAmount);
-            expect(sub1Vesting[0].releasedAmount).to.be.approximately(
+            // Lets say we are after vesting period
+            await ethers.provider.send("evm_setNextBlockTimestamp", [timeParams.streamEndTime + 60 * 60 * 24 * 2 + 60 * 60 * 24]);
+            await ethers.provider.send("evm_mine", []);
+
+            // Withdraw sub1
+            await vestingContract.connect(accounts.subscriber1).withdrawFunds(contracts.outSupplyToken.getAddress(), 0);
+            const sub1Released = await contracts.outSupplyToken.balanceOf(accounts.subscriber1.address);
+
+            // Withdraw sub2
+            await vestingContract.connect(accounts.subscriber2).withdrawFunds(contracts.outSupplyToken.getAddress(), 0);
+            const sub2Released = await contracts.outSupplyToken.balanceOf(accounts.subscriber2.address);
+
+            // Verify sub1 has released more than sub2
+            expect(sub1Released).to.be.gt(sub2Released);
+            expect(sub1Released).to.be.approximately(
                 LARGE_STREAM_OUT * BigInt(60) / BigInt(100),
-                BigInt(ethers.parseEther("10"))
+                BigInt(ethers.parseEther("1"))
+            );
+
+            expect(sub2Released).to.be.approximately(
+                LARGE_STREAM_OUT * BigInt(40) / BigInt(100),
+                BigInt(ethers.parseEther("1"))
             );
         });
     });

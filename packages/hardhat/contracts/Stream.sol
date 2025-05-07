@@ -402,8 +402,8 @@ contract Stream is IStreamErrors, IStreamEvents {
                     vestingInfo.cliffDuration,
                     vestingInfo.vestingDuration
                 );
-                // Transfer tokens to vesting contract
-                TokenHelpers.safeTokenTransfer(streamTokens.outSupplyToken, vestingContractAddress, amountToDistribute);
+                // Approve vesting contract
+                TokenHelpers.safeTokenApprove(streamTokens.outSupplyToken, vestingContractAddress, amountToDistribute);
                 // Create vesting schedule
                 vestingContract.stakeFunds(
                     msg.sender,

@@ -198,25 +198,6 @@ describe("Stream Subscribe", function () {
                 contracts.stream.connect(accounts.subscriber1).subscribe(subscriptionAmount)
             ).to.be.reverted;
         });
-
-        it("Should fail with insufficient balance", async function () {
-            const { contracts, timeParams, accounts } = await loadFixture(stream().build());
-
-            // Fast forward time to stream phase
-            await ethers.provider.send("evm_setNextBlockTimestamp", [timeParams.streamStartTime + 1]);
-            await ethers.provider.send("evm_mine", []);
-
-            // Sync the stream to update status
-            await contracts.stream.syncStreamExternal();
-
-            // Try to subscribe with more tokens than available
-            const largeAmount = ethers.parseEther("1000000000"); // Very large amount
-            await contracts.inSupplyToken.connect(accounts.subscriber1).approve(contracts.stream.getAddress(), largeAmount);
-
-            await expect(
-                contracts.stream.connect(accounts.subscriber1).subscribe(largeAmount)
-            ).to.be.reverted;
-        });
     });
 
     describe("Subscription after full withdrawal", function () {

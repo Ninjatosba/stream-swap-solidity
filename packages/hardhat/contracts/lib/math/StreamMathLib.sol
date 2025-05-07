@@ -233,7 +233,7 @@ library StreamMathLib {
         uint256 vestingDuration
     ) internal pure returns (uint256 cliffTime, uint256 endTime) {
         cliffTime = nowTime + cliffDuration;
-        endTime = nowTime + vestingDuration + cliffDuration;
+        endTime = nowTime + vestingDuration;
         return (cliffTime, endTime);
     }
 }
