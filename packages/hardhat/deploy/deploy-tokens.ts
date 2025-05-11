@@ -1,6 +1,7 @@
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { DeployFunction } from "hardhat-deploy/types";
 import { defaultStreamConfig, StreamConfig } from "./config/stream-config";
+import { ethers, parseEther } from "ethers";
 
 /**
  * Deploys the ERC20 tokens needed for the Stream contract.
@@ -56,21 +57,21 @@ const deployTokens: DeployFunction = async function (hre: HardhatRuntimeEnvironm
 
         // Mint some in tokens for testing for subscriber1
         console.log("Minting in tokens for testing...");
-        const inTokenMintAmount = 1000000n; // 1 million tokens for testing
+        const inTokenMintAmount = parseEther("1000000"); // 1 million tokens for testing
         const inTokenMintTx = await inTokenContract.mint(subscriber1, inTokenMintAmount);
         await inTokenMintTx.wait();
         console.log(`Minted ${inTokenMintAmount} in tokens to subscriber1`);
 
         // Mint some in tokens for testing for subscriber2
         console.log("Minting in tokens for testing...");
-        const inTokenMintAmount2 = 1000000n; // 1 million tokens for testing
+        const inTokenMintAmount2 = parseEther("1000000"); // 1 million tokens for testing
         const inTokenMintTx2 = await inTokenContract.mint(subscriber2, inTokenMintAmount2);
         await inTokenMintTx2.wait();
         console.log(`Minted ${inTokenMintAmount2} in tokens to subscriber2`);
 
         // Mint some out tokens for testing for creator
         console.log("Minting out tokens for testing...");
-        const outTokenMintAmount = 1000000n; // 1 million tokens for testing
+        const outTokenMintAmount = parseEther("10000000");
         const outTokenMintTx = await outTokenContract.mint(creator, outTokenMintAmount);
         await outTokenMintTx.wait();
         console.log(`Minted ${outTokenMintAmount} out tokens to creator`);

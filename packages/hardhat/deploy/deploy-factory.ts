@@ -92,10 +92,15 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
 
         // Initialize the factory
         const factory = (await StreamFactoryContract.attach(streamFactory.address)) as StreamFactory;
-        const tx = await factory.initialize(initMessage);
-        await tx.wait();
-        console.log(`StreamFactory initialized with ${environment} configuration`);
-        console.log(`Factory params: ${JSON.stringify(initMessage)}`);
+        const isInitialized = await factory.initialized();
+        if (!isInitialized) {
+            const tx = await factory.initialize(initMessage);
+            await tx.wait();
+            console.log(`StreamFactory initialized with ${environment} configuration`);
+            console.log(`Factory params: ${JSON.stringify(initMessage)}`);
+        } else {
+            console.log(`StreamFactory already initialized`);
+        }
 
     } catch (error: unknown) {
         console.error("Deployment failed:", error instanceof Error ? error.message : error);

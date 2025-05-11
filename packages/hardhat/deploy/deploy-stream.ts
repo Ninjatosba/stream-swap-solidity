@@ -1,6 +1,6 @@
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { DeployFunction, Receipt } from "hardhat-deploy/types";
-import { Addressable, AddressLike, BigNumberish, ethers } from "ethers";
+import { Addressable, AddressLike, BigNumberish, ethers, parseEther } from "ethers";
 import { defaultStreamConfig, calculateTimestamps, StreamConfig } from "./config/stream-config";
 import { StreamFactoryTypes, StreamTypes } from "../typechain-types/contracts/StreamFactory";
 
@@ -33,12 +33,27 @@ const deployStreamContract: DeployFunction = async function (hre: HardhatRuntime
       }
     }
 
-    console.log(`Deploying stream with ${JSON.stringify(streamConfig, null, 2)} configuration`);
+    //console.log(`Deploying stream with ${JSON.stringify(streamConfig, null, 2)} configuration`);
 
     // Get deployer account
     const { deployer, creator } = await hre.getNamedAccounts();
     console.log(`Deployer address: ${deployer}`);
     console.log(`Creator address: ${creator}`);
+
+    const deployerBalance = await hre.ethers.provider.getBalance(deployer);
+    const creatorBalance = await hre.ethers.provider.getBalance(creator);
+    console.log(`Deployer balance: ${deployerBalance}`);
+    console.log(`Creator balance: ${creatorBalance}`);
+    if (creatorBalance < BigInt(60000000000)) {
+      console.log(`Creator has insufficient balance. Sending 0.000006 ethers to creator`);
+      const deployerSigner = await hre.ethers.getSigner(deployer);
+      const sendEtherTx = await deployerSigner.sendTransaction({
+        to: creator,
+        value: parseEther("0.000006")
+      });
+      await sendEtherTx.wait();
+      console.log(`Transaction sent: ${sendEtherTx.hash}`);
+    }
 
     // Get signers
     const creatorSigner = await hre.ethers.getSigner(creator);
@@ -81,18 +96,32 @@ const deployStreamContract: DeployFunction = async function (hre: HardhatRuntime
     const streamFactoryContract = await hre.ethers.getContractAt("StreamFactory", streamFactoryAddress);
     const outTokenContract = await hre.ethers.getContractAt("ERC20Mock", outTokenAddress);
 
-    // Check and set allowance for out tokens
+    console.log("Step 1: Checking creator's output token balance...");
+    const creatorOutTokenBalance = await outTokenContract.balanceOf(creator);
+    console.log(`Creator's output token balance: ${creatorOutTokenBalance}`);
+
+    if (BigInt(creatorOutTokenBalance) < BigInt(streamConfig.streamOutAmount)) {
+      console.error(`Insufficient output token balance. Required: ${streamConfig.streamOutAmount}, Available: ${creatorOutTokenBalance}`);
+      throw new Error("Insufficient output token balance");
+    }
+
+    console.log("Step 2: Checking token allowance...");
     const outTokenAllowance = await outTokenContract.connect(creatorSigner).allowance(creator, streamFactoryAddress);
     console.log(`Current out token allowance: ${outTokenAllowance}`);
 
     if (BigInt(outTokenAllowance) < BigInt(streamConfig.streamOutAmount)) {
+      console.log("Step 3: Setting token approval...");
       console.log(`Setting approval for StreamFactory to spend ${streamConfig.streamOutAmount} out tokens`);
+      console.log(`Sending approval transaction...`);
       const approveOutTokenTx = await outTokenContract.connect(creatorSigner).approve(streamFactoryAddress, streamConfig.streamOutAmount);
-      await approveOutTokenTx.wait();
+      console.log(`Approval transaction sent: ${approveOutTokenTx.hash}`);
+      console.log(`Waiting for approval confirmation...`);
+      const receipt = await approveOutTokenTx.wait();
+      console.log(`Approval confirmed in block ${receipt?.blockNumber}`);
       console.log(`Out token approval transaction confirmed: ${approveOutTokenTx.hash}`);
     }
 
-    // Get factory fee information
+    console.log("Step 4: Getting factory fee information...");
     const factoryParams: StreamFactoryTypes.ParamsStruct = await streamFactoryContract.getParams();
     const streamCreationFee: BigNumberish = factoryParams.streamCreationFee;
     const streamCreationFeeToken: AddressLike = factoryParams.streamCreationFeeToken;
@@ -162,7 +191,7 @@ const deployStreamContract: DeployFunction = async function (hre: HardhatRuntime
     console.log(`- Stream end: ${streamEndTime} (in ${streamEndTime - nowSeconds} seconds)`);
 
     // Create stream using factory
-    console.log("Creating stream with parameters:");
+    console.log("Stream creation parameters:");
     console.log(`- Stream out amount: ${streamConfig.streamOutAmount}`);
     console.log(`- Stream out token: ${outTokenAddress}`);
     console.log(`- Bootstrapping start time: ${bootstrappingStartTime}`);
@@ -177,6 +206,7 @@ const deployStreamContract: DeployFunction = async function (hre: HardhatRuntime
     const salt = ethers.hexlify(ethers.randomBytes(32));
     console.log(`Using salt: ${salt}`);
 
+    console.log("Step 5: Preparing stream creation message...");
     const createStreamMessage: StreamTypes.CreateStreamMessageStruct = {
       streamOutAmount: streamConfig.streamOutAmount,
       outSupplyToken: outTokenAddress,
@@ -196,18 +226,18 @@ const deployStreamContract: DeployFunction = async function (hre: HardhatRuntime
       salt: salt,
     }
 
-    // Create stream with appropriate fee handling
+    console.log("Step 6: Creating stream...");
+    console.log("Sending createStream transaction...");
     const createStreamTx = await streamFactoryContract.connect(creatorSigner).createStream(
       createStreamMessage,
       txOptions
     );
-
     console.log(`Stream creation transaction sent: ${createStreamTx.hash}`);
-
-    // Wait for transaction confirmation
+    console.log("Waiting for stream creation confirmation...");
     const receipt = await createStreamTx.wait();
     console.log(`Stream creation confirmed in block ${receipt?.blockNumber}`);
 
+    console.log("Step 7: Processing stream creation event...");
     // Extract stream address from event logs
     const streamFactoryInterface = new ethers.Interface([
       "event StreamCreated(address indexed streamOutToken, address indexed streamInToken, address indexed streamFactoryAddress, uint256 streamOutAmount, uint256 bootstrappingStartTime, uint256 streamStartTime, uint256 streamEndTime, uint256 threshold, string streamName, string tosVersion, address streamAddress, uint16 streamId)"

@@ -72,8 +72,8 @@ const config: HardhatUserConfig = {
     hardhat: {
       forking: {
         url: `https://eth-mainnet.alchemyapi.io/v2/${providerApiKey}`,
-        enabled: process.env.MAINNET_FORKING_ENABLED === "true",
-        blockNumber: 19000000 // Fork from a recent block
+        enabled: process.env.MAINNET_FORKING_ENABLED === "false",
+        blockNumber: 0
       },
       mining: {
         auto: true,
@@ -91,7 +91,7 @@ const config: HardhatUserConfig = {
       timeout: 60000,
       mining: {
         auto: true,
-        interval: 0  // Add a 1 second interval between blocks
+        interval: 1  // Add a 1 second interval between blocks
       },
       chainId: 31337
     },

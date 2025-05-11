@@ -1,11 +1,11 @@
 // packages/hardhat/deploy/config/stream-config.ts
 
-import { ethers } from "ethers";
+import { ethers, BigNumberish, parseEther } from "ethers";
 import { StreamTypes } from "../../typechain-types/contracts/StreamFactory";
 
 export interface StreamConfig {
     // Token configuration
-    streamOutAmount: number;
+    streamOutAmount: BigNumberish;
 
     // Time configuration
     waitSeconds: number;
@@ -13,7 +13,7 @@ export interface StreamConfig {
     streamDuration: number;
 
     // Stream parameters
-    threshold: number;
+    threshold: BigNumberish;
     streamName: string;
     tosVersion: string;
 
@@ -29,7 +29,7 @@ export interface StreamConfig {
 // Default configuration
 export const defaultStreamConfig: StreamConfig = {
     // Token configuration
-    streamOutAmount: 1000,
+    streamOutAmount: parseEther("1000"),
 
     // Time configuration
     waitSeconds: 500,
@@ -37,12 +37,12 @@ export const defaultStreamConfig: StreamConfig = {
     streamDuration: 100000,
 
     // Stream parameters
-    threshold: 1000,
+    threshold: parseEther("1000"),
     streamName: "Test Stream",
     tosVersion: "1.0.0",
 
     // Advanced configuration
-    metadata: ethers.hexlify(ethers.zeroPadValue("0x", 32)),
+    metadata: "0x0000000000000000000000000000000000000000000000000000000000000000",
     creatorVestingInfo: {
         cliffDuration: 0,
         vestingDuration: 0,
@@ -61,7 +61,7 @@ export const testnetStreamConfig: StreamConfig = {
     waitSeconds: 300,        // 5 minutes
     bootstrappingDuration: 1800, // 30 minutes
     streamDuration: 3600,    // 1 hour
-    threshold: 500,
+    threshold: parseEther("500"),
     streamName: "Testnet Stream"
 };
 
@@ -70,7 +70,7 @@ export const productionStreamConfig: StreamConfig = {
     waitSeconds: 86400,      // 1 day
     bootstrappingDuration: 259200, // 3 days
     streamDuration: 604800,  // 7 days
-    threshold: 10000,
+    threshold: parseEther("10000"),
     streamName: "Production Stream"
 };
 
