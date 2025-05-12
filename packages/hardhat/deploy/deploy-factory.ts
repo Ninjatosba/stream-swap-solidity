@@ -14,6 +14,10 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     // Get environment from args
     const environment = process.argv.indexOf("--network") !== -1 ? process.argv[process.argv.indexOf("--network") + 1] : "default";
 
+    // block height
+    const blockHeight = await hre.ethers.provider.getBlockNumber();
+    console.log(`Block height: ${blockHeight}`);
+
     // get in token address
     let inTokenAddress: string;
     try {
@@ -61,7 +65,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
         });
         console.log(`StreamFactory contract deployed at: ${streamFactory.address}`);
 
-        // Deploy Stream implementation
+        // Deploy Stream implementation (mother contract)
         const streamImplementation = await deploy("Stream", {
             from: deployer,
             args: [streamFactory.address],
@@ -69,7 +73,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
             skipIfAlreadyDeployed: false,
             deterministicDeployment: false,
         });
-        console.log(`Stream implementation deployed at: ${streamImplementation.address}`);
+        console.log(`Stream implementation (mother contract) deployed at: ${streamImplementation.address}`);
 
         // Get contract instance for initialization
         const StreamFactoryContract = await hre.ethers.getContractFactory("StreamFactory");

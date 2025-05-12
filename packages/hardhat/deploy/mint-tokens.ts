@@ -1,13 +1,11 @@
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { DeployFunction } from "hardhat-deploy/types";
-import { defaultStreamConfig, StreamConfig } from "./config/stream-config";
-import { ethers, parseEther } from "ethers";
+import { parseEther } from "ethers";
 
 /**
- * Deploys the ERC20 tokens needed for the Stream contract.
- * This script is intended for local development and testing.
+ * Mints tokens to addresses using existing token contracts.
  */
-const deployTokens: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
+const mintTokens: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     try {
         // Get deployer account
         const { deployer, creator, subscriber1, subscriber2 } = await hre.getNamedAccounts();
@@ -16,46 +14,21 @@ const deployTokens: DeployFunction = async function (hre: HardhatRuntimeEnvironm
         console.log(`Subscriber1 address: ${subscriber1}`);
         console.log(`Subscriber2 address: ${subscriber2}`);
 
-        let deployerBalance = await hre.ethers.provider.getBalance(deployer);
-        console.log(`Deployer balance: ${deployerBalance}`);
+        const { get } = hre.deployments;
 
-        const { deploy, get } = hre.deployments;
-
-        // Deploy or get existing in token
-        console.log(`Deploying or getting in token...`);
-        const inTokenDeployment = await deploy("InToken", {
-            from: deployer,
-            contract: "ERC20Mock",
-            args: [
-                "StreamInToken",
-                "STI",
-            ],
-            log: true,
-            autoMine: true,
-        });
+        // Get existing token addresses
+        console.log(`Getting existing token addresses...`);
+        const inTokenDeployment = await get("InToken");
+        const outTokenDeployment = await get("OutToken");
 
         console.log(`InToken at: ${inTokenDeployment.address}`);
-
-        // Deploy or get existing out token
-        console.log(`Deploying or getting out token...`);
-        const outTokenDeployment = await deploy("OutToken", {
-            from: deployer,
-            contract: "ERC20Mock",
-            args: [
-                "StreamOutToken",
-                "STO",
-            ],
-            log: true,
-            autoMine: true,
-        });
-
         console.log(`OutToken at: ${outTokenDeployment.address}`);
 
         // Get contract instances
         const inTokenContract = await hre.ethers.getContractAt("ERC20Mock", inTokenDeployment.address);
         const outTokenContract = await hre.ethers.getContractAt("ERC20Mock", outTokenDeployment.address);
 
-        // Always mint tokens regardless of deployment status
+        // Mint tokens
         console.log("Minting in tokens for testing...");
         const inTokenMintAmount = parseEther("1000000"); // 1 million tokens for testing
         const inTokenMintTx = await inTokenContract.mint(subscriber1, inTokenMintAmount);
@@ -75,15 +48,15 @@ const deployTokens: DeployFunction = async function (hre: HardhatRuntimeEnvironm
         console.log(`Minted ${outTokenMintAmount} out tokens to creator`);
         return true;
     } catch (error: unknown) {
-        console.error("Token deployment failed:", error instanceof Error ? error.message : error);
+        console.error("Token minting failed:", error instanceof Error ? error.message : error);
         throw error;
     }
 };
 
 // Add tags for selective deployment
-deployTokens.tags = ['tokens'];
+mintTokens.tags = ['mint-tokens'];
 
 // Add a unique ID for the deployment script
-deployTokens.id = 'deploy_tokens';
+mintTokens.id = 'mint_tokens';
 
-export default deployTokens;
+export default mintTokens; 

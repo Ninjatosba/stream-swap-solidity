@@ -20,7 +20,8 @@
     "verify": "hardhat etherscan-verify",
     "sync-abis": "hardhat sync-abis",
     "generate-indexer-types": "typechain --target viem --out-dir ../indexer/types '../indexer/abis/**/*.json'",
-    "sync-all": "yarn compile && yarn sync-abis && yarn generate-indexer-types"
+    "sync-all": "yarn compile && yarn sync-abis && yarn generate-indexer-types",
+    "mint-tokens": "hardhat mint-tokens"
   },
   "dependencies": {
     "@inquirer/password": "^4.0.2",
