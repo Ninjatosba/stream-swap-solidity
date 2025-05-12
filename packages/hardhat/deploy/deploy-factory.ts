@@ -14,6 +14,10 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     // Get environment from args
     const environment = process.argv.indexOf("--network") !== -1 ? process.argv[process.argv.indexOf("--network") + 1] : "default";
 
+    // block height
+    const blockHeight = await hre.ethers.provider.getBlockNumber();
+    console.log(`Block height: ${blockHeight}`);
+
     // get in token address
     let inTokenAddress: string;
     try {
@@ -48,6 +52,8 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     console.log(`PoolWrapper contract deployed at: ${poolWrapperAddress}`);
     console.log(`Deployer: ${deployer}`);
 
+    console.log("deployer balance ", await hre.ethers.provider.getBalance(deployer));
+
     try {
         // Deploy StreamFactory with just the protocol admin
         const streamFactory = await deploy("StreamFactory", {
@@ -55,12 +61,11 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
             args: [deployer],
             log: true,
             skipIfAlreadyDeployed: false,
-            deterministicDeployment: false,
-            gasLimit: 30_000_000,
+            deterministicDeployment: false
         });
         console.log(`StreamFactory contract deployed at: ${streamFactory.address}`);
 
-        // Deploy Stream implementation
+        // Deploy Stream implementation (mother contract)
         const streamImplementation = await deploy("Stream", {
             from: deployer,
             args: [streamFactory.address],
@@ -68,7 +73,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
             skipIfAlreadyDeployed: false,
             deterministicDeployment: false,
         });
-        console.log(`Stream implementation deployed at: ${streamImplementation.address}`);
+        console.log(`Stream implementation (mother contract) deployed at: ${streamImplementation.address}`);
 
         // Get contract instance for initialization
         const StreamFactoryContract = await hre.ethers.getContractFactory("StreamFactory");
@@ -91,10 +96,15 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
 
         // Initialize the factory
         const factory = (await StreamFactoryContract.attach(streamFactory.address)) as StreamFactory;
-        const tx = await factory.initialize(initMessage);
-        await tx.wait();
-        console.log(`StreamFactory initialized with ${environment} configuration`);
-        console.log(`Factory params: ${JSON.stringify(initMessage)}`);
+        const isInitialized = await factory.initialized();
+        if (!isInitialized) {
+            const tx = await factory.initialize(initMessage);
+            await tx.wait();
+            console.log(`StreamFactory initialized with ${environment} configuration`);
+            console.log(`Factory params: ${JSON.stringify(initMessage)}`);
+        } else {
+            console.log(`StreamFactory already initialized`);
+        }
 
     } catch (error: unknown) {
         console.error("Deployment failed:", error instanceof Error ? error.message : error);

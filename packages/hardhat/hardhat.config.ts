@@ -13,19 +13,17 @@ import { task } from "hardhat/config";
 import generateTsAbis from "./scripts/generateTsAbis";
 import path from "path";
 import fs from "fs";
+import "./tasks/create-stream";
+import "./tasks/mint-tokens";
 // If not set, it uses ours Alchemy's default API key.
 // You can get your own at https://dashboard.alchemyapi.io
 const providerApiKey = process.env.ALCHEMY_API_KEY || "oKxs-03sij-U_N0iOlrSsZFr29-IqbuF";
 // If not set, it uses the hardhat account 0 private key.
 // You can generate a random account with `yarn generate` or `yarn account:import` to import your existing PK
-const deployerPrivateKey =
-  "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
-const creatorPrivateKey =
-  process.env.__RUNTIME_CREATOR_PRIVATE_KEY ?? "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d";
-const subscriber1PrivateKey =
-  process.env.__RUNTIME_SUBSCRIBER1_PRIVATE_KEY ?? "0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a";
-const subscriber2PrivateKey =
-  process.env.__RUNTIME_SUBSCRIBER2_PRIVATE_KEY ?? "0x7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6";
+const deployerPrivateKey = process.env.__RUNTIME_DEPLOYER_PRIVATE_KEY ?? "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
+const creatorPrivateKey = process.env.__RUNTIME_CREATOR_PRIVATE_KEY ?? "25ff6f253faf11e2e59b5706384ac7beeb1c1cf6f1e1920d142021d36b9f4b87";
+const subscriber1PrivateKey = process.env.__RUNTIME_SUBSCRIBER1_PRIVATE_KEY ?? "da397ce2ccd9543307a7f467872c12b58f00a6744950fcbd1c12bf8f6786af0e";
+const subscriber2PrivateKey = process.env.__RUNTIME_SUBSCRIBER2_PRIVATE_KEY ?? "0x7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6";
 // If not set, it uses our block explorers default API keys.
 const etherscanApiKey = process.env.ETHERSCAN_MAINNET_API_KEY || "DNXJA8RX2Q3VZ4URQIWP7Z68CJXQZSC6AW";
 const etherscanOptimisticApiKey = process.env.ETHERSCAN_OPTIMISTIC_API_KEY || "RM62RDISS1RH448ZY379NX625ASG1N633R";
@@ -72,8 +70,8 @@ const config: HardhatUserConfig = {
     hardhat: {
       forking: {
         url: `https://eth-mainnet.alchemyapi.io/v2/${providerApiKey}`,
-        enabled: process.env.MAINNET_FORKING_ENABLED === "true",
-        blockNumber: 19000000 // Fork from a recent block
+        enabled: process.env.MAINNET_FORKING_ENABLED === "false",
+        blockNumber: 0
       },
       mining: {
         auto: true,
@@ -91,7 +89,7 @@ const config: HardhatUserConfig = {
       timeout: 60000,
       mining: {
         auto: true,
-        interval: 0  // Add a 1 second interval between blocks
+        interval: 1  // Add a 1 second interval between blocks
       },
       chainId: 31337
     },
