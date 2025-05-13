@@ -15,6 +15,7 @@ import path from "path";
 import fs from "fs";
 import "./tasks/create-stream";
 import "./tasks/mint-tokens";
+import "./tasks/subscribe";
 // If not set, it uses ours Alchemy's default API key.
 // You can get your own at https://dashboard.alchemyapi.io
 const providerApiKey = process.env.ALCHEMY_API_KEY || "oKxs-03sij-U_N0iOlrSsZFr29-IqbuF";

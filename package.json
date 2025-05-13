@@ -42,6 +42,7 @@
     "next:serve": "yarn workspace @se-2/nextjs serve",
     "precommit": "lint-staged",
     "start": "yarn workspace @se-2/nextjs dev",
+    "subscribe": "yarn workspace @se-2/hardhat hardhat subscribe",
     "test": "yarn hardhat:test",
     "vercel": "yarn workspace @se-2/nextjs vercel",
     "vercel:yolo": "yarn workspace @se-2/nextjs vercel:yolo",

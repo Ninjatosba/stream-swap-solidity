@@ -53,7 +53,7 @@ task("create-stream", "Creates a new stream using the deployed factory")
         // Get current block timestamp
         const latestBlock = await ethers.provider.getBlock("latest");
         const nowSeconds = latestBlock?.timestamp ?? 0;
-        const bootstrappingStartTime = nowSeconds + 500;
+        const bootstrappingStartTime = nowSeconds + 10;
         const streamStartTime = nowSeconds + 6500;
         const streamEndTime = nowSeconds + 106500;
 
