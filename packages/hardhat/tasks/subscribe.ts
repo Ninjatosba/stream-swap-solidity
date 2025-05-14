@@ -1,6 +1,6 @@
 import { task } from "hardhat/config";
 import { parseEther } from "ethers";
-import { ERC20Mock } from "../typechain-types";
+import { ERC20Mock, Stream } from "../typechain-types";
 
 task("subscribe", "Subscribe to a stream")
     .addParam("stream", "The address of the stream to subscribe to")
@@ -15,7 +15,7 @@ task("subscribe", "Subscribe to a stream")
         console.log(`Subscriber address: ${subscriberAddress}`);
 
         // Get stream contract
-        const stream = await ethers.getContractAt("Stream", taskArgs.stream);
+        const stream = await ethers.getContractAt("Stream", taskArgs.stream) as unknown as Stream;
         console.log(`Stream address: ${taskArgs.stream}`);
 
         // Get in token address from stream
