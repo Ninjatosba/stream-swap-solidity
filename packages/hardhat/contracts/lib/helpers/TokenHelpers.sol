@@ -49,11 +49,10 @@ library TokenHelpers {
      * @param tokenAddress Address of the token to transfer
      * @param recipient Address of the recipient
      * @param amount Amount of tokens to transfer
-     * @return bool True if the transfer was successful
      */
-    function safeTokenTransfer(address tokenAddress, address recipient, uint256 amount) internal returns (bool) {
+    function safeTokenTransfer(address tokenAddress, address recipient, uint256 amount) internal {
         if (amount == 0 || recipient == address(0)) {
-            return true;
+            return;
         }
 
         IERC20 token = IERC20(tokenAddress);
@@ -61,7 +60,6 @@ library TokenHelpers {
         if (!success) {
             revert IStreamErrors.PaymentFailed();
         }
-        return true;
     }
 
     /**
@@ -69,13 +67,38 @@ library TokenHelpers {
      * @param tokenAddress The address of the token to approve
      * @param spender The address to approve the allowance to
      * @param amount The amount of tokens to approve
-     * @return bool True if the approval was successful
      */
-    function safeTokenApprove(address tokenAddress, address spender, uint256 amount) internal returns (bool) {
+    function safeTokenApprove(address tokenAddress, address spender, uint256 amount) internal {
         IERC20 token = IERC20(tokenAddress);
         bool success = token.approve(spender, amount);
         if (!success) {
             revert IStreamErrors.PaymentFailed();
+        }
+    }
+
+    /**
+     * @dev Safely transfers tokens from one address to another
+     * @param tokenAddress Address of the token to transfer
+     * @param from Address to transfer from
+     * @param to Address to transfer to
+     * @param amount Amount of tokens to transfer
+     * @return success True if the transfer was successful
+     */
+    function safeTransferFrom(
+        address tokenAddress,
+        address from,
+        address to,
+        uint256 amount
+    ) internal returns (bool success) {
+        if (amount == 0 || to == address(0)) {
+            return true;
+        }
+
+        IERC20 token = IERC20(tokenAddress);
+        try token.transferFrom(from, to, amount) returns (bool result) {
+            return result;
+        } catch {
+            return false;
         }
     }
 }
