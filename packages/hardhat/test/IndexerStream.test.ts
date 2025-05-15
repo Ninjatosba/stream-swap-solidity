@@ -64,7 +64,6 @@ describe("Stream Indexer Tests", function () {
 
             await factory.connect(accounts.protocolAdmin).updateFeeCollector(newFeeCollector);
 
-            await new Promise(resolve => setTimeout(resolve, 2000));
         });
 
         it("should index accepted tokens updates", async function () {
@@ -76,7 +75,6 @@ describe("Stream Indexer Tests", function () {
 
             await factory.connect(accounts.protocolAdmin).updateAcceptedTokens(tokensToAdd, tokensToRemove);
 
-            await new Promise(resolve => setTimeout(resolve, 2000));
         });
 
         it("should index stream creation", async function () {
@@ -134,7 +132,6 @@ describe("Stream Indexer Tests", function () {
 
             await factory.connect(accounts.creator).createStream(createStreamMessage);
 
-            await new Promise(resolve => setTimeout(resolve, 2000));
         });
     });
 }); 

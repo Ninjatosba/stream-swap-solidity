@@ -188,9 +188,11 @@ contract StreamFactory is IStreamEvents, IStreamFactoryErrors {
         streamAddresses[currentStreamId] = address(stream);
 
         emit StreamCreated(
+            address(this),
             createStreamMessage.outSupplyToken,
             createStreamMessage.inSupplyToken,
-            address(this),
+            address(stream),
+            address(positionStorage),
             createStreamMessage.streamOutAmount,
             createStreamMessage.bootstrappingStartTime,
             createStreamMessage.streamStartTime,
@@ -198,7 +200,6 @@ contract StreamFactory is IStreamEvents, IStreamFactoryErrors {
             createStreamMessage.threshold,
             createStreamMessage.name,
             params.tosVersion,
-            address(stream),
             currentStreamId
         );
         currentStreamId++;

@@ -6,9 +6,11 @@ import "../lib/math/DecimalMath.sol";
 
 interface IStreamEvents {
     event StreamCreated(
-        address indexed streamOutToken,
-        address indexed streamInToken,
         address indexed streamFactoryAddress,
+        address streamOutToken,
+        address streamInToken,
+        address streamAddress,
+        address positionStorageAddress,
         uint256 streamOutAmount,
         uint256 bootstrappingStartTime,
         uint256 streamStartTime,
@@ -16,7 +18,6 @@ interface IStreamEvents {
         uint256 threshold,
         string streamName,
         string tosVersion,
-        address streamAddress,
         uint16 streamId
     );
 
