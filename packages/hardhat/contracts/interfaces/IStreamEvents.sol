@@ -16,20 +16,33 @@ interface IStreamEvents {
         uint256 streamStartTime,
         uint256 streamEndTime,
         uint256 threshold,
-        string streamName,
+        string metadataIpfsHash,
         string tosVersion,
         uint16 streamId
     );
 
     event StreamSynced(address indexed streamAddress, StreamTypes.Status mainStatus, uint256 lastUpdated);
 
+    event StreamStateUpdated(
+        address indexed streamAddress,
+        uint256 lastUpdated,
+        Decimal distIndex,
+        uint256 outRemaining,
+        uint256 inSupply,
+        uint256 spentIn,
+        Decimal currentStreamedPrice
+    );
+
     event Subscribed(
         address indexed streamAddress,
         address indexed subscriber,
-        uint256 amountIn,
-        uint256 newShares,
-        uint256 totalSharesAfter,
-        uint256 totalInSupplyAfter
+        uint256 positionInBalance,
+        uint256 positionShares,
+        uint256 positionLastUpdateTime,
+        uint256 positionSpentIn,
+        uint256 positionPurchased,
+        uint256 streamInSupply,
+        uint256 streamShares
     );
 
     event StreamSynced(
@@ -48,10 +61,13 @@ interface IStreamEvents {
     event Withdrawn(
         address indexed streamAddress,
         address indexed subscriber,
-        uint256 remainingInBalance,
-        uint256 remainingShares,
-        uint256 totalInSupply,
-        uint256 totalShares
+        uint256 positionInBalance,
+        uint256 positionShares,
+        uint256 positionLastUpdateTime,
+        uint256 positionSpentIn,
+        uint256 positionPurchased,
+        uint256 streamInSupply,
+        uint256 streamShares
     );
 
     event ExitRefunded(
@@ -73,16 +89,10 @@ interface IStreamEvents {
         address indexed creator,
         uint256 creatorRevenue,
         uint256 exitFeeAmount,
-        uint256 refundedOutAmount,
-        StreamTypes.Status status
+        uint256 refundedOutAmount
     );
 
-    event FinalizedRefunded(
-        address indexed streamAddress,
-        address indexed creator,
-        uint256 refundedOutAmount,
-        StreamTypes.Status status
-    );
+    event FinalizedRefunded(address indexed streamAddress, address indexed creator, uint256 refundedOutAmount);
 
     event ParamsUpdated(
         address indexed factory,

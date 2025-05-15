@@ -48,8 +48,8 @@ describe("High Value Stream Scenarios", function () {
             await ethers.provider.send("evm_mine", []);
             await contracts.stream.syncStreamExternal();
             // Update positions
-            await contracts.stream.connect(accounts.subscriber1).syncPosition(accounts.subscriber1.address);
-            await contracts.stream.connect(accounts.subscriber2).syncPosition(accounts.subscriber2.address);
+            await contracts.stream.connect(accounts.subscriber1).syncPositionExternal(accounts.subscriber1.address);
+            await contracts.stream.connect(accounts.subscriber2).syncPositionExternal(accounts.subscriber2.address);
 
             // Check positions
             const whalePosition = await contracts.stream.getPosition(accounts.subscriber1.address);

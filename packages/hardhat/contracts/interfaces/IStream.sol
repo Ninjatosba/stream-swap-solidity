@@ -20,7 +20,7 @@ interface IStream {
 
     function syncStreamExternal() external;
 
-    function syncPosition(address user) external;
+    function syncPositionExternal(address user) external;
 
     function cancelStream() external;
 

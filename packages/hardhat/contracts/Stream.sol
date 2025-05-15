@@ -50,19 +50,12 @@ contract Stream is IStreamErrors, IStreamEvents {
         address _positionStorageAddress
     ) external onlyOnce onlyAdmin {
         // Validate that output token is a valid ERC20
-        if (!TokenHelpers.isValidERC20(createStreamMessage.outSupplyToken, msg.sender)) {
-            revert InvalidOutSupplyToken();
-        }
+        if (!TokenHelpers.isValidERC20(createStreamMessage.outSupplyToken, msg.sender)) revert InvalidOutSupplyToken();
         // Check if the contract has enough balance of output token
         uint256 totalRequiredAmount = createStreamMessage.streamOutAmount +
             createStreamMessage.poolInfo.poolOutSupplyAmount;
-        if (!TokenHelpers.hasEnoughBalance(createStreamMessage.outSupplyToken, address(this), totalRequiredAmount)) {
+        if (!TokenHelpers.hasEnoughBalance(createStreamMessage.outSupplyToken, address(this), totalRequiredAmount))
             revert InsufficientOutAmount();
-        }
-        // Validate that in token is a valid ERC20
-        if (!TokenHelpers.isValidERC20(createStreamMessage.inSupplyToken, msg.sender)) {
-            revert InvalidInSupplyToken();
-        }
         // Validate and set creator vesting info
         if (createStreamMessage.creatorVesting.isVestingEnabled) {
             // Validate vesting duration
@@ -128,7 +121,7 @@ contract Stream is IStreamErrors, IStreamEvents {
             outSupplyToken: createStreamMessage.outSupplyToken
         });
         // Initialize stream metadata
-        streamMetadata = StreamTypes.StreamMetadata({ name: createStreamMessage.name });
+        streamMetadata = createStreamMessage.metadata;
         // Initialize stream status
         streamStatus = StreamTypes.Status.Waiting;
         // Initialize stream times
@@ -139,25 +132,39 @@ contract Stream is IStreamErrors, IStreamEvents {
         });
     }
 
-    function syncStream(
-        StreamTypes.StreamState memory state,
-        StreamTypes.StreamTimes memory times,
-        uint256 nowTime
-    ) internal pure returns (StreamTypes.StreamState memory) {
+    /**
+     * @dev Synchronizes the stream state based on the current timestamp
+     * @param state The current stream state to update
+     * @return The updated stream state
+     */
+    function syncStream(StreamTypes.StreamState memory state) internal returns (StreamTypes.StreamState memory) {
+        StreamTypes.StreamTimes memory times = loadStreamTimes();
+
         Decimal memory diff = StreamMathLib.calculateDiff(
-            nowTime,
+            block.timestamp,
             times.streamStartTime,
             times.streamEndTime,
             state.lastUpdated
         );
-        state.lastUpdated = nowTime;
 
         if (diff.value == 0) {
             return state;
         }
 
-        StreamTypes.StreamState memory updatedState = StreamMathLib.calculateUpdatedState(state, diff);
-        return updatedState;
+        state = StreamMathLib.calculateUpdatedState(state, diff);
+        state.lastUpdated = block.timestamp;
+
+        emit StreamStateUpdated(
+            address(this),
+            state.lastUpdated,
+            state.distIndex,
+            state.outRemaining,
+            state.inSupply,
+            state.spentIn,
+            state.currentStreamedPrice
+        );
+
+        return state;
     }
 
     function saveStreamState(StreamTypes.StreamState memory state) internal {
@@ -168,11 +175,32 @@ contract Stream is IStreamErrors, IStreamEvents {
         return streamState;
     }
 
+    // ============ Position Validation ============
+
+    /**
+     * @dev Validates a position and reverts if invalid
+     * @param position The position to validate
+     * @param user The address of the user whose position is being validated
+     * @custom:error InvalidPosition if position is invalid or inactive
+     */
+    function validatePosition(PositionTypes.Position memory position, address user) internal pure {
+        if (position.shares == 0) {
+            revert InvalidPosition(user, position.shares, position.exitDate, "Position has no shares");
+        }
+        if (position.exitDate != 0) {
+            revert InvalidPosition(user, position.shares, position.exitDate, "Position has already exited");
+        }
+    }
+
+    // ============ Stream State Validation ============
+
     /**
      * @dev Validates if an operation is allowed based on the current stream status
+     * @param currentStatus Current status to check
      * @param allowedStatuses Array of allowed statuses for the operation
+     * @custom:error OperationNotAllowed if current status is not in allowed statuses
      */
-    function isOperationAllowed(
+    function validateOperationAllowed(
         StreamTypes.Status currentStatus,
         StreamTypes.Status[] memory allowedStatuses
     ) internal pure {
@@ -185,31 +213,130 @@ contract Stream is IStreamErrors, IStreamEvents {
     }
 
     /**
-     * @dev Checks if the threshold has been reached for stream finalization
+     * @dev Validates if the threshold has been reached for stream finalization
+     * @param state The stream state to check
      * @return bool True if the threshold has been reached, false otherwise
      */
     function isThresholdReached(StreamTypes.StreamState memory state) internal pure returns (bool) {
         return state.spentIn >= state.threshold;
     }
 
+    // ============ Access Control ============
+
     /**
-     * @dev Validates a position exists and is active
-     * @param position The position to validate
-     * @return bool True if the position is valid and active
+     * @dev Ensures sender is the creator
+     * @custom:error Unauthorized if sender is not the creator
      */
-    function isValidActivePosition(PositionTypes.Position memory position) internal pure returns (bool) {
-        return position.shares > 0 && position.exitDate == 0;
+    function validateIsCreator() internal view {
+        if (msg.sender != creator) revert Unauthorized();
+    }
+
+    /**
+     * @dev Ensures sender is the protocol admin
+     * @custom:error Unauthorized if sender is not the protocol admin
+     */
+    function validateIsProtocolAdmin() internal view {
+        StreamFactory factoryContract = StreamFactory(streamFactoryAddress);
+        address protocolAdmin = factoryContract.getParams().protocolAdmin;
+        if (msg.sender != protocolAdmin) revert Unauthorized();
+    }
+
+    // ============ Amount Validation ============
+
+    /**
+     * @dev Ensures amount is not zero
+     * @param amount Amount to check
+     * @custom:error InvalidAmount if amount is zero
+     */
+    function validateAmountNotZero(uint256 amount) internal pure {
+        if (amount == 0) revert InvalidAmount();
+    }
+
+    /**
+     * @dev Ensures withdrawal amount does not exceed balance
+     * @param cap Amount to withdraw
+     * @param balance Available balance
+     * @custom:error WithdrawAmountExceedsBalance if cap exceeds balance
+     */
+    function validateWithinBalance(uint256 cap, uint256 balance) internal pure {
+        if (cap > balance) revert WithdrawAmountExceedsBalance(cap);
+    }
+
+    function subscribe(uint256 amountIn) external payable {
+        validateAmountNotZero(amountIn);
+
+        // Load status and times
+        StreamTypes.Status status = loadStreamStatus();
+        StreamTypes.StreamTimes memory times = loadStreamTimes();
+
+        // Update status and validate operation
+        status = syncStreamStatus(status, times, block.timestamp);
+        StreamTypes.Status[] memory allowedStatuses = new StreamTypes.Status[](2);
+        allowedStatuses[0] = StreamTypes.Status.Bootstrapping;
+        allowedStatuses[1] = StreamTypes.Status.Active;
+        validateOperationAllowed(status, allowedStatuses);
+        saveStreamStatus(status);
+
+        // Load position and stream state
+        PositionTypes.Position memory position = loadPosition(msg.sender);
+        StreamTypes.StreamState memory state = loadStream();
+        state = syncStream(state);
+
+        // Only sync position if it exists (has shares)
+        if (position.shares > 0) {
+            position = StreamMathLib.syncPosition(
+                position,
+                state.distIndex,
+                state.shares,
+                state.inSupply,
+                block.timestamp
+            );
+        }
+
+        // Transfer tokens
+        if (!TokenHelpers.safeTransferFrom(streamTokens.inSupplyToken, msg.sender, address(this), amountIn)) {
+            revert PaymentFailed();
+        }
+
+        // Calculate new shares
+        uint256 newShares = position.shares == 0
+            ? StreamMathLib.computeSharesAmount(amountIn, false, state.inSupply, state.shares)
+            : StreamMathLib.computeSharesAmount(amountIn, true, state.inSupply, position.shares);
+
+        // Update position
+        position.inBalance = position.inBalance + amountIn;
+        position.shares = position.shares + newShares;
+        position.lastUpdateTime = block.timestamp;
+
+        // Update stream state
+        state.inSupply = state.inSupply + amountIn;
+        state.shares = state.shares + newShares;
+
+        // Save updated states
+        savePosition(msg.sender, position);
+        saveStream(state);
+
+        emit Subscribed(
+            address(this),
+            msg.sender,
+            position.inBalance,
+            newShares,
+            position.lastUpdateTime,
+            position.spentIn,
+            position.purchased,
+            state.inSupply,
+            state.shares
+        );
     }
 
     function withdraw(uint256 cap) external {
-        assertAmountNotZero(cap);
+        validateAmountNotZero(cap);
+
         // Load position once
         PositionTypes.Position memory position = loadPosition(msg.sender);
 
-        // Check if position is valid and active
-        if (!isValidActivePosition(position)) {
-            revert InvalidPosition();
-        }
+        // Validate position
+        validatePosition(position, msg.sender);
 
         // load stream times
         StreamTypes.StreamTimes memory times = loadStreamTimes();
@@ -222,22 +349,20 @@ contract Stream is IStreamErrors, IStreamEvents {
         StreamTypes.Status[] memory allowedStatuses = new StreamTypes.Status[](2);
         allowedStatuses[0] = StreamTypes.Status.Active;
         allowedStatuses[1] = StreamTypes.Status.Bootstrapping;
-        isOperationAllowed(status, allowedStatuses);
+        validateOperationAllowed(status, allowedStatuses);
 
         // Save the updated status
         saveStreamStatus(status);
 
         // Load and update stream state
         StreamTypes.StreamState memory state = loadStream();
-        state = syncStream(state, times, block.timestamp);
+        state = syncStream(state);
 
         // Sync position with the updated state
         position = StreamMathLib.syncPosition(position, state.distIndex, state.shares, state.inSupply, block.timestamp);
 
         // Check if withdrawal amount exceeds position balance
-        if (cap > position.inBalance) {
-            revert WithdrawAmountExceedsBalance(cap);
-        }
+        validateWithinBalance(cap, position.inBalance);
 
         uint256 shareDeduction = 0;
 
@@ -255,90 +380,23 @@ contract Stream is IStreamErrors, IStreamEvents {
         state.inSupply = state.inSupply - cap;
         state.shares = state.shares - shareDeduction;
 
-        // Save everything at the end
+        // Save position and stream state
         savePosition(msg.sender, position);
         saveStream(state);
 
         // Token transfer
         TokenHelpers.safeTokenTransfer(streamTokens.inSupplyToken, msg.sender, cap);
-        emit Withdrawn(address(this), msg.sender, position.inBalance, position.shares, state.inSupply, state.shares);
-    }
-
-    function subscribe(uint256 amountIn) external payable {
-        assertAmountNotZero(amountIn);
-        // Load status once
-        StreamTypes.Status status = loadStreamStatus();
-        StreamTypes.StreamTimes memory times = loadStreamTimes();
-        // Update the loaded status
-        status = syncStreamStatus(status, times, block.timestamp);
-        // Check if operation is allowed with the updated status
-        StreamTypes.Status[] memory allowedStatuses = new StreamTypes.Status[](2);
-        allowedStatuses[0] = StreamTypes.Status.Bootstrapping;
-        allowedStatuses[1] = StreamTypes.Status.Active;
-        isOperationAllowed(status, allowedStatuses);
-        // Save the updated status
-        saveStreamStatus(status);
-
-        // Validate if sender has enough tokens
-        IERC20 streamInToken = IERC20(streamTokens.inSupplyToken);
-        uint256 streamInTokenBalance = streamInToken.balanceOf(msg.sender);
-        if (streamInTokenBalance < amountIn) {
-            revert InsufficientTokenPayment(amountIn, streamInTokenBalance);
-        }
-
-        // Transfer tokens from sender to this contract
-        bool success = streamInToken.transferFrom(msg.sender, address(this), amountIn);
-        if (!success) {
-            revert PaymentFailed();
-        }
-        // Load position once
-        PositionTypes.Position memory position = loadPosition(msg.sender);
-
-        // Load stream state once
-        StreamTypes.StreamState memory state = loadStream();
-
-        // Update the stream state
-        state = syncStream(state);
-
-        uint256 newShares = 0;
-
-        if (position.shares == 0) {
-            // New position case
-            newShares = StreamMathLib.computeSharesAmount(amountIn, false, state.inSupply, state.shares);
-            position = PositionTypes.Position({
-                inBalance: amountIn,
-                shares: newShares,
-                index: state.distIndex,
-                lastUpdateTime: block.timestamp,
-                pendingReward: DecimalMath.fromNumber(0),
-                spentIn: 0,
-                purchased: 0,
-                exitDate: 0
-            });
-        } else {
-            // Update existing position
-            newShares = StreamMathLib.computeSharesAmount(amountIn, false, state.inSupply, state.shares);
-            position = StreamMathLib.syncPosition(
-                position,
-                state.distIndex,
-                state.shares,
-                state.inSupply,
-                block.timestamp
-            );
-            position.inBalance += amountIn;
-            position.shares += newShares;
-        }
-
-        // Update StreamState
-        state.inSupply += amountIn;
-        state.shares += newShares;
-
-        // Save everything once we're done modifying
-        savePosition(msg.sender, position);
-        saveStream(state);
-
-        // Emit event
-        emit Subscribed(address(this), msg.sender, amountIn, newShares, state.inSupply, state.shares);
+        emit Withdrawn(
+            address(this),
+            msg.sender,
+            position.inBalance,
+            position.shares,
+            block.timestamp,
+            position.spentIn,
+            position.purchased,
+            state.inSupply,
+            state.shares
+        );
     }
 
     function exitStream() external {
@@ -346,9 +404,7 @@ contract Stream is IStreamErrors, IStreamEvents {
         PositionTypes.Position memory position = loadPosition(msg.sender);
 
         // Check if position is valid and active
-        if (!isValidActivePosition(position)) {
-            revert InvalidPosition();
-        }
+        validatePosition(position, msg.sender);
 
         // Load and update stream state
         StreamTypes.StreamState memory state = loadStream();
@@ -446,24 +502,8 @@ contract Stream is IStreamErrors, IStreamEvents {
             (status == StreamTypes.Status.Ended && !thresholdReached);
     }
 
-    function deductExitFee(
-        Decimal memory exitFeeRatio,
-        address tokenAddress,
-        address feeCollector,
-        uint256 spentIn
-    ) internal returns (uint256, uint256) {
-        // Calculate exit fee
-        (uint256 feeAmount, uint256 creatorRevenue) = StreamMathLib.calculateExitFee(spentIn, exitFeeRatio);
-
-        // Transfer fee to fee collector if needed
-        if (feeAmount > 0) {
-            TokenHelpers.safeTokenTransfer(tokenAddress, feeCollector, feeAmount);
-        }
-        return (creatorRevenue, feeAmount);
-    }
-
     function finalizeStream() external {
-        assertIsCreator();
+        validateIsCreator();
 
         // Get factory params
         StreamFactory factoryContract = StreamFactory(streamFactoryAddress);
@@ -477,11 +517,11 @@ contract Stream is IStreamErrors, IStreamEvents {
         // Check if operation is allowed
         StreamTypes.Status[] memory allowedStatuses = new StreamTypes.Status[](1);
         allowedStatuses[0] = StreamTypes.Status.Ended;
-        isOperationAllowed(status, allowedStatuses);
+        validateOperationAllowed(status, allowedStatuses);
 
         // Load and update stream state
         StreamTypes.StreamState memory state = loadStream();
-        state = syncStream(state, times, block.timestamp);
+        state = syncStream(state);
 
         bool thresholdReached = isThresholdReached(state);
 
@@ -490,12 +530,9 @@ contract Stream is IStreamErrors, IStreamEvents {
             Decimal memory exitFeeRatio = params.exitFeeRatio;
 
             // Calculate exit fee
-            (uint256 creatorRevenue, uint256 feeAmount) = deductExitFee(
-                exitFeeRatio,
-                streamTokens.inSupplyToken,
-                feeCollector,
-                state.spentIn
-            );
+            (uint256 feeAmount, uint256 creatorRevenue) = StreamMathLib.calculateExitFee(state.spentIn, exitFeeRatio);
+            // Transfer fee to fee collector
+            TokenHelpers.safeTokenTransfer(streamTokens.inSupplyToken, feeCollector, feeAmount);
 
             // Handle pool creation if configured
             if (postStreamActions.poolInfo.poolOutSupplyAmount > 0) {
@@ -548,7 +585,7 @@ contract Stream is IStreamErrors, IStreamEvents {
                 TokenHelpers.safeTokenTransfer(streamTokens.outSupplyToken, creator, state.outRemaining);
             }
 
-            emit FinalizedStreamed(address(this), creator, creatorRevenue, feeAmount, state.outRemaining, status);
+            emit FinalizedStreamed(address(this), creator, creatorRevenue, feeAmount, state.outRemaining);
         } else {
             // Update status
             status = StreamTypes.Status.FinalizedRefunded;
@@ -556,7 +593,7 @@ contract Stream is IStreamErrors, IStreamEvents {
             // Refund out tokens to creator
             TokenHelpers.safeTokenTransfer(streamTokens.outSupplyToken, creator, state.outSupply);
 
-            emit FinalizedRefunded(address(this), creator, state.outSupply, status);
+            emit FinalizedRefunded(address(this), creator, state.outSupply);
         }
 
         // Save everything
@@ -568,7 +605,7 @@ contract Stream is IStreamErrors, IStreamEvents {
         // Load, update and save stream state
         StreamTypes.StreamState memory state = loadStream();
         StreamTypes.StreamTimes memory times = loadStreamTimes();
-        state = syncStream(state, times, block.timestamp);
+        state = syncStream(state);
         saveStream(state);
 
         // Load, update and save status
@@ -588,11 +625,10 @@ contract Stream is IStreamErrors, IStreamEvents {
         );
     }
 
-    function syncPosition(address user) external {
+    function syncPositionExternal(address user) external {
         PositionTypes.Position memory position = loadPosition(user);
         StreamTypes.StreamState memory state = loadStream();
-        StreamTypes.StreamTimes memory times = loadStreamTimes();
-        state = syncStream(state, times, block.timestamp);
+        state = syncStream(state);
         position = StreamMathLib.syncPosition(position, state.distIndex, state.shares, state.inSupply, block.timestamp);
         savePosition(user, position);
         saveStream(state);
@@ -600,7 +636,7 @@ contract Stream is IStreamErrors, IStreamEvents {
     }
 
     function cancelStream() external {
-        assertIsCreator();
+        validateIsCreator();
 
         // Load and update status
         StreamTypes.Status status = loadStreamStatus();
@@ -610,7 +646,7 @@ contract Stream is IStreamErrors, IStreamEvents {
         // Check if operation is allowed
         StreamTypes.Status[] memory allowedStatuses = new StreamTypes.Status[](1);
         allowedStatuses[0] = StreamTypes.Status.Waiting;
-        isOperationAllowed(status, allowedStatuses);
+        validateOperationAllowed(status, allowedStatuses);
 
         // Refund out tokens to creator
         TokenHelpers.safeTokenTransfer(streamTokens.outSupplyToken, creator, streamState.outSupply);
@@ -623,7 +659,7 @@ contract Stream is IStreamErrors, IStreamEvents {
     }
 
     function cancelWithAdmin() external {
-        assertIsProtocolAdmin();
+        validateIsProtocolAdmin();
 
         // Load and update status
         StreamTypes.Status status = loadStreamStatus();
@@ -635,7 +671,7 @@ contract Stream is IStreamErrors, IStreamEvents {
         allowedStatuses[0] = StreamTypes.Status.Waiting;
         allowedStatuses[1] = StreamTypes.Status.Bootstrapping;
         allowedStatuses[2] = StreamTypes.Status.Active;
-        isOperationAllowed(status, allowedStatuses);
+        validateOperationAllowed(status, allowedStatuses);
 
         // Refund out tokens to creator
         TokenHelpers.safeTokenTransfer(streamTokens.outSupplyToken, creator, streamState.outSupply);
@@ -679,23 +715,41 @@ contract Stream is IStreamErrors, IStreamEvents {
         positionStorage.updatePosition(user, position);
     }
 
-    // Refactored syncStream to work directly with a provided memory object
-    function syncStream(StreamTypes.StreamState memory state) internal view returns (StreamTypes.StreamState memory) {
-        StreamTypes.StreamTimes memory times = loadStreamTimes();
-
-        Decimal memory diff = StreamMathLib.calculateDiff(
-            block.timestamp,
+    function syncStreamStatus(
+        StreamTypes.Status status,
+        StreamTypes.StreamTimes memory times,
+        uint256 nowTime
+    ) internal pure returns (StreamTypes.Status) {
+        status = StreamMathLib.calculateStreamStatus(
+            status,
+            nowTime,
+            times.bootstrappingStartTime,
             times.streamStartTime,
-            times.streamEndTime,
-            state.lastUpdated
+            times.streamEndTime
         );
 
-        if (diff.value > 0) {
-            state = StreamMathLib.calculateUpdatedState(state, diff);
-            state.lastUpdated = block.timestamp;
-        }
+        return status;
+    }
 
-        return state;
+    /**
+     * @dev Get the current stream status
+     * @return The current stream status
+     */
+    function getStreamStatus() external view returns (StreamTypes.Status) {
+        return streamStatus;
+    }
+
+    /**
+     * @dev Get the current stream state
+     * @return The current stream state
+     */
+    function getStreamState() external view returns (StreamTypes.StreamState memory) {
+        return streamState;
+    }
+
+    function getPosition(address user) external view returns (PositionTypes.Position memory) {
+        PositionStorage positionStorage = PositionStorage(positionStorageAddress);
+        return positionStorage.getPosition(user);
     }
 
     function createPoolAndAddLiquidity(
@@ -734,94 +788,5 @@ contract Stream is IStreamErrors, IStreamEvents {
         IVesting vesting = IVesting(vestingAddress);
         TokenHelpers.safeTokenTransfer(token, vestingAddress, amount);
         vesting.stakeFunds(beneficiary, token, cliffTime, endTime, amount);
-    }
-
-    // Refactored syncStreamStatus to work directly with a provided memory object
-    function syncStreamStatus(
-        StreamTypes.Status status,
-        StreamTypes.StreamTimes memory times,
-        uint256 nowTime
-    ) internal pure returns (StreamTypes.Status) {
-        status = StreamMathLib.calculateStreamStatus(
-            status,
-            nowTime,
-            times.bootstrappingStartTime,
-            times.streamStartTime,
-            times.streamEndTime
-        );
-
-        return status;
-    }
-
-    /**
-     * @dev Ensure value is non-zero
-     * @param value The value to check
-     * @param errorMessage The error message to revert with
-     */
-    function assertNonZero(uint256 value, string memory errorMessage) internal pure {
-        if (value == 0) revert(errorMessage);
-    }
-
-    /**
-     * @dev Ensure sender is the creator
-     */
-    function assertIsCreator() internal view {
-        if (msg.sender != creator) revert Unauthorized();
-    }
-
-    /**
-     * @dev Ensure sender is the protocol admin
-     */
-    function assertIsProtocolAdmin() internal view {
-        StreamFactory factoryContract = StreamFactory(streamFactoryAddress);
-        address protocolAdmin = factoryContract.getParams().protocolAdmin;
-        if (msg.sender != protocolAdmin) revert Unauthorized();
-    }
-
-    /**
-     * @dev Ensure status matches expected value
-     * @param status Current status to check
-     * @param expectedStatus Status that is expected
-     */
-    function assertStatus(StreamTypes.Status status, StreamTypes.Status expectedStatus) internal pure {
-        if (status != expectedStatus) revert OperationNotAllowed();
-    }
-
-    /**
-     * @dev Ensure amount is not zero
-     * @param amount Amount to check
-     */
-    function assertAmountNotZero(uint256 amount) internal pure {
-        if (amount == 0) revert InvalidAmount();
-    }
-
-    /**
-     * @dev Assert that the cap does not exceed balance
-     * @param cap Amount to withdraw
-     * @param balance Available balance
-     */
-    function assertWithinBalance(uint256 cap, uint256 balance) internal pure {
-        if (cap > balance) revert WithdrawAmountExceedsBalance(cap);
-    }
-
-    /**
-     * @dev Get the current stream status
-     * @return The current stream status
-     */
-    function getStreamStatus() external view returns (StreamTypes.Status) {
-        return streamStatus;
-    }
-
-    /**
-     * @dev Get the current stream state
-     * @return The current stream state
-     */
-    function getStreamState() external view returns (StreamTypes.StreamState memory) {
-        return streamState;
-    }
-
-    function getPosition(address user) external view returns (PositionTypes.Position memory) {
-        PositionStorage positionStorage = PositionStorage(positionStorageAddress);
-        return positionStorage.getPosition(user);
     }
 }

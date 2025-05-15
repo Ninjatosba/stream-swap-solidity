@@ -273,7 +273,7 @@ export class StreamFixtureBuilder {
                     streamStartTime,
                     streamEndTime,
                     threshold: self.amountConfig.threshold,
-                    name: self.metadataConfig.name,
+                    metadata: { ipfsHash: "QmS4ghgMgPXqX53EiQ7sP8G6QY8Y5X53EiQ7sP8G6Q" },
                     inSupplyToken: inSupplyTokenAddress,
                     creator: creator.address,
                     creatorVesting: self.vestingConfig.creator,

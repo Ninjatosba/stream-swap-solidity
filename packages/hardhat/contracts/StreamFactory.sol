@@ -198,7 +198,7 @@ contract StreamFactory is IStreamEvents, IStreamFactoryErrors {
             createStreamMessage.streamStartTime,
             createStreamMessage.streamEndTime,
             createStreamMessage.threshold,
-            createStreamMessage.name,
+            createStreamMessage.metadata.ipfsHash,
             params.tosVersion,
             currentStreamId
         );

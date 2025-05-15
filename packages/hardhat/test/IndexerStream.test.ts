@@ -55,8 +55,6 @@ describe("Stream Indexer Tests", function () {
                 newMinStreamDuration,
                 newTosVersion
             );
-
-            await new Promise(resolve => setTimeout(resolve, 2000));
         });
 
         it("should index fee collector updates", async function () {
@@ -89,7 +87,6 @@ describe("Stream Indexer Tests", function () {
             // Convert amounts to proper wei values
             const streamOutAmount = ethers.parseEther("1000"); // Convert to wei
             const threshold = ethers.parseEther("100"); // Convert to wei
-            const streamName = "Test Stream";
             const tosVersion = "1.1";
             const salt = ethers.keccak256(ethers.toUtf8Bytes("testsalt"));
 
@@ -110,7 +107,7 @@ describe("Stream Indexer Tests", function () {
                 streamStartTime,
                 streamEndTime,
                 threshold,
-                name: streamName,
+                metadata: { ipfsHash: "QmS4ghgMgPXqX53EiQ7sP8G6QY8Y5X53EiQ7sP8G6Q" },
                 inSupplyToken: await tokens.inSupplyToken.getAddress(),
                 creator: accounts.creator.address,
                 creatorVesting: {
