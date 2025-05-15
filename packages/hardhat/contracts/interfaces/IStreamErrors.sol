@@ -12,7 +12,7 @@ interface IStreamErrors {
     error InvalidWithdrawAmount();
     error WithdrawAmountExceedsBalance(uint256 cap);
     error InsufficientOutAmount();
-    error InvalidPosition();
+    error InvalidPosition(address user, uint256 shares, uint256 exitDate, string reason);
     error InvalidExitCondition();
     error InvalidVestingDuration();
     error InvalidVestingCliffDuration();

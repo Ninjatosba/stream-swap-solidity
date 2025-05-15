@@ -235,7 +235,7 @@ describe("Stream Exit", function () {
             await contracts.stream.syncStreamExternal();
 
             // Sync position to get latest state
-            await contracts.stream.syncPosition(accounts.subscriber1.address);
+            await contracts.stream.syncPositionExternal(accounts.subscriber1.address);
 
             // Get current block timestamp
             const currentBlock = await ethers.provider.getBlock("latest");

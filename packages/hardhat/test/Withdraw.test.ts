@@ -40,7 +40,7 @@ describe("Stream Withdraw", function () {
             expect(inBalanceAfter - inBalanceBefore).to.equal(withdrawAmount);
 
             // Sync the position
-            await contracts.stream.syncPosition(accounts.subscriber1.address);
+            await contracts.stream.syncPositionExternal(accounts.subscriber1.address);
 
             // Verify position was updated correctly
             const updatedPosition = await positionStorage.getPosition(accounts.subscriber1.address);
@@ -300,10 +300,13 @@ describe("Stream Withdraw", function () {
             // Verify event parameters
             expect(parsedEvent?.args.streamAddress).to.equal(await contracts.stream.getAddress());
             expect(parsedEvent?.args.subscriber).to.equal(accounts.subscriber1.address);
-            expect(parsedEvent?.args.remainingInBalance).to.lt(subscriptionAmount - withdrawAmount);
-            expect(parsedEvent?.args.remainingShares).to.be.gt(0);
-            expect(parsedEvent?.args.totalInSupply).to.be.gt(0);
-            expect(parsedEvent?.args.totalShares).to.be.gt(0);
+            expect(parsedEvent?.args.positionInBalance).to.lt(subscriptionAmount - withdrawAmount);
+            expect(parsedEvent?.args.positionShares).to.be.gt(0);
+            expect(parsedEvent?.args.positionLastUpdateTime).to.be.gt(0);
+            expect(parsedEvent?.args.positionSpentIn).to.be.gt(0);
+            expect(parsedEvent?.args.positionPurchased).to.be.gt(0);
+            expect(parsedEvent?.args.streamInSupply).to.be.gt(0);
+            expect(parsedEvent?.args.streamShares).to.be.gt(0);
         });
     });
 });

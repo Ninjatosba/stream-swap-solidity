@@ -72,7 +72,6 @@ describe("Stream Finalize", function () {
                     expectedCreatorRevenue,
                     fee,
                     0n,
-                    Status.FinalizedStreamed
                 );
         });
 
@@ -142,7 +141,6 @@ describe("Stream Finalize", function () {
                     expectedCreatorRevenue,
                     fee,
                     0n,
-                    Status.FinalizedStreamed
                 );
         });
     });
@@ -181,7 +179,6 @@ describe("Stream Finalize", function () {
                     contracts.stream.getAddress(),
                     accounts.creator.address,
                     config.streamOutAmount,
-                    Status.FinalizedRefunded
                 );
         });
     });

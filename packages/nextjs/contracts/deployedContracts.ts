@@ -6234,7 +6234,7 @@ const deployedContracts = {
   },
   31337: {
     InToken: {
-      address: "0x8198f5d8F8CfFE8f9C413d98a0A55aEB8ab9FbB7",
+      address: "0xB7f8BC63BbcaD18155201308C8f3540b07f84F5e",
       abi: [
         {
           inputs: [
@@ -6582,7 +6582,7 @@ const deployedContracts = {
       inheritedFunctions: {},
     },
     OutToken: {
-      address: "0x0355B7B8cb128fA5692729Ab3AAa199C1753f726",
+      address: "0xA51c1fc2f0D1a1b8494Ed1FE312d7C3a78Ed91C0",
       abi: [
         {
           inputs: [
@@ -6930,7 +6930,7 @@ const deployedContracts = {
       inheritedFunctions: {},
     },
     PoolWrapper: {
-      address: "0x4EE6eCAD1c2Dae9f525404De8555724e3c35d07B",
+      address: "0x959922bE3CAee4b8Cd9a407cc3ac1C251C2007B1",
       abi: [
         {
           inputs: [],
@@ -7191,7 +7191,7 @@ const deployedContracts = {
       },
     },
     Stream: {
-      address: "0xD84379CEae14AA33C123Af12424A37803F885889",
+      address: "0x68B1D87F95878fE05B998F19b66F4baba5De1aed",
       abi: [
         {
           inputs: [
@@ -7251,7 +7251,28 @@ const deployedContracts = {
           type: "error",
         },
         {
-          inputs: [],
+          inputs: [
+            {
+              internalType: "address",
+              name: "user",
+              type: "address",
+            },
+            {
+              internalType: "uint256",
+              name: "shares",
+              type: "uint256",
+            },
+            {
+              internalType: "uint256",
+              name: "exitDate",
+              type: "uint256",
+            },
+            {
+              internalType: "string",
+              name: "reason",
+              type: "string",
+            },
+          ],
           name: "InvalidPosition",
           type: "error",
         },
@@ -7439,12 +7460,6 @@ const deployedContracts = {
               name: "refundedOutAmount",
               type: "uint256",
             },
-            {
-              indexed: false,
-              internalType: "enum StreamTypes.Status",
-              name: "status",
-              type: "uint8",
-            },
           ],
           name: "FinalizedRefunded",
           type: "event",
@@ -7481,12 +7496,6 @@ const deployedContracts = {
               internalType: "uint256",
               name: "refundedOutAmount",
               type: "uint256",
-            },
-            {
-              indexed: false,
-              internalType: "enum StreamTypes.Status",
-              name: "status",
-              type: "uint8",
             },
           ],
           name: "FinalizedStreamed",
@@ -7750,6 +7759,69 @@ const deployedContracts = {
             },
             {
               indexed: false,
+              internalType: "uint256",
+              name: "lastUpdated",
+              type: "uint256",
+            },
+            {
+              components: [
+                {
+                  internalType: "uint256",
+                  name: "value",
+                  type: "uint256",
+                },
+              ],
+              indexed: false,
+              internalType: "struct Decimal",
+              name: "distIndex",
+              type: "tuple",
+            },
+            {
+              indexed: false,
+              internalType: "uint256",
+              name: "outRemaining",
+              type: "uint256",
+            },
+            {
+              indexed: false,
+              internalType: "uint256",
+              name: "inSupply",
+              type: "uint256",
+            },
+            {
+              indexed: false,
+              internalType: "uint256",
+              name: "spentIn",
+              type: "uint256",
+            },
+            {
+              components: [
+                {
+                  internalType: "uint256",
+                  name: "value",
+                  type: "uint256",
+                },
+              ],
+              indexed: false,
+              internalType: "struct Decimal",
+              name: "currentStreamedPrice",
+              type: "tuple",
+            },
+          ],
+          name: "StreamStateUpdated",
+          type: "event",
+        },
+        {
+          anonymous: false,
+          inputs: [
+            {
+              indexed: true,
+              internalType: "address",
+              name: "streamAddress",
+              type: "address",
+            },
+            {
+              indexed: false,
               internalType: "enum StreamTypes.Status",
               name: "mainStatus",
               type: "uint8",
@@ -7851,25 +7923,43 @@ const deployedContracts = {
             {
               indexed: false,
               internalType: "uint256",
-              name: "amountIn",
+              name: "positionInBalance",
               type: "uint256",
             },
             {
               indexed: false,
               internalType: "uint256",
-              name: "newShares",
+              name: "positionShares",
               type: "uint256",
             },
             {
               indexed: false,
               internalType: "uint256",
-              name: "totalSharesAfter",
+              name: "positionLastUpdateTime",
               type: "uint256",
             },
             {
               indexed: false,
               internalType: "uint256",
-              name: "totalInSupplyAfter",
+              name: "positionSpentIn",
+              type: "uint256",
+            },
+            {
+              indexed: false,
+              internalType: "uint256",
+              name: "positionPurchased",
+              type: "uint256",
+            },
+            {
+              indexed: false,
+              internalType: "uint256",
+              name: "streamInSupply",
+              type: "uint256",
+            },
+            {
+              indexed: false,
+              internalType: "uint256",
+              name: "streamShares",
               type: "uint256",
             },
           ],
@@ -7913,25 +8003,43 @@ const deployedContracts = {
             {
               indexed: false,
               internalType: "uint256",
-              name: "remainingInBalance",
+              name: "positionInBalance",
               type: "uint256",
             },
             {
               indexed: false,
               internalType: "uint256",
-              name: "remainingShares",
+              name: "positionShares",
               type: "uint256",
             },
             {
               indexed: false,
               internalType: "uint256",
-              name: "totalInSupply",
+              name: "positionLastUpdateTime",
               type: "uint256",
             },
             {
               indexed: false,
               internalType: "uint256",
-              name: "totalShares",
+              name: "positionSpentIn",
+              type: "uint256",
+            },
+            {
+              indexed: false,
+              internalType: "uint256",
+              name: "positionPurchased",
+              type: "uint256",
+            },
+            {
+              indexed: false,
+              internalType: "uint256",
+              name: "streamInSupply",
+              type: "uint256",
+            },
+            {
+              indexed: false,
+              internalType: "uint256",
+              name: "streamShares",
               type: "uint256",
             },
           ],
@@ -8504,7 +8612,7 @@ const deployedContracts = {
               type: "address",
             },
           ],
-          name: "syncPosition",
+          name: "syncPositionExternal",
           outputs: [],
           stateMutability: "nonpayable",
           type: "function",
@@ -8533,7 +8641,7 @@ const deployedContracts = {
       inheritedFunctions: {},
     },
     StreamFactory: {
-      address: "0xBEc49fA140aCaA83533fB00A2BB19bDdd0290f25",
+      address: "0x9A9f2CCfdE556A7E9Ff0848998Aa4a0CFD8863AE",
       abi: [
         {
           inputs: [
@@ -8799,12 +8907,6 @@ const deployedContracts = {
               name: "refundedOutAmount",
               type: "uint256",
             },
-            {
-              indexed: false,
-              internalType: "enum StreamTypes.Status",
-              name: "status",
-              type: "uint8",
-            },
           ],
           name: "FinalizedRefunded",
           type: "event",
@@ -8841,12 +8943,6 @@ const deployedContracts = {
               internalType: "uint256",
               name: "refundedOutAmount",
               type: "uint256",
-            },
-            {
-              indexed: false,
-              internalType: "enum StreamTypes.Status",
-              name: "status",
-              type: "uint8",
             },
           ],
           name: "FinalizedStreamed",
@@ -9110,6 +9206,69 @@ const deployedContracts = {
             },
             {
               indexed: false,
+              internalType: "uint256",
+              name: "lastUpdated",
+              type: "uint256",
+            },
+            {
+              components: [
+                {
+                  internalType: "uint256",
+                  name: "value",
+                  type: "uint256",
+                },
+              ],
+              indexed: false,
+              internalType: "struct Decimal",
+              name: "distIndex",
+              type: "tuple",
+            },
+            {
+              indexed: false,
+              internalType: "uint256",
+              name: "outRemaining",
+              type: "uint256",
+            },
+            {
+              indexed: false,
+              internalType: "uint256",
+              name: "inSupply",
+              type: "uint256",
+            },
+            {
+              indexed: false,
+              internalType: "uint256",
+              name: "spentIn",
+              type: "uint256",
+            },
+            {
+              components: [
+                {
+                  internalType: "uint256",
+                  name: "value",
+                  type: "uint256",
+                },
+              ],
+              indexed: false,
+              internalType: "struct Decimal",
+              name: "currentStreamedPrice",
+              type: "tuple",
+            },
+          ],
+          name: "StreamStateUpdated",
+          type: "event",
+        },
+        {
+          anonymous: false,
+          inputs: [
+            {
+              indexed: true,
+              internalType: "address",
+              name: "streamAddress",
+              type: "address",
+            },
+            {
+              indexed: false,
               internalType: "enum StreamTypes.Status",
               name: "mainStatus",
               type: "uint8",
@@ -9211,25 +9370,43 @@ const deployedContracts = {
             {
               indexed: false,
               internalType: "uint256",
-              name: "amountIn",
+              name: "positionInBalance",
               type: "uint256",
             },
             {
               indexed: false,
               internalType: "uint256",
-              name: "newShares",
+              name: "positionShares",
               type: "uint256",
             },
             {
               indexed: false,
               internalType: "uint256",
-              name: "totalSharesAfter",
+              name: "positionLastUpdateTime",
               type: "uint256",
             },
             {
               indexed: false,
               internalType: "uint256",
-              name: "totalInSupplyAfter",
+              name: "positionSpentIn",
+              type: "uint256",
+            },
+            {
+              indexed: false,
+              internalType: "uint256",
+              name: "positionPurchased",
+              type: "uint256",
+            },
+            {
+              indexed: false,
+              internalType: "uint256",
+              name: "streamInSupply",
+              type: "uint256",
+            },
+            {
+              indexed: false,
+              internalType: "uint256",
+              name: "streamShares",
               type: "uint256",
             },
           ],
@@ -9273,25 +9450,43 @@ const deployedContracts = {
             {
               indexed: false,
               internalType: "uint256",
-              name: "remainingInBalance",
+              name: "positionInBalance",
               type: "uint256",
             },
             {
               indexed: false,
               internalType: "uint256",
-              name: "remainingShares",
+              name: "positionShares",
               type: "uint256",
             },
             {
               indexed: false,
               internalType: "uint256",
-              name: "totalInSupply",
+              name: "positionLastUpdateTime",
               type: "uint256",
             },
             {
               indexed: false,
               internalType: "uint256",
-              name: "totalShares",
+              name: "positionSpentIn",
+              type: "uint256",
+            },
+            {
+              indexed: false,
+              internalType: "uint256",
+              name: "positionPurchased",
+              type: "uint256",
+            },
+            {
+              indexed: false,
+              internalType: "uint256",
+              name: "streamInSupply",
+              type: "uint256",
+            },
+            {
+              indexed: false,
+              internalType: "uint256",
+              name: "streamShares",
               type: "uint256",
             },
           ],

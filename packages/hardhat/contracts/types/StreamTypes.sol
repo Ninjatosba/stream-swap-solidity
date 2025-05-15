@@ -21,7 +21,7 @@ library StreamTypes {
         uint256 streamStartTime;
         uint256 streamEndTime;
         uint256 threshold;
-        string name;
+        StreamMetadata metadata;
         address inSupplyToken;
         address creator;
         VestingInfo creatorVesting;
@@ -37,7 +37,7 @@ library StreamTypes {
     }
 
     struct StreamMetadata {
-        string name;
+        string ipfsHash;
     }
 
     struct StreamState {
