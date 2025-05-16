@@ -204,7 +204,7 @@ describe("Stream Recurring subscription", function () {
         const { contracts, timeParams, accounts, config } = await loadFixture(stream().build());
 
         // Fast forward time to stream start
-        await ethers.provider.send("evm_setNextBlockTimestamp", [timeParams.streamStartTime + 1]);
+        await ethers.provider.send("evm_setNextBlockTimestamp", [timeParams.streamStartTime - 5]);
         await ethers.provider.send("evm_mine", []);
 
         // Sync the stream
@@ -213,16 +213,20 @@ describe("Stream Recurring subscription", function () {
 
         // Check status
         const status = await contracts.stream.streamStatus();
-        expect(status).to.equal(2); // Stream phase (Active)
+        expect(status).to.equal(1); // Stream phase (Active)
 
         // Subscribe to the stream
         await contracts.inSupplyToken.connect(accounts.subscriber1).approve(contracts.stream.getAddress(), 100);
         let subscribeTx = await contracts.stream.connect(accounts.subscriber1).subscribe(100);
         await subscribeTx.wait();
 
+        // Fast forward time to half of the stream duration
+        await ethers.provider.send("evm_setNextBlockTimestamp", [(timeParams.streamStartTime + (timeParams.streamEndTime - timeParams.streamStartTime) / 2) - 2]);
+        await ethers.provider.send("evm_mine", []);
+
         // Subscribe to the stream again
-        await contracts.inSupplyToken.connect(accounts.subscriber1).approve(contracts.stream.getAddress(), 100);
-        let subscribeTx2 = await contracts.stream.connect(accounts.subscriber1).subscribe(100);
+        await contracts.inSupplyToken.connect(accounts.subscriber2).approve(contracts.stream.getAddress(), 100);
+        let subscribeTx2 = await contracts.stream.connect(accounts.subscriber2).subscribe(100);
         await subscribeTx2.wait();
     });
 });

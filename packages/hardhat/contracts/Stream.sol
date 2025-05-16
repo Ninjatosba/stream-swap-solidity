@@ -148,6 +148,7 @@ contract Stream is IStreamErrors, IStreamEvents {
         );
 
         if (diff.value == 0) {
+            state.lastUpdated = block.timestamp;
             return state;
         }
 
@@ -157,11 +158,11 @@ contract Stream is IStreamErrors, IStreamEvents {
         emit StreamStateUpdated(
             address(this),
             state.lastUpdated,
-            state.distIndex,
+            state.distIndex.value,
             state.outRemaining,
             state.inSupply,
             state.spentIn,
-            state.currentStreamedPrice
+            state.currentStreamedPrice.value
         );
 
         return state;
@@ -265,54 +266,44 @@ contract Stream is IStreamErrors, IStreamEvents {
     function subscribe(uint256 amountIn) external payable {
         validateAmountNotZero(amountIn);
 
-        // Load status and times
+        // Load and validate stream state
         StreamTypes.Status status = loadStreamStatus();
         StreamTypes.StreamTimes memory times = loadStreamTimes();
-
-        // Update status and validate operation
         status = syncStreamStatus(status, times, block.timestamp);
+
+        // Validate operation is allowed
         StreamTypes.Status[] memory allowedStatuses = new StreamTypes.Status[](2);
         allowedStatuses[0] = StreamTypes.Status.Bootstrapping;
         allowedStatuses[1] = StreamTypes.Status.Active;
         validateOperationAllowed(status, allowedStatuses);
         saveStreamStatus(status);
 
-        // Load position and stream state
-        PositionTypes.Position memory position = loadPosition(msg.sender);
+        // Load and sync stream state
         StreamTypes.StreamState memory state = loadStream();
         state = syncStream(state);
 
-        // Only sync position if it exists (has shares)
-        if (position.shares > 0) {
-            position = StreamMathLib.syncPosition(
-                position,
-                state.distIndex,
-                state.shares,
-                state.inSupply,
-                block.timestamp
-            );
-        }
+        // Load and sync position
+        // If first time subscribing, sync position will set distIndex and lastUpdated
+        PositionTypes.Position memory position = loadPosition(msg.sender);
+        position = StreamMathLib.syncPosition(position, state.distIndex, state.shares, state.inSupply, block.timestamp);
 
         // Transfer tokens
         if (!TokenHelpers.safeTransferFrom(streamTokens.inSupplyToken, msg.sender, address(this), amountIn)) {
             revert PaymentFailed();
         }
 
-        // Calculate new shares
-        uint256 newShares = position.shares == 0
-            ? StreamMathLib.computeSharesAmount(amountIn, false, state.inSupply, state.shares)
-            : StreamMathLib.computeSharesAmount(amountIn, true, state.inSupply, position.shares);
+        // Calculate and update shares
+        uint256 newShares = StreamMathLib.computeSharesAmount(amountIn, false, state.inSupply, state.shares);
 
         // Update position
-        position.inBalance = position.inBalance + amountIn;
-        position.shares = position.shares + newShares;
-        position.lastUpdateTime = block.timestamp;
+        position.inBalance += amountIn;
+        position.shares += newShares;
 
         // Update stream state
-        state.inSupply = state.inSupply + amountIn;
-        state.shares = state.shares + newShares;
+        state.inSupply += amountIn;
+        state.shares += newShares;
 
-        // Save updated states
+        // Save states
         savePosition(msg.sender, position);
         saveStream(state);
 
@@ -324,6 +315,7 @@ contract Stream is IStreamErrors, IStreamEvents {
             position.lastUpdateTime,
             position.spentIn,
             position.purchased,
+            position.index.value,
             state.inSupply,
             state.shares
         );
@@ -386,14 +378,16 @@ contract Stream is IStreamErrors, IStreamEvents {
 
         // Token transfer
         TokenHelpers.safeTokenTransfer(streamTokens.inSupplyToken, msg.sender, cap);
+
         emit Withdrawn(
             address(this),
             msg.sender,
             position.inBalance,
             position.shares,
-            block.timestamp,
+            position.lastUpdateTime,
             position.spentIn,
             position.purchased,
+            position.index.value,
             state.inSupply,
             state.shares
         );
@@ -617,22 +611,32 @@ contract Stream is IStreamErrors, IStreamEvents {
             address(this),
             state.lastUpdated,
             uint8(status),
-            state.distIndex,
+            state.distIndex.value,
             state.outRemaining,
             state.inSupply,
             state.spentIn,
-            state.currentStreamedPrice
+            state.currentStreamedPrice.value
         );
     }
 
     function syncPositionExternal(address user) external {
         PositionTypes.Position memory position = loadPosition(user);
+        validatePosition(position, user);
         StreamTypes.StreamState memory state = loadStream();
         state = syncStream(state);
         position = StreamMathLib.syncPosition(position, state.distIndex, state.shares, state.inSupply, block.timestamp);
         savePosition(user, position);
         saveStream(state);
-        emit PositionSynced(address(this), user, position.inBalance, position.shares);
+        emit PositionSynced(
+            address(this),
+            user,
+            position.inBalance,
+            position.shares,
+            position.lastUpdateTime,
+            position.spentIn,
+            position.purchased,
+            position.index.value
+        );
     }
 
     function cancelStream() external {
@@ -655,7 +659,7 @@ contract Stream is IStreamErrors, IStreamEvents {
         status = StreamTypes.Status.Cancelled;
         saveStreamStatus(status);
 
-        emit StreamCancelled(address(this), creator, streamState.outSupply, status);
+        emit StreamCancelled(address(this), creator, streamState.outSupply, uint8(status));
     }
 
     function cancelWithAdmin() external {
@@ -680,7 +684,7 @@ contract Stream is IStreamErrors, IStreamEvents {
         status = StreamTypes.Status.Cancelled;
         saveStreamStatus(status);
 
-        emit StreamCancelled(address(this), creator, streamState.outSupply, status);
+        emit StreamCancelled(address(this), creator, streamState.outSupply, uint8(status));
     }
 
     // Load helpers

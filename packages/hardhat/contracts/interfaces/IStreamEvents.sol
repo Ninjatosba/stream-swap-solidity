@@ -21,16 +21,16 @@ interface IStreamEvents {
         uint16 streamId
     );
 
-    event StreamSynced(address indexed streamAddress, StreamTypes.Status mainStatus, uint256 lastUpdated);
+    event StreamSynced(address indexed streamAddress, uint8 mainStatus, uint256 lastUpdated);
 
     event StreamStateUpdated(
         address indexed streamAddress,
         uint256 lastUpdated,
-        Decimal distIndex,
+        uint256 distIndex,
         uint256 outRemaining,
         uint256 inSupply,
         uint256 spentIn,
-        Decimal currentStreamedPrice
+        uint256 currentStreamedPrice
     );
 
     event Subscribed(
@@ -41,6 +41,7 @@ interface IStreamEvents {
         uint256 positionLastUpdateTime,
         uint256 positionSpentIn,
         uint256 positionPurchased,
+        uint256 positionIndex,
         uint256 streamInSupply,
         uint256 streamShares
     );
@@ -49,14 +50,23 @@ interface IStreamEvents {
         address indexed streamAddress,
         uint256 lastUpdated,
         uint8 newStatus,
-        Decimal distIndex,
+        uint256 distIndex,
         uint256 outRemaining,
         uint256 inSupply,
         uint256 spentIn,
-        Decimal currentStreamedPrice
+        uint256 currentStreamedPrice
     );
 
-    event PositionSynced(address indexed streamAddress, address indexed subscriber, uint256 inBalance, uint256 shares);
+    event PositionSynced(
+        address indexed streamAddress,
+        address indexed subscriber,
+        uint256 positionInBalance,
+        uint256 positionShares,
+        uint256 positionLastUpdateTime,
+        uint256 positionSpentIn,
+        uint256 positionPurchased,
+        uint256 positionIndex
+    );
 
     event Withdrawn(
         address indexed streamAddress,
@@ -66,6 +76,7 @@ interface IStreamEvents {
         uint256 positionLastUpdateTime,
         uint256 positionSpentIn,
         uint256 positionPurchased,
+        uint256 positionIndex,
         uint256 streamInSupply,
         uint256 streamShares
     );
@@ -94,6 +105,22 @@ interface IStreamEvents {
 
     event FinalizedRefunded(address indexed streamAddress, address indexed creator, uint256 refundedOutAmount);
 
+    event FactoryInitialized(
+        address indexed factory,
+        address streamImplementationAddress,
+        address poolWrapperAddress,
+        address feeCollector,
+        address protocolAdmin,
+        address streamCreationFeeToken,
+        uint256 streamCreationFee,
+        uint256 exitFeeRatio,
+        uint256 minWaitingDuration,
+        uint256 minBootstrappingDuration,
+        uint256 minStreamDuration,
+        string tosVersion,
+        address vestingAddress
+    );
+
     event ParamsUpdated(
         address indexed factory,
         uint256 streamCreationFee,
@@ -112,7 +139,7 @@ interface IStreamEvents {
 
     event AcceptedTokensUpdated(address indexed factory, address[] tokensAdded, address[] tokensRemoved);
 
-    event StreamCancelled(address indexed streamAddress, address creator, uint256 outSupply, StreamTypes.Status status);
+    event StreamCancelled(address indexed streamAddress, address creator, uint256 outSupply, uint8 status);
 
     event VestingContractDeployed(address indexed factoryAddress, address vestingContract);
 
