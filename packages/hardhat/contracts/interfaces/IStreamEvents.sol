@@ -112,6 +112,7 @@ interface IStreamEvents {
         address feeCollector,
         address protocolAdmin,
         address streamCreationFeeToken,
+        address[] acceptedInSupplyTokens,
         uint256 streamCreationFee,
         uint256 exitFeeRatio,
         uint256 minWaitingDuration,

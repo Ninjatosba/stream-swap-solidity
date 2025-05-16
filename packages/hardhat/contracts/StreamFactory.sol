@@ -67,6 +67,7 @@ contract StreamFactory is IStreamEvents, IStreamFactoryErrors {
             initializeStreamMessage.feeCollector,
             initializeStreamMessage.protocolAdmin,
             initializeStreamMessage.streamCreationFeeToken,
+            initializeStreamMessage.acceptedInSupplyTokens,
             initializeStreamMessage.streamCreationFee,
             initializeStreamMessage.exitFeeRatio.value,
             initializeStreamMessage.minWaitingDuration,
