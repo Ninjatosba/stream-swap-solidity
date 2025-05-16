@@ -22,8 +22,10 @@ task("create-stream", "Creates a new stream using the deployed factory")
         console.log(`Creator: ${creator.address}`);
 
         // Get contract instances with proper types
-        const streamFactory = await ethers.getContractAt("StreamFactory", streamFactoryAddress) as unknown as StreamFactory;
-        const outToken = await ethers.getContractAt("ERC20Mock", outTokenAddress) as unknown as ERC20Mock;
+        const StreamFactoryContract = await ethers.getContractFactory("StreamFactory");
+        const streamFactory = StreamFactoryContract.attach(streamFactoryAddress) as unknown as StreamFactory;
+        const ERC20MockContract = await ethers.getContractFactory("ERC20Mock");
+        const outToken = ERC20MockContract.attach(outTokenAddress) as unknown as ERC20Mock;
 
         // Check creator's output token balance
         const creatorOutTokenBalance = await outToken.balanceOf(creator.address);
@@ -53,9 +55,9 @@ task("create-stream", "Creates a new stream using the deployed factory")
         // Get current block timestamp
         const latestBlock = await ethers.provider.getBlock("latest");
         const nowSeconds = latestBlock?.timestamp ?? 0;
-        const bootstrappingStartTime = nowSeconds + 10;
+        const bootstrappingStartTime = nowSeconds + 20;
         const streamStartTime = nowSeconds + 6500;
-        const streamEndTime = nowSeconds + 106500;
+        const streamEndTime = nowSeconds + 206500;
 
         // Prepare stream creation message
         const salt = ethers.hexlify(ethers.randomBytes(32));

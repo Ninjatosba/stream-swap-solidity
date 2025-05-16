@@ -13,6 +13,9 @@ task("subscribe", "Subscribe to a stream")
         const { subscriber1, subscriber2 } = await hre.getNamedAccounts();
         const subscriberAddress = taskArgs.subscriber === "subscriber1" ? subscriber1 : subscriber2;
         console.log(`Subscriber address: ${subscriberAddress}`);
+        // query subscriber balance
+        const nativeBalance = await ethers.provider.getBalance(subscriberAddress);
+        console.log(`Subscriber balance: ${nativeBalance}`);
 
         // Get stream contract
         const stream = await ethers.getContractAt("Stream", taskArgs.stream) as unknown as Stream;
@@ -37,10 +40,14 @@ task("subscribe", "Subscribe to a stream")
             throw new Error("Insufficient balance");
         }
 
-        // Approve tokens
-        const approveTx = await inToken.connect(await ethers.getSigner(subscriberAddress)).approve(taskArgs.stream, amount);
-        await approveTx.wait();
-        console.log("Approved tokens for stream");
+        // Approve tokens if needed
+        const allowance = await inToken.allowance(subscriberAddress, taskArgs.stream);
+        console.log(`Allowance: ${allowance}`);
+        if (allowance < amount) {
+            const approveTx = await inToken.connect(await ethers.getSigner(subscriberAddress)).approve(taskArgs.stream, amount);
+            await approveTx.wait();
+            console.log("Approved tokens for stream");
+        }
 
         // Subscribe
         const subscribeTx = await stream.connect(await ethers.getSigner(subscriberAddress)).subscribe(amount);

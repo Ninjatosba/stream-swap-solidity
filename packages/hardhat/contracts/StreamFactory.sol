@@ -60,6 +60,21 @@ contract StreamFactory is IStreamEvents, IStreamFactoryErrors {
         for (uint i = 0; i < initializeStreamMessage.acceptedInSupplyTokens.length; i++) {
             acceptedInSupplyTokens[initializeStreamMessage.acceptedInSupplyTokens[i]] = true;
         }
+        emit FactoryInitialized(
+            address(this),
+            initializeStreamMessage.streamImplementationAddress,
+            initializeStreamMessage.poolWrapperAddress,
+            initializeStreamMessage.feeCollector,
+            initializeStreamMessage.protocolAdmin,
+            initializeStreamMessage.streamCreationFeeToken,
+            initializeStreamMessage.streamCreationFee,
+            initializeStreamMessage.exitFeeRatio.value,
+            initializeStreamMessage.minWaitingDuration,
+            initializeStreamMessage.minBootstrappingDuration,
+            initializeStreamMessage.minStreamDuration,
+            initializeStreamMessage.tosVersion,
+            address(vesting)
+        );
     }
 
     modifier onlyAdmin() {

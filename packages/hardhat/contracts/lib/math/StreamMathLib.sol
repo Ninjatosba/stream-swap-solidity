@@ -141,8 +141,9 @@ library StreamMathLib {
         if (totalShares == 0 || amountIn == 0) {
             return amountIn;
         }
-
+        // 42*21/42
         uint256 totalSharesIn = totalShares * amountIn;
+
         if (roundUp) {
             return (totalSharesIn + inSupply - 1) / inSupply;
         } else {
@@ -183,48 +184,36 @@ library StreamMathLib {
         uint256 inSupply,
         uint256 nowTime
     ) internal pure returns (PositionTypes.Position memory) {
-        // Create a new position in memory to store the updated values
-        PositionTypes.Position memory updatedPosition = PositionTypes.Position({
-            inBalance: position.inBalance,
-            shares: position.shares,
-            index: position.index,
-            lastUpdateTime: position.lastUpdateTime,
-            pendingReward: position.pendingReward,
-            spentIn: position.spentIn,
-            purchased: position.purchased,
-            exitDate: position.exitDate
-        });
-
         // Calculate index difference for distributions since last update
-        Decimal memory indexDiff = DecimalMath.sub(distIndex, updatedPosition.index);
+        Decimal memory indexDiff = DecimalMath.sub(distIndex, position.index);
         uint256 spent = 0;
         uint256 purchased = 0;
 
         // Only process if there are shares in the stream
-        if (totalShares > 0) {
+        if (position.shares > 0) {
             // Calculate purchased amount based on position shares and index difference
-            Decimal memory positionSharesDecimal = DecimalMath.fromNumber(updatedPosition.shares);
+            Decimal memory positionSharesDecimal = DecimalMath.fromNumber(position.shares);
             Decimal memory purchasedDecimal = DecimalMath.add(
                 DecimalMath.mul(positionSharesDecimal, indexDiff),
-                updatedPosition.pendingReward
+                position.pendingReward
             );
             (purchased, purchasedDecimal) = DecimalMath.toNumber(purchasedDecimal);
-            updatedPosition.purchased += purchased;
-            updatedPosition.pendingReward = purchasedDecimal;
+            position.purchased += purchased;
+            position.pendingReward = purchasedDecimal;
 
             // Calculate remaining balance based on current shares ratio
-            uint256 inRemaining = (inSupply * updatedPosition.shares) / totalShares;
+            uint256 inRemaining = (inSupply * position.shares) / totalShares;
             // Calculate spent amount
-            spent = updatedPosition.inBalance - inRemaining;
-            updatedPosition.spentIn += spent;
-            updatedPosition.inBalance = inRemaining;
+            spent = position.inBalance - inRemaining;
+            position.spentIn += spent;
+            position.inBalance = inRemaining;
         }
 
         // Update position tracking
-        updatedPosition.index = distIndex;
-        updatedPosition.lastUpdateTime = nowTime;
+        position.index = distIndex;
+        position.lastUpdateTime = nowTime;
 
-        return updatedPosition;
+        return position;
     }
 
     function calculateVestingSchedule(

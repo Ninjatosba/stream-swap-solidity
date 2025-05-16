@@ -24,7 +24,7 @@ const providerApiKey = process.env.ALCHEMY_API_KEY || "oKxs-03sij-U_N0iOlrSsZFr2
 const deployerPrivateKey = process.env.__RUNTIME_DEPLOYER_PRIVATE_KEY ?? "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
 const creatorPrivateKey = process.env.__RUNTIME_CREATOR_PRIVATE_KEY ?? "25ff6f253faf11e2e59b5706384ac7beeb1c1cf6f1e1920d142021d36b9f4b87";
 const subscriber1PrivateKey = process.env.__RUNTIME_SUBSCRIBER1_PRIVATE_KEY ?? "da397ce2ccd9543307a7f467872c12b58f00a6744950fcbd1c12bf8f6786af0e";
-const subscriber2PrivateKey = process.env.__RUNTIME_SUBSCRIBER2_PRIVATE_KEY ?? "0x7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6";
+const subscriber2PrivateKey = process.env.__RUNTIME_SUBSCRIBER2_PRIVATE_KEY ?? "0da3a04235b76296d85b70894e5727b8b34b6a18d9d6a1c5b5ef01739e06cd1f";
 // If not set, it uses our block explorers default API keys.
 const etherscanApiKey = process.env.ETHERSCAN_MAINNET_API_KEY || "DNXJA8RX2Q3VZ4URQIWP7Z68CJXQZSC6AW";
 const etherscanOptimisticApiKey = process.env.ETHERSCAN_OPTIMISTIC_API_KEY || "RM62RDISS1RH448ZY379NX625ASG1N633R";
