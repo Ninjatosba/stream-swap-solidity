@@ -6234,7 +6234,7 @@ const deployedContracts = {
   },
   31337: {
     InToken: {
-      address: "0x5081a39b8A5f0E35a8D959395a630b68B74Dd30f",
+      address: "0x51A1ceB83B83F1985a81C295d1fF28Afef186E02",
       abi: [
         {
           inputs: [
@@ -6582,7 +6582,7 @@ const deployedContracts = {
       inheritedFunctions: {},
     },
     OutToken: {
-      address: "0x1fA02b2d6A771842690194Cf62D91bdd92BfE28d",
+      address: "0x36b58F5C1969B7b6591D752ea6F5486D069010AB",
       abi: [
         {
           inputs: [
@@ -6930,7 +6930,7 @@ const deployedContracts = {
       inheritedFunctions: {},
     },
     PoolWrapper: {
-      address: "0x21dF544947ba3E8b3c32561399E88B52Dc8b2823",
+      address: "0xf4B146FbA71F41E0592668ffbF264F1D186b2Ca8",
       abi: [
         {
           inputs: [],
@@ -7191,7 +7191,7 @@ const deployedContracts = {
       },
     },
     Stream: {
-      address: "0xD8a5a9b31c3C0232E196d518E89Fd8bF83AcAd43",
+      address: "0x4EE6eCAD1c2Dae9f525404De8555724e3c35d07B",
       abi: [
         {
           inputs: [
@@ -7458,6 +7458,12 @@ const deployedContracts = {
               internalType: "address",
               name: "streamCreationFeeToken",
               type: "address",
+            },
+            {
+              indexed: false,
+              internalType: "address[]",
+              name: "acceptedInSupplyTokens",
+              type: "address[]",
             },
             {
               indexed: false,
@@ -7910,31 +7916,6 @@ const deployedContracts = {
             },
           ],
           name: "StreamStateUpdated",
-          type: "event",
-        },
-        {
-          anonymous: false,
-          inputs: [
-            {
-              indexed: true,
-              internalType: "address",
-              name: "streamAddress",
-              type: "address",
-            },
-            {
-              indexed: false,
-              internalType: "uint8",
-              name: "mainStatus",
-              type: "uint8",
-            },
-            {
-              indexed: false,
-              internalType: "uint256",
-              name: "lastUpdated",
-              type: "uint256",
-            },
-          ],
-          name: "StreamSynced",
           type: "event",
         },
         {
@@ -8747,7 +8728,7 @@ const deployedContracts = {
       inheritedFunctions: {},
     },
     StreamFactory: {
-      address: "0x2E2Ed0Cfd3AD2f1d34481277b3204d807Ca2F8c2",
+      address: "0x172076E0166D1F9Cc711C77Adf8488051744980C",
       abi: [
         {
           inputs: [
@@ -9011,6 +8992,12 @@ const deployedContracts = {
               internalType: "address",
               name: "streamCreationFeeToken",
               type: "address",
+            },
+            {
+              indexed: false,
+              internalType: "address[]",
+              name: "acceptedInSupplyTokens",
+              type: "address[]",
             },
             {
               indexed: false,
@@ -9463,31 +9450,6 @@ const deployedContracts = {
             },
           ],
           name: "StreamStateUpdated",
-          type: "event",
-        },
-        {
-          anonymous: false,
-          inputs: [
-            {
-              indexed: true,
-              internalType: "address",
-              name: "streamAddress",
-              type: "address",
-            },
-            {
-              indexed: false,
-              internalType: "uint8",
-              name: "mainStatus",
-              type: "uint8",
-            },
-            {
-              indexed: false,
-              internalType: "uint256",
-              name: "lastUpdated",
-              type: "uint256",
-            },
-          ],
-          name: "StreamSynced",
           type: "event",
         },
         {
@@ -10423,7 +10385,7 @@ const deployedContracts = {
   },
   11155111: {
     InToken: {
-      address: "0x0502d0E7D46bE90e6695CB678dC38A30A90a5293",
+      address: "0xBdD76744BFE8656D83E0B1d713b19b750949B56B",
       abi: [
         {
           inputs: [
@@ -10771,7 +10733,7 @@ const deployedContracts = {
       inheritedFunctions: {},
     },
     OutToken: {
-      address: "0x0D6B14bDbFEc3Eb2F1fd79B5e686C9d01950426F",
+      address: "0x26F694C411dAaaD1fD6839E9C8cb3BF78191B189",
       abi: [
         {
           inputs: [
@@ -11119,7 +11081,7 @@ const deployedContracts = {
       inheritedFunctions: {},
     },
     PoolWrapper: {
-      address: "0x5A88837b6887fDD81AA6975f021B0Bd890BB499B",
+      address: "0x169832ca8c1B727314BFb824cA7Bbf88342E2B9F",
       abi: [
         {
           inputs: [],
@@ -11380,7 +11342,7 @@ const deployedContracts = {
       },
     },
     Stream: {
-      address: "0x1d0F5a71F1Ed972e312C1C72460d13ed81dF9E5c",
+      address: "0x6980cd4480d0e21049b0C7c43772B00E63F4aa45",
       abi: [
         {
           inputs: [
@@ -11647,6 +11609,12 @@ const deployedContracts = {
               internalType: "address",
               name: "streamCreationFeeToken",
               type: "address",
+            },
+            {
+              indexed: false,
+              internalType: "address[]",
+              name: "acceptedInSupplyTokens",
+              type: "address[]",
             },
             {
               indexed: false,
@@ -12936,7 +12904,7 @@ const deployedContracts = {
       inheritedFunctions: {},
     },
     StreamFactory: {
-      address: "0xdDACdace6f2aEFbD277Bf54E30DF0eeA3216b268",
+      address: "0x63d598fEA0BAC15E4e665617B6eE5fF0f915978B",
       abi: [
         {
           inputs: [
@@ -13200,6 +13168,12 @@ const deployedContracts = {
               internalType: "address",
               name: "streamCreationFeeToken",
               type: "address",
+            },
+            {
+              indexed: false,
+              internalType: "address[]",
+              name: "acceptedInSupplyTokens",
+              type: "address[]",
             },
             {
               indexed: false,

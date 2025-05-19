@@ -21,8 +21,6 @@ interface IStreamEvents {
         uint16 streamId
     );
 
-    event StreamSynced(address indexed streamAddress, uint8 mainStatus, uint256 lastUpdated);
-
     event StreamStateUpdated(
         address indexed streamAddress,
         uint256 lastUpdated,
