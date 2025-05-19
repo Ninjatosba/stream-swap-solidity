@@ -10385,7 +10385,7 @@ const deployedContracts = {
   },
   11155111: {
     InToken: {
-      address: "0xBdD76744BFE8656D83E0B1d713b19b750949B56B",
+      address: "0xCACb00249CbCf54A73e9E5A5d5cC004a642A8Ac9",
       abi: [
         {
           inputs: [
@@ -10733,7 +10733,7 @@ const deployedContracts = {
       inheritedFunctions: {},
     },
     OutToken: {
-      address: "0x26F694C411dAaaD1fD6839E9C8cb3BF78191B189",
+      address: "0xEaB36b6587fDbe4C540B14232D8f3B8F3e2dFB1b",
       abi: [
         {
           inputs: [
@@ -11081,7 +11081,7 @@ const deployedContracts = {
       inheritedFunctions: {},
     },
     PoolWrapper: {
-      address: "0x169832ca8c1B727314BFb824cA7Bbf88342E2B9F",
+      address: "0xa6506A3CA30aa4FBC6d89951acB4c3Bac8D1113a",
       abi: [
         {
           inputs: [],
@@ -11342,7 +11342,7 @@ const deployedContracts = {
       },
     },
     Stream: {
-      address: "0x6980cd4480d0e21049b0C7c43772B00E63F4aa45",
+      address: "0x524d463112C10c03165aE41FF4741Ac0262914E2",
       abi: [
         {
           inputs: [
@@ -12067,31 +12067,6 @@ const deployedContracts = {
             },
           ],
           name: "StreamStateUpdated",
-          type: "event",
-        },
-        {
-          anonymous: false,
-          inputs: [
-            {
-              indexed: true,
-              internalType: "address",
-              name: "streamAddress",
-              type: "address",
-            },
-            {
-              indexed: false,
-              internalType: "uint8",
-              name: "mainStatus",
-              type: "uint8",
-            },
-            {
-              indexed: false,
-              internalType: "uint256",
-              name: "lastUpdated",
-              type: "uint256",
-            },
-          ],
-          name: "StreamSynced",
           type: "event",
         },
         {
@@ -12904,7 +12879,7 @@ const deployedContracts = {
       inheritedFunctions: {},
     },
     StreamFactory: {
-      address: "0x63d598fEA0BAC15E4e665617B6eE5fF0f915978B",
+      address: "0x559B4d8662A4c555C82d1d2D75699745cD73ADD4",
       abi: [
         {
           inputs: [
@@ -13626,31 +13601,6 @@ const deployedContracts = {
             },
           ],
           name: "StreamStateUpdated",
-          type: "event",
-        },
-        {
-          anonymous: false,
-          inputs: [
-            {
-              indexed: true,
-              internalType: "address",
-              name: "streamAddress",
-              type: "address",
-            },
-            {
-              indexed: false,
-              internalType: "uint8",
-              name: "mainStatus",
-              type: "uint8",
-            },
-            {
-              indexed: false,
-              internalType: "uint256",
-              name: "lastUpdated",
-              type: "uint256",
-            },
-          ],
-          name: "StreamSynced",
           type: "event",
         },
         {

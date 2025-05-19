@@ -55,8 +55,8 @@ task("create-stream", "Creates a new stream using the deployed factory")
         // Get current block timestamp
         const latestBlock = await ethers.provider.getBlock("latest");
         const nowSeconds = latestBlock?.timestamp ?? 0;
-        const bootstrappingStartTime = nowSeconds + 100;
-        const streamStartTime = nowSeconds + 6500;
+        const bootstrappingStartTime = nowSeconds + 20;
+        const streamStartTime = nowSeconds + 50;
         const streamEndTime = nowSeconds + 206500;
 
         // Prepare stream creation message
@@ -68,7 +68,7 @@ task("create-stream", "Creates a new stream using the deployed factory")
             streamStartTime,
             streamEndTime,
             threshold: defaultStreamConfig.threshold,
-            metadata: { ipfsHash: "QmS4ghgMgPXqX53EiQ7sP8G6QY8Y5X53EiQ7sP8G6Q" },
+            metadata: { ipfsHash: "QmTqA1yioEJdrFJkBiaGVv38NN55XLX8fMYmGCmqErnMng" },
             inSupplyToken: inTokenAddress,
             tosVersion: defaultStreamConfig.tosVersion,
             creator: creator.address,
