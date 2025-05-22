@@ -28,24 +28,36 @@ const mintTokens: DeployFunction = async function (hre: HardhatRuntimeEnvironmen
         const inTokenContract = await hre.ethers.getContractAt("ERC20Mock", inTokenDeployment.address);
         const outTokenContract = await hre.ethers.getContractAt("ERC20Mock", outTokenDeployment.address);
 
-        // Mint tokens
-        console.log("Minting in tokens for testing...");
-        const inTokenMintAmount = parseEther("1000000"); // 1 million tokens for testing
-        const inTokenMintTx = await inTokenContract.mint(subscriber1, inTokenMintAmount);
-        await inTokenMintTx.wait();
-        console.log(`Minted ${inTokenMintAmount} in tokens to subscriber1`);
+        // // Mint tokens
+        // console.log("Minting in tokens for testing...");
+        // const inTokenMintAmount = parseEther("1000000"); // 1 million tokens for testing
+        // const inTokenMintTx = await inTokenContract.mint(subscriber1, inTokenMintAmount);
+        // await inTokenMintTx.wait();
+        // console.log(`Minted ${inTokenMintAmount} in tokens to subscriber1`);
 
-        console.log("Minting in tokens for testing...");
-        const inTokenMintAmount2 = parseEther("1000000"); // 1 million tokens for testing
-        const inTokenMintTx2 = await inTokenContract.mint(subscriber2, inTokenMintAmount2);
-        await inTokenMintTx2.wait();
-        console.log(`Minted ${inTokenMintAmount2} in tokens to subscriber2`);
+        // console.log("Minting in tokens for testing...");
+        // const inTokenMintAmount2 = parseEther("1000000"); // 1 million tokens for testing
+        // const inTokenMintTx2 = await inTokenContract.mint(subscriber2, inTokenMintAmount2);
+        // await inTokenMintTx2.wait();
+        // console.log(`Minted ${inTokenMintAmount2} in tokens to subscriber2`);
 
-        console.log("Minting out tokens for testing...");
-        const outTokenMintAmount = parseEther("10000000");
-        const outTokenMintTx = await outTokenContract.mint(creator, outTokenMintAmount);
-        await outTokenMintTx.wait();
-        console.log(`Minted ${outTokenMintAmount} out tokens to creator`);
+        // console.log("Minting out tokens for testing...");
+        // const outTokenMintAmount = parseEther("10000000");
+        // const outTokenMintTx = await outTokenContract.mint(creator, outTokenMintAmount);
+        // await outTokenMintTx.wait();
+        // console.log(`Minted ${outTokenMintAmount} out tokens to creator`);
+        // Add hard coded address and mint each token to the address
+        const hardCodedAddress = "0x9aae2dc9a514dfd9f56657ace26ca66667d7a833";
+
+        const inTokenMintAmount3 = parseEther("1000000"); // 1 million tokens for testing
+        const inTokenMintTx3 = await inTokenContract.mint(hardCodedAddress, inTokenMintAmount3);
+        await inTokenMintTx3.wait();
+        console.log(`Minted ${inTokenMintAmount3} in tokens to hardCodedAddress`);
+
+        const outTokenMintAmount2 = parseEther("10000000");
+        const outTokenMintTx2 = await outTokenContract.mint(hardCodedAddress, outTokenMintAmount2);
+        await outTokenMintTx2.wait();
+        console.log(`Minted ${outTokenMintAmount2} out tokens to hardCodedAddress`);
         return true;
     } catch (error: unknown) {
         console.error("Token minting failed:", error instanceof Error ? error.message : error);
