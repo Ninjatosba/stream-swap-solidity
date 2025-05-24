@@ -9,55 +9,71 @@ task("subscribe", "Subscribe to a stream")
     .setAction(async (taskArgs, hre) => {
         const { deployments, ethers } = hre;
 
-        // Get accounts
-        const { subscriber1, subscriber2 } = await hre.getNamedAccounts();
-        const subscriberAddress = taskArgs.subscriber === "subscriber1" ? subscriber1 : subscriber2;
-        console.log(`Subscriber address: ${subscriberAddress}`);
-        // query subscriber balance
-        const nativeBalance = await ethers.provider.getBalance(subscriberAddress);
-        console.log(`Subscriber balance: ${nativeBalance}`);
+        try {
+            // Get accounts
+            const { subscriber1, subscriber2 } = await hre.getNamedAccounts();
+            const subscriberAddress = taskArgs.subscriber === "subscriber1" ? subscriber1 : subscriber2;
+            console.log(`Subscriber address: ${subscriberAddress}`);
 
-        // Get stream contract
-        const stream = await ethers.getContractAt("Stream", taskArgs.stream) as unknown as Stream;
-        console.log(`Stream address: ${taskArgs.stream}`);
+            // query subscriber balance
+            const nativeBalance = await ethers.provider.getBalance(subscriberAddress);
+            console.log(`Subscriber balance: ${nativeBalance}`);
 
-        // Get in token address from stream
-        const streamTokens = await stream.streamTokens();
-        const inTokenAddress = streamTokens.inSupplyToken;
-        console.log(`In token address: ${inTokenAddress}`);
+            // Get stream contract
+            const stream = await ethers.getContractAt("Stream", taskArgs.stream) as unknown as Stream;
+            console.log(`Stream address: ${taskArgs.stream}`);
 
-        // Get in token contract
-        const inToken = await ethers.getContractAt("ERC20Mock", inTokenAddress) as unknown as ERC20Mock;
+            // Get stream status
+            const status = await stream.getStreamStatus();
+            console.log(`Stream status: ${status}`);
 
-        // Parse amount
-        const amount = parseEther(taskArgs.amount);
-        console.log(`Subscribing with amount: ${amount}`);
+            // Get in token address from stream
+            const streamTokens = await stream.streamTokens();
+            const inTokenAddress = streamTokens.inSupplyToken;
+            console.log(`In token address: ${inTokenAddress}`);
 
-        // Check balance
-        const balance = await inToken.balanceOf(subscriberAddress);
-        console.log(`Subscriber balance: ${balance}`);
-        if (balance < amount) {
-            throw new Error("Insufficient balance");
+            // Get in token contract
+            const inToken = await ethers.getContractAt("ERC20Mock", inTokenAddress) as unknown as ERC20Mock;
+
+            // Parse amount
+            const amount = parseEther(taskArgs.amount);
+            console.log(`Subscribing with amount: ${amount}`);
+
+            // Check balance
+            const balance = await inToken.balanceOf(subscriberAddress);
+            console.log(`Subscriber balance: ${balance}`);
+            if (balance < amount) {
+                throw new Error("Insufficient balance");
+            }
+
+            // Approve tokens if needed
+            const allowance = await inToken.allowance(subscriberAddress, taskArgs.stream);
+            console.log(`Allowance: ${allowance}`);
+            if (allowance < amount) {
+                const approveTx = await inToken.connect(await ethers.getSigner(subscriberAddress)).approve(taskArgs.stream, amount);
+                await approveTx.wait();
+                console.log("Approved tokens for stream");
+            }
+
+            // Subscribe
+            console.log("Attempting to subscribe...");
+            const subscribeTx = await stream.connect(await ethers.getSigner(subscriberAddress)).subscribe(amount);
+            console.log(`Subscribe transaction: ${subscribeTx.hash}`);
+            const receipt = await subscribeTx.wait();
+            console.log(`Subscribe transaction confirmed in block: ${receipt?.blockNumber}`);
+
+            // Get position
+            const position = await stream.getPosition(subscriberAddress);
+            console.log("\nPosition details:");
+            console.log(`In balance: ${position.inBalance}`);
+            console.log(`Shares: ${position.shares}`);
+        } catch (error: any) {
+            console.error("Error details:", {
+                message: error.message,
+                code: error.code,
+                data: error.data,
+                transaction: error.transaction
+            });
+            throw error;
         }
-
-        // Approve tokens if needed
-        const allowance = await inToken.allowance(subscriberAddress, taskArgs.stream);
-        console.log(`Allowance: ${allowance}`);
-        if (allowance < amount) {
-            const approveTx = await inToken.connect(await ethers.getSigner(subscriberAddress)).approve(taskArgs.stream, amount);
-            await approveTx.wait();
-            console.log("Approved tokens for stream");
-        }
-
-        // Subscribe
-        const subscribeTx = await stream.connect(await ethers.getSigner(subscriberAddress)).subscribe(amount);
-        console.log(`Subscribe transaction: ${subscribeTx.hash}`);
-        const receipt = await subscribeTx.wait();
-        console.log(`Subscribe transaction confirmed in block: ${receipt?.blockNumber}`);
-
-        // Get position
-        const position = await stream.getPosition(subscriberAddress);
-        console.log("\nPosition details:");
-        console.log(`In balance: ${position.inBalance}`);
-        console.log(`Shares: ${position.shares}`);
     }); 

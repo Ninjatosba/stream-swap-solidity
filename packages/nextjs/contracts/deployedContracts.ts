@@ -8309,7 +8309,7 @@ const deployedContracts = {
   },
   31337: {
     InToken: {
-      address: "0x51A1ceB83B83F1985a81C295d1fF28Afef186E02",
+      address: "0xD84379CEae14AA33C123Af12424A37803F885889",
       abi: [
         {
           inputs: [
@@ -8657,7 +8657,7 @@ const deployedContracts = {
       inheritedFunctions: {},
     },
     OutToken: {
-      address: "0x36b58F5C1969B7b6591D752ea6F5486D069010AB",
+      address: "0x2B0d36FACD61B71CC05ab8F3D2355ec3631C0dd5",
       abi: [
         {
           inputs: [
@@ -9005,7 +9005,7 @@ const deployedContracts = {
       inheritedFunctions: {},
     },
     PoolWrapper: {
-      address: "0xf4B146FbA71F41E0592668ffbF264F1D186b2Ca8",
+      address: "0x1c85638e118b37167e9298c2268758e058DdfDA0",
       abi: [
         {
           inputs: [],
@@ -9266,7 +9266,7 @@ const deployedContracts = {
       },
     },
     Stream: {
-      address: "0x4EE6eCAD1c2Dae9f525404De8555724e3c35d07B",
+      address: "0x4C2F7092C2aE51D986bEFEe378e50BD4dB99C901",
       abi: [
         {
           inputs: [
@@ -10803,7 +10803,7 @@ const deployedContracts = {
       inheritedFunctions: {},
     },
     StreamFactory: {
-      address: "0x172076E0166D1F9Cc711C77Adf8488051744980C",
+      address: "0x367761085BF3C12e5DA2Df99AC6E1a824612b8fb",
       abi: [
         {
           inputs: [
