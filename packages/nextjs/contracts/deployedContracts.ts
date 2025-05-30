@@ -7,7 +7,7 @@ import { GenericContractsDeclaration } from "~~/utils/scaffold-eth/contract";
 const deployedContracts = {
   998: {
     InToken: {
-      address: "0x1b13b3645Be2Fd616EbBBA25d1D2A7201fda7411",
+      address: "0x7D20921eC151E991e522B85F5230fb49416653b8",
       abi: [
         {
           inputs: [
@@ -355,7 +355,7 @@ const deployedContracts = {
       inheritedFunctions: {},
     },
     OutToken: {
-      address: "0xA7490Da92D24B59DCBeee502901a564F3086f324",
+      address: "0x4297335f1A29D425A074A5B3942B1773aEe5281A",
       abi: [
         {
           inputs: [
@@ -703,7 +703,7 @@ const deployedContracts = {
       inheritedFunctions: {},
     },
     PoolWrapper: {
-      address: "0xb83435519b2F39Ef48C7497Efc640aA871cFDF9a",
+      address: "0xebe6c5ac12eB0647dAaa90CaB816E783a7AA89EE",
       abi: [
         {
           inputs: [],
@@ -964,7 +964,7 @@ const deployedContracts = {
       },
     },
     Stream: {
-      address: "0x25B185E5D038C9b9E8AB605c1eC374aBe5ACF366",
+      address: "0x5c0D30dCFCa20d5Aa487F4333b2E7739Ec0e0C12",
       abi: [
         {
           inputs: [
@@ -2501,7 +2501,7 @@ const deployedContracts = {
       inheritedFunctions: {},
     },
     StreamFactory: {
-      address: "0x89e7E09063475C972aa426dafaEEd6Be593aBF86",
+      address: "0xa2bc94F53F7eC7C73EC13BB771dcbfb0DCEDe47B",
       abi: [
         {
           inputs: [
@@ -8309,7 +8309,7 @@ const deployedContracts = {
   },
   31337: {
     InToken: {
-      address: "0xD84379CEae14AA33C123Af12424A37803F885889",
+      address: "0xc0F115A19107322cFBf1cDBC7ea011C19EbDB4F8",
       abi: [
         {
           inputs: [
@@ -8657,7 +8657,7 @@ const deployedContracts = {
       inheritedFunctions: {},
     },
     OutToken: {
-      address: "0x2B0d36FACD61B71CC05ab8F3D2355ec3631C0dd5",
+      address: "0xc96304e3c037f81dA488ed9dEa1D8F2a48278a75",
       abi: [
         {
           inputs: [
@@ -9005,7 +9005,7 @@ const deployedContracts = {
       inheritedFunctions: {},
     },
     PoolWrapper: {
-      address: "0x1c85638e118b37167e9298c2268758e058DdfDA0",
+      address: "0x22753E4264FDDc6181dc7cce468904A80a363E44",
       abi: [
         {
           inputs: [],
@@ -9266,7 +9266,7 @@ const deployedContracts = {
       },
     },
     Stream: {
-      address: "0x4C2F7092C2aE51D986bEFEe378e50BD4dB99C901",
+      address: "0xfaAddC93baf78e89DCf37bA67943E1bE8F37Bb8c",
       abi: [
         {
           inputs: [
@@ -10803,7 +10803,7 @@ const deployedContracts = {
       inheritedFunctions: {},
     },
     StreamFactory: {
-      address: "0x367761085BF3C12e5DA2Df99AC6E1a824612b8fb",
+      address: "0xA7c59f010700930003b33aB25a7a0679C860f29c",
       abi: [
         {
           inputs: [
