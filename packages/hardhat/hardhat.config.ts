@@ -96,6 +96,17 @@ const config: HardhatUserConfig = {
       },
       chainId: 31337
     },
+    localCevm: {
+      url: "http://127.0.0.1:8545",
+      accounts: [
+        "0xe9b1d63e8acd7fe676acb43afb390d4b0202dab61abec9cf2a561e4becb147de",
+        "0x88cbead91aee890d27bf06e003ade3d4e952427e88f88d31d61d3ef5e5d54305",
+        "0x741de4f8988ea941d3ff0287911ca4074e62b7d45c991a51186455366f10b544",
+        "0x3b7955d25189c99a7468192fcbc6429205c158834053ebe3f78f4512ab432db9",
+        "0x8a36c69d940a92fcea94b36d0f2928c7a0ee19a90073eda769693298dfa9603b"
+      ],
+      chainId: 262144
+    },
     mainnet: {
       url: `https://eth-mainnet.alchemyapi.io/v2/${providerApiKey}`,
       accounts: [deployerPrivateKey],
@@ -210,6 +221,11 @@ const config: HardhatUserConfig = {
       gasPrice: "auto",
       blockGasLimit: 50_000_000,
       allowUnlimitedContractSize: true
+    },
+    cosmosEvmDevnet: {
+      url: "https://cevm-01-evmrpc.dev.skip.build",
+      accounts: [deployerPrivateKey, creatorPrivateKey, subscriber1PrivateKey, subscriber2PrivateKey],
+      chainId: 262144
     },
   },
   // configuration for harhdat-verify plugin
