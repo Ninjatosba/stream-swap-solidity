@@ -36,7 +36,7 @@ contract Stream is IStreamErrors, IStreamEvents {
         initialized = true;
     }
 
-    modifier onlyAdmin() {
+    modifier onlyStreamFactory() {
         if (msg.sender != streamFactoryAddress) revert Unauthorized();
         _;
     }
@@ -48,7 +48,7 @@ contract Stream is IStreamErrors, IStreamEvents {
     function initialize(
         StreamTypes.createStreamMessage memory createStreamMessage,
         address _positionStorageAddress
-    ) external onlyOnce onlyAdmin {
+    ) external onlyOnce onlyStreamFactory {
         // Validate that output token is a valid ERC20
         if (!TokenHelpers.isValidERC20(createStreamMessage.outSupplyToken, msg.sender)) revert InvalidOutSupplyToken();
         // Check if the contract has enough balance of output token

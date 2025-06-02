@@ -35,6 +35,11 @@ contract StreamFactory is IStreamEvents, IStreamFactoryErrors {
         initialized = true;
     }
 
+    modifier onlyAdmin() {
+        if (msg.sender != params.protocolAdmin) revert NotAdmin();
+        _;
+    }
+
     function initialize(
         StreamFactoryTypes.initializeStreamMessage memory initializeStreamMessage
     ) external onlyAdmin onlyOnce {
@@ -76,11 +81,6 @@ contract StreamFactory is IStreamEvents, IStreamFactoryErrors {
             initializeStreamMessage.tosVersion,
             address(vesting)
         );
-    }
-
-    modifier onlyAdmin() {
-        if (msg.sender != params.protocolAdmin) revert NotAdmin();
-        _;
     }
 
     function updateParams(
