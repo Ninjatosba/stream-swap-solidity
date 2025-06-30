@@ -10,9 +10,6 @@ import "@nomicfoundation/hardhat-verify";
 import "hardhat-deploy";
 import "hardhat-deploy-ethers";
 import { task } from "hardhat/config";
-import generateTsAbis from "./scripts/generateTsAbis";
-import path from "path";
-import fs from "fs";
 import "./tasks/create-stream";
 import "./tasks/mint-tokens";
 import "./tasks/subscribe";
@@ -20,23 +17,28 @@ import "./tasks/finalize-stream";
 import "./tasks/exit-stream";
 // If not set, it uses ours Alchemy's default API key.
 // You can get your own at https://dashboard.alchemyapi.io
-const providerApiKey = process.env.ALCHEMY_API_KEY || "oKxs-03sij-U_N0iOlrSsZFr29-IqbuF";
+const providerApiKey = process.env.ALCHEMY_API_KEY;
+if (!providerApiKey) {
+  throw new Error("ALCHEMY_API_KEY environment variable is not set.");
+}
+
 // If not set, it uses the hardhat account 0 private key.
 // You can generate a random account with `yarn generate` or `yarn account:import` to import your existing PK
-const deployerPrivateKey = process.env.__RUNTIME_DEPLOYER_PRIVATE_KEY ?? "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
-const creatorPrivateKey = process.env.__RUNTIME_CREATOR_PRIVATE_KEY ?? "25ff6f253faf11e2e59b5706384ac7beeb1c1cf6f1e1920d142021d36b9f4b87";
-const subscriber1PrivateKey = process.env.__RUNTIME_SUBSCRIBER1_PRIVATE_KEY ?? "da397ce2ccd9543307a7f467872c12b58f00a6744950fcbd1c12bf8f6786af0e";
-const subscriber2PrivateKey = process.env.__RUNTIME_SUBSCRIBER2_PRIVATE_KEY ?? "0da3a04235b76296d85b70894e5727b8b34b6a18d9d6a1c5b5ef01739e06cd1f";
+const deployerPrivateKey = process.env.__RUNTIME_DEPLOYER_PRIVATE_KEY || process.env.DEPLOYER_PRIVATE_KEY;
+const creatorPrivateKey = process.env.CREATOR_PRIVATE_KEY;
+const subscriber1PrivateKey = process.env.SUBSCRIBER1_PRIVATE_KEY;
+const subscriber2PrivateKey = process.env.SUBSCRIBER2_PRIVATE_KEY;
+
 // If not set, it uses our block explorers default API keys.
-const etherscanApiKey = process.env.ETHERSCAN_MAINNET_API_KEY || "DNXJA8RX2Q3VZ4URQIWP7Z68CJXQZSC6AW";
-const etherscanOptimisticApiKey = process.env.ETHERSCAN_OPTIMISTIC_API_KEY || "RM62RDISS1RH448ZY379NX625ASG1N633R";
-const basescanApiKey = process.env.BASESCAN_API_KEY || "ZZZEIPMT1MNJ8526VV2Y744CA7TNZR64G6";
+const etherscanApiKey = process.env.ETHERSCAN_MAINNET_API_KEY || "";
+const etherscanOptimisticApiKey = process.env.ETHERSCAN_OPTIMISTIC_API_KEY || "";
+const basescanApiKey = process.env.BASESCAN_API_KEY || "";
 
 const config: HardhatUserConfig = {
   solidity: {
     compilers: [
       {
-        version: "0.8.20",
+        version: "0.8.24",
         settings: {
           optimizer: {
             enabled: true,
@@ -47,6 +49,9 @@ const config: HardhatUserConfig = {
         },
       },
     ],
+  },
+  paths: {
+    sources: "./src",
   },
   defaultNetwork: "hardhat",
   mocha: {
@@ -73,17 +78,19 @@ const config: HardhatUserConfig = {
     hardhat: {
       forking: {
         url: `https://eth-mainnet.alchemyapi.io/v2/${providerApiKey}`,
-        enabled: process.env.MAINNET_FORKING_ENABLED === "false",
-        blockNumber: 0
+        enabled: process.env.MAINNET_FORKING_ENABLED === "true",
+        blockNumber: 19525330,
       },
       mining: {
         auto: true,
-        interval: 0  // Add a 1 second interval between blocks
-      }
+        interval: 0, // Add a 1 second interval between blocks
+      },
     },
     monadTestnet: {
       url: "https://testnet-rpc.monad.xyz",
-      accounts: [deployerPrivateKey, creatorPrivateKey, subscriber1PrivateKey, subscriber2PrivateKey],
+      accounts: [deployerPrivateKey, creatorPrivateKey, subscriber1PrivateKey, subscriber2PrivateKey].filter(
+        (account): account is string => !!account,
+      ),
       chainId: 10143,
     },
     localhost: {
@@ -92,43 +99,40 @@ const config: HardhatUserConfig = {
       timeout: 60000,
       mining: {
         auto: true,
-        interval: 1  // Add a 1 second interval between blocks
+        interval: 1, // Add a 1 second interval between blocks
       },
-      chainId: 31337
-    },
-    localCevm: {
-      url: "http://127.0.0.1:8545",
-      accounts: [
-        "0xe9b1d63e8acd7fe676acb43afb390d4b0202dab61abec9cf2a561e4becb147de",
-        "0x88cbead91aee890d27bf06e003ade3d4e952427e88f88d31d61d3ef5e5d54305",
-        "0x741de4f8988ea941d3ff0287911ca4074e62b7d45c991a51186455366f10b544",
-        "0x3b7955d25189c99a7468192fcbc6429205c158834053ebe3f78f4512ab432db9",
-        "0x8a36c69d940a92fcea94b36d0f2928c7a0ee19a90073eda769693298dfa9603b"
-      ],
-      chainId: 262144
+      chainId: 31337,
     },
     mainnet: {
       url: `https://eth-mainnet.alchemyapi.io/v2/${providerApiKey}`,
-      accounts: [deployerPrivateKey],
+      accounts: deployerPrivateKey ? [deployerPrivateKey] : [],
       timeout: 1800000,
       gas: "auto",
       gasPrice: "auto",
     },
     sepolia: {
       url: `https://eth-sepolia.g.alchemy.com/v2/${providerApiKey}`,
-      accounts: [deployerPrivateKey, creatorPrivateKey, subscriber1PrivateKey, subscriber2PrivateKey],
+      accounts: [deployerPrivateKey, creatorPrivateKey, subscriber1PrivateKey, subscriber2PrivateKey].filter(
+        (account): account is string => !!account,
+      ),
     },
     arbitrum: {
       url: `https://arb-mainnet.g.alchemy.com/v2/${providerApiKey}`,
-      accounts: [deployerPrivateKey],
+      accounts: deployerPrivateKey ? [deployerPrivateKey] : [],
+      verify: {
+        etherscan: {
+          apiUrl: "https://api-optimistic.etherscan.io",
+          apiKey: etherscanOptimisticApiKey,
+        },
+      },
     },
     arbitrumSepolia: {
       url: `https://arb-sepolia.g.alchemy.com/v2/${providerApiKey}`,
-      accounts: [deployerPrivateKey],
+      accounts: deployerPrivateKey ? [deployerPrivateKey] : [],
     },
     optimism: {
       url: `https://opt-mainnet.g.alchemy.com/v2/${providerApiKey}`,
-      accounts: [deployerPrivateKey],
+      accounts: deployerPrivateKey ? [deployerPrivateKey] : [],
       verify: {
         etherscan: {
           apiUrl: "https://api-optimistic.etherscan.io",
@@ -138,7 +142,7 @@ const config: HardhatUserConfig = {
     },
     optimismSepolia: {
       url: `https://opt-sepolia.g.alchemy.com/v2/${providerApiKey}`,
-      accounts: [deployerPrivateKey],
+      accounts: deployerPrivateKey ? [deployerPrivateKey] : [],
       verify: {
         etherscan: {
           apiUrl: "https://api-sepolia-optimistic.etherscan.io",
@@ -148,31 +152,37 @@ const config: HardhatUserConfig = {
     },
     polygon: {
       url: `https://polygon-mainnet.g.alchemy.com/v2/${providerApiKey}`,
-      accounts: [deployerPrivateKey],
+      accounts: deployerPrivateKey ? [deployerPrivateKey] : [],
+      verify: {
+        etherscan: {
+          apiUrl: "https://api.basescan.org",
+          apiKey: basescanApiKey,
+        },
+      },
     },
     polygonMumbai: {
       url: `https://polygon-mumbai.g.alchemy.com/v2/${providerApiKey}`,
-      accounts: [deployerPrivateKey],
+      accounts: deployerPrivateKey ? [deployerPrivateKey] : [],
     },
     polygonZkEvm: {
       url: `https://polygonzkevm-mainnet.g.alchemy.com/v2/${providerApiKey}`,
-      accounts: [deployerPrivateKey],
+      accounts: deployerPrivateKey ? [deployerPrivateKey] : [],
     },
     polygonZkEvmTestnet: {
       url: `https://polygonzkevm-testnet.g.alchemy.com/v2/${providerApiKey}`,
-      accounts: [deployerPrivateKey],
+      accounts: deployerPrivateKey ? [deployerPrivateKey] : [],
     },
     gnosis: {
       url: "https://rpc.gnosischain.com",
-      accounts: [deployerPrivateKey],
+      accounts: deployerPrivateKey ? [deployerPrivateKey] : [],
     },
     chiado: {
       url: "https://rpc.chiadochain.net",
-      accounts: [deployerPrivateKey],
+      accounts: deployerPrivateKey ? [deployerPrivateKey] : [],
     },
     base: {
       url: "https://mainnet.base.org",
-      accounts: [deployerPrivateKey],
+      accounts: deployerPrivateKey ? [deployerPrivateKey] : [],
       verify: {
         etherscan: {
           apiUrl: "https://api.basescan.org",
@@ -182,7 +192,7 @@ const config: HardhatUserConfig = {
     },
     baseSepolia: {
       url: "https://sepolia.base.org",
-      accounts: [deployerPrivateKey],
+      accounts: deployerPrivateKey ? [deployerPrivateKey] : [],
       verify: {
         etherscan: {
           apiUrl: "https://api-sepolia.basescan.org",
@@ -192,45 +202,101 @@ const config: HardhatUserConfig = {
     },
     scrollSepolia: {
       url: "https://sepolia-rpc.scroll.io",
-      accounts: [deployerPrivateKey],
+      accounts: deployerPrivateKey ? [deployerPrivateKey] : [],
     },
     scroll: {
       url: "https://rpc.scroll.io",
-      accounts: [deployerPrivateKey],
+      accounts: deployerPrivateKey ? [deployerPrivateKey] : [],
     },
     pgn: {
       url: "https://rpc.publicgoods.network",
-      accounts: [deployerPrivateKey],
+      accounts: deployerPrivateKey ? [deployerPrivateKey] : [],
     },
     pgnTestnet: {
       url: "https://sepolia.publicgoods.network",
-      accounts: [deployerPrivateKey],
+      accounts: deployerPrivateKey ? [deployerPrivateKey] : [],
     },
     celo: {
       url: "https://forno.celo.org",
-      accounts: [deployerPrivateKey],
+      accounts: deployerPrivateKey ? [deployerPrivateKey] : [],
     },
     celoAlfajores: {
       url: "https://alfajores-forno.celo-testnet.org",
-      accounts: [deployerPrivateKey],
+      accounts: deployerPrivateKey ? [deployerPrivateKey] : [],
     },
     hyperliquidTestnet: {
       url: "https://rpc.hyperliquid-testnet.xyz/evm",
-      accounts: [deployerPrivateKey, creatorPrivateKey, subscriber1PrivateKey, subscriber2PrivateKey],
-      gas: 50_000_000,  // Increased gas limit
+      accounts: [deployerPrivateKey, creatorPrivateKey, subscriber1PrivateKey, subscriber2PrivateKey].filter(
+        (account): account is string => !!account,
+      ),
+      gas: 50_000_000, // Increased gas limit
       gasPrice: "auto",
       blockGasLimit: 50_000_000,
-      allowUnlimitedContractSize: true
+      allowUnlimitedContractSize: true,
     },
     cosmosEvmDevnet: {
       url: "https://cevm-01-evmrpc.dev.skip.build",
-      accounts: [deployerPrivateKey, creatorPrivateKey, subscriber1PrivateKey, subscriber2PrivateKey],
-      chainId: 262144
+      accounts: [deployerPrivateKey, creatorPrivateKey, subscriber1PrivateKey, subscriber2PrivateKey].filter(
+        (account): account is string => !!account,
+      ),
+      chainId: 262144,
     },
   },
   // configuration for harhdat-verify plugin
   etherscan: {
-    apiKey: `${etherscanApiKey}`,
+    apiKey: {
+      mainnet: etherscanApiKey,
+      sepolia: etherscanApiKey,
+      arbitrumOne: process.env.ARBISCAN_API_KEY || "",
+      arbitrumSepolia: process.env.ARBISCAN_API_KEY || "",
+      optimisticEthereum: etherscanOptimisticApiKey,
+      optimisticSepolia: etherscanOptimisticApiKey,
+      polygon: process.env.POLYGONSCAN_API_KEY || "",
+      polygonMumbai: process.env.POLYGONSCAN_API_KEY || "",
+      polygonZkEvm: process.env.POLYGON_ZKEVM_EXPLORER_API_KEY || "",
+      polygonZkEvmTestnet: process.env.POLYGON_ZKEVM_EXPLORER_API_KEY || "",
+      gnosis: process.env.GNOSISSCAN_API_KEY || "",
+      chiado: process.env.GNOSISSCAN_API_KEY || "",
+      base: basescanApiKey,
+      baseSepolia: basescanApiKey,
+      "base-sepolia": basescanApiKey,
+      scrollSepolia: process.env.SCROLLSCAN_API_KEY || "",
+      scroll: process.env.SCROLLSCAN_API_KEY || "",
+    },
+    customChains: [
+      {
+        network: "optimismSepolia",
+        chainId: 11155420,
+        urls: {
+          apiURL: "https://api-sepolia-optimistic.etherscan.io/api",
+          browserURL: "https://sepolia-optimism.etherscan.io",
+        },
+      },
+      {
+        network: "baseSepolia",
+        chainId: 84532,
+        urls: {
+          apiURL: "https://api-sepolia.basescan.org/api",
+          browserURL: "https://sepolia.basescan.org",
+        },
+      },
+      {
+        network: "scrollSepolia",
+        chainId: 534351,
+        urls: {
+          apiURL: "https://api-sepolia.scrollscan.com/api",
+          browserURL: "https://sepolia.scrollscan.com",
+        },
+      },
+      {
+        network: "monadTestnet",
+        chainId: 10143,
+        urls: {
+          apiURL: "https://api.monad.xyz/api",
+          browserURL: "https://monad.xyz",
+        },
+      },
+    ],
   },
   // configuration for etherscan-verify from hardhat-deploy plugin
   verify: {
@@ -247,73 +313,16 @@ const config: HardhatUserConfig = {
 task("deploy").setAction(async (args, hre, runSuper) => {
   // Run the original deploy task
   await runSuper(args);
-  // Force run the generateTsAbis script
-  await generateTsAbis(hre);
 });
 
-task('sync-abis', 'Syncs ABIs with the indexer').setAction(async () => {
-  const sourceDir = './artifacts/contracts';
-  const targetDir = '../indexer/abis';
+// This is a sample Hardhat task. To learn how to create your own go to
+// https://hardhat.org/guides/create-task.html
+task("accounts", "Prints the list of accounts", async (taskArgs, hre) => {
+  const accounts = await hre.ethers.getSigners();
 
-  if (!fs.existsSync(sourceDir)) {
-    console.error(`❌ Source directory ${sourceDir} does not exist!`);
-    return;
-  }
-
-  if (!fs.existsSync(targetDir)) {
-    console.log(`📁 Creating target directory ${targetDir}`);
-    fs.mkdirSync(targetDir, { recursive: true });
-  }
-
-  // Recursive function to find all .json files
-  const findJsonFiles = (dir: string): string[] => {
-    let results: string[] = [];
-    const items = fs.readdirSync(dir);
-
-    items.forEach((item) => {
-      const fullPath = path.join(dir, item);
-      const stat = fs.statSync(fullPath);
-
-      if (stat.isDirectory()) {
-        results = results.concat(findJsonFiles(fullPath));
-      } else if (item.endsWith('.json') && !item.endsWith('.dbg.json')) {
-        // Skip debug files and only include main artifact files
-        results.push(fullPath);
-      }
-    });
-
-    return results;
-  };
-
-  try {
-    const jsonFiles = findJsonFiles(sourceDir);
-    console.log(`Found ${jsonFiles.length} JSON files`);
-
-    let copiedFiles = 0;
-    jsonFiles.forEach((sourcePath) => {
-      // Get just the contract name for the target file
-      const fileName = path.basename(sourcePath);
-      const targetPath = path.join(targetDir, fileName);
-
-      try {
-        fs.copyFileSync(sourcePath, targetPath);
-        console.log(`✓ Copied ${fileName}`);
-        copiedFiles++;
-      } catch (error) {
-        console.error(`❌ Error copying ${fileName}:`, error);
-      }
-    });
-
-    if (copiedFiles === 0) {
-      console.warn('⚠️ No ABI files copied!');
-    } else {
-      console.log(`✅ Successfully copied ${copiedFiles} ABI files to indexer`);
-    }
-  } catch (error) {
-    console.error('❌ Error processing files:', error);
+  for (const account of accounts) {
+    console.log(account.address);
   }
 });
-
-
 
 export default config;

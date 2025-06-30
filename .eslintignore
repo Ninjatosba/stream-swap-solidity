@@ -1,0 +1,9 @@
+# folders
+packages/hardhat/artifacts
+packages/hardhat/cache
+packages/hardhat/src
+packages/hardhat/node_modules/
+packages/hardhat/typechain-types
+node_modules/
+# files
+**/*.json
