@@ -15,6 +15,8 @@ import "./tasks/mint-tokens";
 import "./tasks/subscribe";
 import "./tasks/finalize-stream";
 import "./tasks/exit-stream";
+import "./tasks/withdraw";
+import "./tasks/get-stream-status";
 // If not set, it uses ours Alchemy's default API key.
 // You can get your own at https://dashboard.alchemyapi.io
 const providerApiKey = process.env.ALCHEMY_API_KEY;
@@ -52,6 +54,7 @@ const config: HardhatUserConfig = {
   },
   paths: {
     sources: "./src",
+    deploy: "deploy",
   },
   defaultNetwork: "hardhat",
   mocha: {
@@ -102,6 +105,8 @@ const config: HardhatUserConfig = {
         interval: 1, // Add a 1 second interval between blocks
       },
       chainId: 31337,
+      gas: "auto",
+      gasPrice: "auto",
     },
     mainnet: {
       url: `https://eth-mainnet.alchemyapi.io/v2/${providerApiKey}`,
@@ -242,26 +247,14 @@ const config: HardhatUserConfig = {
       chainId: 262144,
     },
   },
-  // configuration for harhdat-verify plugin
   etherscan: {
     apiKey: {
       mainnet: etherscanApiKey,
       sepolia: etherscanApiKey,
-      arbitrumOne: process.env.ARBISCAN_API_KEY || "",
-      arbitrumSepolia: process.env.ARBISCAN_API_KEY || "",
       optimisticEthereum: etherscanOptimisticApiKey,
-      optimisticSepolia: etherscanOptimisticApiKey,
-      polygon: process.env.POLYGONSCAN_API_KEY || "",
-      polygonMumbai: process.env.POLYGONSCAN_API_KEY || "",
-      polygonZkEvm: process.env.POLYGON_ZKEVM_EXPLORER_API_KEY || "",
-      polygonZkEvmTestnet: process.env.POLYGON_ZKEVM_EXPLORER_API_KEY || "",
-      gnosis: process.env.GNOSISSCAN_API_KEY || "",
-      chiado: process.env.GNOSISSCAN_API_KEY || "",
-      base: basescanApiKey,
-      baseSepolia: basescanApiKey,
       "base-sepolia": basescanApiKey,
-      scrollSepolia: process.env.SCROLLSCAN_API_KEY || "",
-      scroll: process.env.SCROLLSCAN_API_KEY || "",
+      monadTestnet: "your_monad_api_key", // Monad doesn't have a verifier yet
+      hyperliquidTestnet: "your_hyperliquid_api_key", // Hyperliquid doesn't have a verifier yet
     },
     customChains: [
       {
@@ -298,7 +291,6 @@ const config: HardhatUserConfig = {
       },
     ],
   },
-  // configuration for etherscan-verify from hardhat-deploy plugin
   verify: {
     etherscan: {
       apiKey: `${etherscanApiKey}`,
