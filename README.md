@@ -189,4 +189,4 @@ A third-party security audit is scheduled for Q3 2025. Results will be published
 
 ## License
 
-Licensed under [Apache 2.0](./LICENCE).
+Licensed under [Apache 2.0](./LICENSE).
