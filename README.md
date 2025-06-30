@@ -175,7 +175,7 @@ yarn hardhat verify --network sepolia DEPLOYED_ADDRESS ...constructor_args
 | Network | StreamFactory |
 |---------|---------------|
 | Sepolia | `0x1F73322A6637380DAfBc8449526d466aAf712202` |
-| Monad Testnet | `0x6D2330B59D19502b19540bFB901f73F1feaCD7D1` |
+| Monad Testnet | `0x2B3Db98aC7De966AE2422b26FB887870633C6E28` |
 | Hyperliquid Testnet | `0xa2bc94F53F7eC7C73EC13BB771dcbfb0DCEDe47B` |
 
 > **Note**: addresses may change – always check the latest release artifacts.
