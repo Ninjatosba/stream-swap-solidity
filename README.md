@@ -1,80 +1,192 @@
-# 🏗 Scaffold-ETH 2
+# StreamSwap ‖ EVM Smart Contracts
 
-<h4 align="center">
-  <a href="https://docs.scaffoldeth.io">Documentation</a> |
-  <a href="https://scaffoldeth.io">Website</a>
-</h4>
+[![GitHub tag](https://img.shields.io/github/v/tag/StreamSwapProtocol/streamswap-solidity?label=Latest%20version&logo=github)](https://github.com/StreamSwapProtocol/streamswap-solidity/releases/latest)
+![GitHub](https://img.shields.io/github/license/StreamSwapProtocol/streamswap-solidity)
+![X (formerly Twitter) Follow](https://img.shields.io/twitter/follow/StreamSwap_io)
 
-🧪 An open-source, up-to-date toolkit for building decentralized applications (dapps) on the Ethereum blockchain. It's designed to make it easier for developers to create and deploy smart contracts and build user interfaces that interact with those contracts.
+![StreamSwap banner](https://i.imgur.com/P7hF5uG.png)
 
-⚙️ Built using NextJS, RainbowKit, Hardhat, Wagmi, Viem, and Typescript.
+## Overview
 
-- ✅ **Contract Hot Reload**: Your frontend auto-adapts to your smart contract as you edit it.
-- 🪝 **[Custom hooks](https://docs.scaffoldeth.io/hooks/)**: Collection of React hooks wrapper around [wagmi](https://wagmi.sh/) to simplify interactions with smart contracts with typescript autocompletion.
-- 🧱 [**Components**](https://docs.scaffoldeth.io/components/): Collection of common web3 components to quickly build your frontend.
-- 🔥 **Burner Wallet & Local Faucet**: Quickly test your application with a burner wallet and local faucet.
-- 🔐 **Integration with Wallet Providers**: Connect to different wallet providers and interact with the Ethereum network.
+[StreamSwap](https://www.streamswap.io) is a protocol for **continuous, time-based token swaps**.  
+Projects, DAOs and users can create *streams* – mechanically similar to an LBP – that last for a configurable period. While the stream is live participants gradually swap an **in-supply** token for an **out-supply** token. Pricing continuously evolves in real time based on demand rather than being fixed up-front.
 
-![Debug Contracts tab](https://github.com/scaffold-eth/scaffold-eth-2/assets/55535804/b237af0c-5027-4849-a5c1-2e31495cccb1)
+The code in this repository is the **EVM implementation** of StreamSwap.  
+If you are looking for the original CosmWasm contracts check the [`streamswap-contracts`](https://github.com/StreamSwapProtocol/streamswap-contracts) repo instead.
 
-## Requirements
+---
 
-Before you begin, you need to install the following tools:
+## Architecture
 
-- [Node (>= v18.18)](https://nodejs.org/en/download/)
-- Yarn ([v1](https://classic.yarnpkg.com/en/docs/install/) or [v2+](https://yarnpkg.com/getting-started/install))
-- [Git](https://git-scm.com/downloads)
+StreamSwap on EVM is fully modular and upgradeable. The core pieces are:
 
-## Quickstart
+| Contract | Description |
+|----------|-------------|
+| [`StreamFactory.sol`](packages/hardhat/src/StreamFactory.sol) | Creates new streams and stores global protocol parameters (fees, accepted tokens, etc.). |
+| [`Stream.sol`](packages/hardhat/src/Stream.sol) | Minimal-proxy clone that holds the logic for a single stream (subscriptions, distribution, exits, finalisation). |
+| [`PoolWrapper.sol`](packages/hardhat/src/PoolWrapper.sol) | Helper that interfaces with an external AMM (e.g. Uniswap-V2 router) to seed post-sale liquidity. |
+| [`PositionStorage.sol`](packages/hardhat/src/storage/PositionStorage.sol) | ERC-721 style storage of per-user positions for gas-efficient bookkeeping. |
+| [`VestingFactory.sol`](packages/hardhat/src/VestingFactory.sol) | Deploys linear vesting contracts for creators and/or beneficiaries when enabled. |
+| **Libraries & Interfaces** | Math utilities, custom errors and typed structs that keep byte-code size minimal.
 
-To get started with Scaffold-ETH 2, follow the steps below:
+A high-level diagram is shown below (simplified – one Stream instance illustrated):
 
-1. Install dependencies if it was skipped in CLI:
+![StreamSwap Architecture](docs/streamswap-architecture.svg)
 
+### Stream Lifecycle
+
+| Phase | Duration | Description | User Actions |
+|-------|----------|-------------|--------------|
+| **Waiting** | Variable | Stream created, not yet open | Creator can cancel and get refund |
+| **Bootstrapping** | ≥ minBootstrappingDuration | Users can subscribe | Subscribe, Withdraw |
+| **Active** | Variable | Live streaming | Subscribe, Withdraw |
+| **Ended** | Indefinite | Stream concluded | Exit, Finalize |
+| **Finalized** | Permanent | Stream closed | Exit |
+
+---
+
+## How to Interact with StreamSwap
+
+This section provides a practical guide for the most common interactions with the protocol.
+
+### Prerequisites
+- A Web3 wallet (e.g., MetaMask).
+- Native tokens for gas fees on your chosen network.
+- The relevant `in-supply` or `out-supply` tokens for interacting with a stream.
+
+### Connecting to the Protocol
+
+Before you can interact with streams, you need to connect to the `StreamFactory` contract.
+
+```javascript
+import { ethers } from "ethers";
+import StreamFactoryAbi from "./abi/StreamFactory.json";
+import StreamAbi from "./abi/Stream.json";
+
+// Setup your provider and signer
+const provider = new ethers.providers.Web3Provider(window.ethereum);
+const signer = provider.getSigner();
+
+// 1. Connect to the Factory
+const streamFactoryAddress = "0x..."; // Get address from the Reference section
+const streamFactory = new ethers.Contract(streamFactoryAddress, StreamFactoryAbi, signer);
+
+// 2. Get a Stream instance (e.g., by tracking StreamCreated events)
+const streamAddress = "0x...";
+const stream = new ethers.Contract(streamAddress, StreamAbi, signer);
 ```
-cd my-dapp-example
+
+### Common Actions
+
+Here are the most common actions you can perform, with examples for both the CLI and a JavaScript environment.
+
+| Action | CLI Command (for quick tests) | JavaScript Integration |
+| :--- | :--- | :--- |
+| **Create a Stream** | `yarn hardhat create-stream` | `const tx = await streamFactory.createStream(params);`<br/>*See parameter reference below.* |
+| **Subscribe** | `yarn hardhat subscribe --stream <addr> --amount 1.0` | `const tx = await stream.subscribe(ethers.parseEther("1.0"));` |
+| **Withdraw** | `yarn hardhat withdraw --stream <addr> --amount 0.5` | `const tx = await stream.withdraw(ethers.parseEther("0.5"));` |
+| **Exit** | `yarn hardhat exit-stream --stream <addr>` | `const tx = await stream.exitStream();` |
+| **Finalize** | `yarn hardhat finalize-stream --stream <addr>` | `const tx = await stream.finalizeStream();` |
+| **Check Status** | `yarn hardhat get-stream-status --stream <addr>` | `const status = await stream.getStreamStatus();` |
+
+---
+
+## Getting Started (Development)
+
+### Prerequisites
+
+*   Node ≥ 18.x
+*   Yarn Classic (v1) or pnpm
+
+### Install & Compile
+
+```bash
+git clone https://github.com/StreamSwapProtocol/streamswap-solidity.git
+cd streamswap-solidity
 yarn install
+yarn compile
 ```
 
-2. Run a local network in the first terminal:
+### Local Testnet Workflow
 
-```
+```bash
+# 1. Start a local hardhat node
 yarn chain
-```
 
-This command starts a local Ethereum network using Hardhat. The network runs on your local machine and can be used for testing and development. You can customize the network configuration in `packages/hardhat/hardhat.config.ts`.
-
-3. On a second terminal, deploy the test contract:
-
-```
+# 2. Deploy core contracts to the local network (in a new terminal)
 yarn deploy
+
+# 3. Run unit & integration tests
+yarn hardhat:test
 ```
 
-This command deploys a test smart contract to the local network. The contract is located in `packages/hardhat/contracts` and can be modified to suit your needs. The `yarn deploy` command uses the deploy script located in `packages/hardhat/deploy` to deploy the contract to the network. You can also customize the deploy script.
+---
 
-4. On a third terminal, start your NextJS app:
+## Deployment Instructions
 
+### 1. Environment Setup
+Create a `.env` file from the `.env.example` template and add your `RPC_URL` and `PRIVATE_KEY` values.
+
+### 2. Deploy Core Contracts
+```bash
+# Deploy to a testnet
+yarn deploy --network sepolia
+
+# Deploy to mainnet
+yarn deploy --network mainnet
 ```
-yarn start
+
+### 3. Post-Deployment Verification
+```bash
+# Verify contracts on Etherscan
+yarn hardhat verify --network sepolia DEPLOYED_ADDRESS ...constructor_args
 ```
 
-Visit your app on: `http://localhost:3000`. You can interact with your smart contract using the `Debug Contracts` page. You can tweak the app config in `packages/nextjs/scaffold.config.ts`.
+---
 
-Run smart contract test with `yarn hardhat:test`
+## Reference
 
-- Edit your smart contracts in `packages/hardhat/contracts`
-- Edit your frontend homepage at `packages/nextjs/app/page.tsx`. For guidance on [routing](https://nextjs.org/docs/app/building-your-application/routing/defining-routes) and configuring [pages/layouts](https://nextjs.org/docs/app/building-your-application/routing/pages-and-layouts) checkout the Next.js documentation.
-- Edit your deployment scripts in `packages/hardhat/deploy`
+### Function Parameters
 
+#### Stream Creation (`createStream`)
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `creator` | address | Stream creator address |
+| `inSupplyToken` | address | Input token for subscriptions |
+| `outSupplyToken` | address | Output token being streamed |
+| `streamOutAmount` | uint256 | Total tokens to stream |
+| `threshold` | uint256 | Minimum participation required |
+| `bootstrappingStartTime` | uint256 | When bootstrapping phase starts |
+| `streamStartTime` | uint256 | When streaming begins |
+| `streamEndTime` | uint256 | When streaming ends |
+| `...` | | *See `StreamTypes.sol` for full struct* |
 
-## Documentation
+#### Factory Initialization (`initialize`)
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `streamCreationFee` | uint256 | Fee to create a stream |
+| `exitFeeRatio` | Decimal | Fee ratio for exits |
+| `minWaitingDuration`| uint256 | Minimum waiting period |
+| `feeCollector` | address | Address to receive fees |
+| `...` | | *See `StreamFactoryTypes.sol` for full struct* |
 
-Visit our [docs](https://docs.scaffoldeth.io) to learn how to start building with Scaffold-ETH 2.
+### Deployed Addresses
 
-To know more about its features, check out our [website](https://scaffoldeth.io).
+| Network | StreamFactory |
+|---------|---------------|
+| Sepolia | `0x1F73322A6637380DAfBc8449526d466aAf712202` |
+| Monad Testnet | `0x2B3Db98aC7De966AE2422b26FB887870633C6E28` |
+| Hyperliquid Testnet | `0xa2bc94F53F7eC7C73EC13BB771dcbfb0DCEDe47B` |
 
-## Contributing to Scaffold-ETH 2
+> **Note**: addresses may change – always check the latest release artifacts.
+---
 
-We welcome contributions to Scaffold-ETH 2!
+## Audit
 
-Please see [CONTRIBUTING.MD](https://github.com/scaffold-eth/scaffold-eth-2/blob/main/CONTRIBUTING.md) for more information and guidelines for contributing to Scaffold-ETH 2.
+A third-party security audit is scheduled for Q3 2025. Results will be published here once available.
+
+---
+
+## License
+
+Licensed under [Apache 2.0](./LICENSE).
