@@ -1,86 +1,43 @@
-# Welcome to Scaffold-ETH 2 Contributing Guide
+# Contributing to StreamSwap
 
-Thank you for investing your time in contributing to Scaffold-ETH 2!
+First off, thank you for considering contributing to StreamSwap. It's people like you that make the open-source community such a great place.
 
-This guide aims to provide an overview of the contribution workflow to help us make the contribution process effective for everyone involved.
+## How Can I Contribute?
 
-## About the Project
+### Reporting Bugs
 
-Scaffold-ETH 2 is a minimal and forkable repo providing builders with a starter kit to build decentralized applications on Ethereum.
+- **Ensure the bug was not already reported** by searching on GitHub under [Issues](https://github.com/StreamSwapProtocol/streamswap-solidity/issues).
+- If you're unable to find an open issue addressing the problem, [open a new one](https://github.com/StreamSwapProtocol/streamswap-solidity/issues/new). Be sure to include a **title and clear description**, as much relevant information as possible, and a **code sample** or an **executable test case** demonstrating the expected behavior that is not occurring.
 
-Read the [README](README.md) to get an overview of the project.
+### Suggesting Enhancements
 
-### Vision
-
-The goal of Scaffold-ETH 2 is to provide the primary building blocks for a decentralized application.
-
-The repo can be forked to include integrations and more features, but we want to keep the master branch simple and minimal.
-
-### Project Status
-
-The project is under active development.
-
-You can view the open Issues, follow the development process and contribute to the project.
-
-## Getting started
-
-You can contribute to this repo in many ways:
-
-- Solve open issues
-- Report bugs or feature requests
-- Improve the documentation
-
-Contributions are made via Issues and Pull Requests (PRs). A few general guidelines for contributions:
-
-- Search for existing Issues and PRs before creating your own.
-- Contributions should only fix/add the functionality in the issue OR address style issues, not both.
-- If you're running into an error, please give context. Explain what you're trying to do and how to reproduce the error.
-- Please use the same formatting in the code repository. You can configure your IDE to do it by using the prettier / linting config files included in each package.
-- If applicable, please edit the README.md file to reflect the changes.
-
-### Issues
-
-Issues should be used to report problems, request a new feature, or discuss potential changes before a PR is created.
-
-#### Solve an issue
-
-Scan through our [existing issues](https://github.com/scaffold-eth/scaffold-eth-2/issues) to find one that interests you.
-
-If a contributor is working on the issue, they will be assigned to the individual. If you find an issue to work on, you are welcome to assign it to yourself and open a PR with a fix for it.
-
-#### Create a new issue
-
-If a related issue doesn't exist, you can open a new issue.
-
-Some tips to follow when you are creating an issue:
-
-- Provide as much context as possible. Over-communicate to give the most details to the reader.
-- Include the steps to reproduce the issue or the reason for adding the feature.
-- Screenshots, videos etc., are highly appreciated.
+- Open a new issue with the `enhancement` label.
+- Clearly describe the enhancement and the motivation for it.
+- Include code snippets if they help illustrate the idea.
 
 ### Pull Requests
 
-#### Pull Request Process
+1. Fork the repo and create your branch from `main`.
+2. If you've added code that should be tested, add tests.
+3. If you've changed APIs, update the documentation.
+4. Ensure the test suite passes (`yarn test`).
+5. Make sure your code lints (`yarn lint`).
+6. Issue that pull request!
 
-We follow the ["fork-and-pull" Git workflow](https://github.com/susam/gitpr)
+## Styleguides
 
-1. Fork the repo
-2. Clone the project
-3. Create a new branch with a descriptive name
-4. Commit your changes to the new branch
-5. Push changes to your fork
-6. Open a PR in our repository and tag one of the maintainers to review your PR
+### Git Commit Messages
 
-Here are some tips for a high-quality pull request:
+- Use the present tense ("Add feature" not "Added feature").
+- Use the imperative mood ("Move cursor to..." not "Moves cursor to...").
+- Limit the first line to 72 characters or less.
+- Reference issues and pull requests liberally after the first line.
 
-- Create a title for the PR that accurately defines the work done.
-- Structure the description neatly to make it easy to consume by the readers. For example, you can include bullet points and screenshots instead of having one large paragraph.
-- Add the link to the issue if applicable.
-- Have a good commit message that summarises the work done.
+### Solidity Styleguide
 
-Once you submit your PR:
+- Follow the official [Solidity Style Guide](https://docs.soliditylang.org/en/v0.8.24/style-guide.html).
+- Use Natspec for all public functions and parameters.
 
-- We may ask questions, request additional information or ask for changes to be made before a PR can be merged. Please note that these are to make the PR clear for everyone involved and aims to create a frictionless interaction process.
-- As you update your PR and apply changes, mark each conversation resolved.
+---
 
-Once the PR is approved, we'll "squash-and-merge" to keep the git commit history clean.
+We are looking forward to your contributions! 
