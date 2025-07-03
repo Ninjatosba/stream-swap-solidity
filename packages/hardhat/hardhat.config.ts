@@ -240,11 +240,11 @@ const config: HardhatUserConfig = {
       allowUnlimitedContractSize: true,
     },
     cosmosEvmDevnet: {
-      url: "https://cevm-01-evmrpc.dev.skip.build",
+      url: "https://devnet-1-evmrpc.ib.skip.build",
       accounts: [deployerPrivateKey, creatorPrivateKey, subscriber1PrivateKey, subscriber2PrivateKey].filter(
         (account): account is string => !!account,
       ),
-      chainId: 262144,
+      chainId: 4231,
     },
   },
   etherscan: {
