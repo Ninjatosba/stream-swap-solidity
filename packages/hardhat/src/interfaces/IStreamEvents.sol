@@ -145,4 +145,6 @@ interface IStreamEvents {
     event VestingContractDeployed(address indexed factoryAddress, address vestingContract);
 
     event PoolWrapperUpdated(address indexed factoryAddress, address poolWrapper);
+
+    event StreamMetadataUpdated(address indexed streamAddress, string metadataIpfsHash);
 }

@@ -588,6 +588,15 @@ contract Stream is IStreamErrors, IStreamEvents {
         IERC20(streamTokens.outSupplyToken).safeTransfer(creator, amountToTransfer);
     }
 
+    /**
+     * @dev Allows the creator to update the stream metadata
+     * @notice Only the creator can call this function
+     */
+    function updateStreamMetadata(string memory metadataIpfsHash) external onlyCreator {
+        streamMetadata.ipfsHash = metadataIpfsHash;
+        emit StreamMetadataUpdated(address(this), metadataIpfsHash);
+    }
+
     // ============ External Sync Functions ============
 
     /**
