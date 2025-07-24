@@ -39,4 +39,6 @@ interface IStream {
     function positionStorageAddress() external view returns (address);
 
     function streamFactoryAddress() external view returns (address);
+
+    function updateStreamMetadata(string memory metadataIpfsHash) external;
 }
