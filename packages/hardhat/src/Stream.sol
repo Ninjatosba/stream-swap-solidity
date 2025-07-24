@@ -270,10 +270,9 @@ contract Stream is IStreamErrors, IStreamEvents {
      * @dev Allows users to withdraw their input tokens from the stream
      * @param cap Amount of input tokens to withdraw
      * @notice Users can withdraw during Active or Bootstrapping phases
+     * @dev If cap is 0, the user will withdraw all their input tokens
      */
     function withdraw(uint256 cap) external {
-        if (cap == 0) revert InvalidAmount();
-
         // Load position once
         PositionTypes.Position memory position = loadPosition(msg.sender);
 
@@ -299,23 +298,26 @@ contract Stream is IStreamErrors, IStreamEvents {
         // Sync position with the updated state
         position = StreamMathLib.syncPosition(position, state.distIndex, state.shares, state.inSupply, block.timestamp);
 
+        // If cap is 0, withdraw all available balance
+        uint256 withdrawAmount = (cap == 0) ? position.inBalance : cap;
+
         // Check if withdrawal amount exceeds position balance
-        if (cap > position.inBalance) revert WithdrawAmountExceedsBalance(cap);
+        if (withdrawAmount > position.inBalance) revert WithdrawAmountExceedsBalance(withdrawAmount);
 
         uint256 shareDeduction = 0;
 
-        if (cap == position.inBalance) {
+        if (withdrawAmount == position.inBalance) {
             shareDeduction = position.shares;
         } else {
-            shareDeduction = StreamMathLib.computeSharesAmount(cap, true, state.inSupply, position.shares);
+            shareDeduction = StreamMathLib.computeSharesAmount(withdrawAmount, true, state.inSupply, position.shares);
         }
 
         // Update position
         position.shares = position.shares - shareDeduction;
-        position.inBalance = position.inBalance - cap;
+        position.inBalance = position.inBalance - withdrawAmount;
 
         // Update stream state
-        state.inSupply = state.inSupply - cap;
+        state.inSupply = state.inSupply - withdrawAmount;
         state.shares = state.shares - shareDeduction;
 
         // Save all states first
@@ -338,7 +340,7 @@ contract Stream is IStreamErrors, IStreamEvents {
         );
 
         // Transfer tokens
-        IERC20(streamTokens.inSupplyToken).safeTransfer(msg.sender, cap);
+        IERC20(streamTokens.inSupplyToken).safeTransfer(msg.sender, withdrawAmount);
     }
 
     /**
