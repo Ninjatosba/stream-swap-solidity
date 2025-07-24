@@ -369,6 +369,7 @@ contract Stream is IStreamErrors, IStreamEvents {
         saveStreamStatus(status);
         saveStream(state);
         savePosition(msg.sender, position);
+        
 
         // Determine outcome
         bool thresholdReached = (state.spentIn >= state.threshold);
@@ -402,16 +403,21 @@ contract Stream is IStreamErrors, IStreamEvents {
                 IERC20(streamTokens.outSupplyToken).safeTransfer(msg.sender, purchased);
             }
 
-            emit ExitStreamed(address(this), msg.sender, purchased, spentIn, block.timestamp);
+            emit ExitStreamed(address(this), msg.sender, purchased, spentIn, position.index.value, inBalance, block.timestamp);
         } else if (isRefund) {
             // Case 2: Refund exit - return all input tokens
             uint256 totalRefund = inBalance + spentIn;
+            position.purchased = 0;
+            position.spentIn = 0;
+            position.inBalance = totalRefund;
+            savePosition(msg.sender, position);
             IERC20(streamTokens.inSupplyToken).safeTransfer(msg.sender, totalRefund);
-            emit ExitRefunded(address(this), msg.sender, totalRefund, block.timestamp);
+            emit ExitRefunded(address(this), msg.sender, position.inBalance, position.spentIn, block.timestamp);
         } else {
             // Case 3: No exit allowed
             revert OperationNotAllowed();
         }
+      
     }
 
     // ============ Stream Management Functions ============

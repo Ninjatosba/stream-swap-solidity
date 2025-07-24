@@ -81,7 +81,8 @@ interface IStreamEvents {
     event ExitRefunded(
         address indexed streamAddress,
         address indexed subscriber,
-        uint256 refundedAmount,
+        uint256 inBalance,
+        uint256 spentIn,
         uint256 exitTimestamp
     );
     event ExitStreamed(
@@ -89,6 +90,8 @@ interface IStreamEvents {
         address indexed subscriber,
         uint256 purchased,
         uint256 spentIn,
+        uint256 index,
+        uint256 inBalance,
         uint256 exitTimestamp
     );
 

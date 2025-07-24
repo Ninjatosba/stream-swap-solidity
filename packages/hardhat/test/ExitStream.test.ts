@@ -318,7 +318,9 @@ describe("Stream Exit", function () {
         data: event!.data,
       });
       expect(parsedEvent?.args.streamAddress).to.equal(await contracts.stream.getAddress());
-      expect(parsedEvent?.args.refundedAmount).to.equal(subscribeAmount);
+      expect(parsedEvent?.args.subscriber).to.equal(accounts.subscriber1.address);
+      expect(parsedEvent?.args.inBalance).to.equal(subscribeAmount);
+      expect(parsedEvent?.args.spentIn).to.equal(0);
       expect(parsedEvent?.args.exitTimestamp).to.be.closeTo(currentBlock.timestamp, 1);
     });
     it("Should emit ExitStreamed event on successful exit", async function () {
