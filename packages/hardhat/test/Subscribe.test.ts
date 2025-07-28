@@ -17,7 +17,7 @@ describe("Stream Subscribe", function () {
       await contracts.stream.syncStreamExternal();
 
       // Subscribe with 100 tokens
-      const subscriptionAmount = 100;
+      const subscriptionAmount = ethers.parseEther("100"); // Convert to wei (18 decimals)
       await contracts.inSupplyToken
         .connect(accounts.subscriber1)
         .approve(contracts.stream.getAddress(), subscriptionAmount);
@@ -35,6 +35,264 @@ describe("Stream Subscribe", function () {
       expect(position.purchased).to.equal(0);
     });
 
+    it("Should allow subscription with permit 2", async function () {
+      const { contracts, timeParams, accounts } = await loadFixture(stream().build());
+
+      // Fast forward time to stream phase
+      await ethers.provider.send("evm_setNextBlockTimestamp", [timeParams.streamStartTime + 1]);
+      await ethers.provider.send("evm_mine", []);
+
+      // Sync the stream to update status
+      await contracts.stream.syncStreamExternal();
+
+      const subscriptionAmount = ethers.parseEther("100"); // Convert to wei (18 decimals)
+
+      // Step 1: Approve Permit2 to spend maximum amount (one-time setup)
+      const maxApproval = ethers.getBigInt("0xffffffffffffffffffffffffffffffffffffffff"); // type(uint160).max
+      await contracts.inSupplyToken
+        .connect(accounts.subscriber1)
+        .approve(contracts.permit2.getAddress(), maxApproval);
+
+      // Define signature timing parameters
+      const currentTime = Math.floor(Date.now() / 1000);
+      const sigDeadline = currentTime + 3600; // 1 hour validity
+
+      // Create permit details
+      const permitDetails = {
+        token: await contracts.inSupplyToken.getAddress(),
+        amount: BigInt(subscriptionAmount), // Convert to uint160
+        expiration: BigInt(sigDeadline),
+        nonce: BigInt(0)
+      };
+
+      // Create permit single
+      const permitSingle = {
+        details: permitDetails,
+        spender: await contracts.stream.getAddress(),
+        sigDeadline: BigInt(sigDeadline)
+      };
+
+      // Create domain for EIP-712 signing
+      const network = await ethers.provider.getNetwork();
+      // Use the current network chainId for the domain separator (Permit2 runtime derives it from block.chainid)
+      const chainId = Number(network.chainId);
+      const domain = {
+        name: "Permit2",
+        chainId: chainId,
+        verifyingContract: await contracts.permit2.getAddress()
+      };
+
+      // Create types for EIP-712
+      const types = {
+        PermitDetails: [
+          { name: "token", type: "address" },
+          { name: "amount", type: "uint160" },
+          { name: "expiration", type: "uint48" },
+          { name: "nonce", type: "uint48" }
+        ],
+        PermitSingle: [
+          { name: "details", type: "PermitDetails" },
+          { name: "spender", type: "address" },
+          { name: "sigDeadline", type: "uint256" }
+        ]
+      };
+
+      // Sign the permit
+      const signature = await accounts.subscriber1.signTypedData(domain, types, permitSingle);
+
+      // Verify signature locally (optional but useful in case of failures)
+      const recoveredAddress = ethers.verifyTypedData(domain, types, permitSingle, signature);
+      expect(recoveredAddress.toLowerCase()).to.equal(accounts.subscriber1.address.toLowerCase());
+
+      // Call subscribeWithPermit directly – Permit2 permit will be executed inside the Stream contract.
+      await contracts.stream
+        .connect(accounts.subscriber1)
+        .subscribeWithPermit(
+          subscriptionAmount,
+          accounts.subscriber1.address,
+          permitSingle,
+          signature
+        );
+      // Verify position was created correctly
+      const positionStorageAddr = await contracts.stream.positionStorageAddress();
+      const positionStorage = (await ethers.getContractAt("PositionStorage", positionStorageAddr)) as PositionStorage;
+
+      const position = await positionStorage.getPosition(accounts.subscriber1.address);
+      expect(position.inBalance).to.equal(subscriptionAmount);
+      expect(position.shares).to.be.gt(0);
+      expect(position.spentIn).to.equal(0);
+      expect(position.purchased).to.equal(0);
+    });
+
+    it("Should not allow subscription without approval to permit2", async function () {
+      const { contracts, timeParams, accounts } = await loadFixture(stream().build());
+
+      // move to active stream phase
+      await ethers.provider.send("evm_setNextBlockTimestamp", [timeParams.streamStartTime + 1]);
+      await ethers.provider.send("evm_mine", []);
+      await contracts.stream.syncStreamExternal();
+
+      const subscriptionAmount = ethers.parseEther("100");
+
+      // Build permit (owner approved but token not approved to Permit2)
+      const now = Math.floor(Date.now() / 1000);
+      const sigDeadline = now + 3600;
+
+      const permitDetails = {
+        token: await contracts.inSupplyToken.getAddress(),
+        amount: BigInt(subscriptionAmount),
+        expiration: BigInt(sigDeadline),
+        nonce: BigInt(0)
+      };
+
+      const permitSingle = {
+        details: permitDetails,
+        spender: await contracts.stream.getAddress(),
+        sigDeadline: BigInt(sigDeadline)
+      };
+
+      const domain = {
+        name: "Permit2",
+        chainId: Number((await ethers.provider.getNetwork()).chainId),
+        verifyingContract: await contracts.permit2.getAddress()
+      };
+
+      const types = {
+        PermitDetails: [
+          { name: "token", type: "address" },
+          { name: "amount", type: "uint160" },
+          { name: "expiration", type: "uint48" },
+          { name: "nonce", type: "uint48" }
+        ],
+        PermitSingle: [
+          { name: "details", type: "PermitDetails" },
+          { name: "spender", type: "address" },
+          { name: "sigDeadline", type: "uint256" }
+        ]
+      };
+
+      const signature = await accounts.subscriber1.signTypedData(domain, types, permitSingle);
+
+      await expect(
+        contracts.stream
+          .connect(accounts.subscriber1)
+          .subscribeWithPermit(subscriptionAmount, accounts.subscriber1.address, permitSingle, signature)
+      ).to.be.reverted; // lack of ERC20 approval for Permit2
+    });
+
+    it("Should not allow subscription with invalid signature", async function () {
+      const { contracts, timeParams, accounts } = await loadFixture(stream().build());
+
+      await ethers.provider.send("evm_setNextBlockTimestamp", [timeParams.streamStartTime + 1]);
+      await ethers.provider.send("evm_mine", []);
+      await contracts.stream.syncStreamExternal();
+
+      const subscriptionAmount = ethers.parseEther("100");
+
+      // Approve token to Permit2
+      await contracts.inSupplyToken
+        .connect(accounts.subscriber1)
+        .approve(contracts.permit2.getAddress(), ethers.MaxUint256);
+
+      const now = Math.floor(Date.now() / 1000);
+      const sigDeadline = now + 3600;
+
+      const permitDetails = {
+        token: await contracts.inSupplyToken.getAddress(),
+        amount: BigInt(subscriptionAmount),
+        expiration: BigInt(sigDeadline),
+        nonce: BigInt(0)
+      };
+      const permitSingle = {
+        details: permitDetails,
+        spender: await contracts.stream.getAddress(),
+        sigDeadline: BigInt(sigDeadline)
+      };
+      const domain = {
+        name: "Permit2",
+        chainId: Number((await ethers.provider.getNetwork()).chainId),
+        verifyingContract: await contracts.permit2.getAddress()
+      };
+      const types = {
+        PermitDetails: [
+          { name: "token", type: "address" },
+          { name: "amount", type: "uint160" },
+          { name: "expiration", type: "uint48" },
+          { name: "nonce", type: "uint48" }
+        ],
+        PermitSingle: [
+          { name: "details", type: "PermitDetails" },
+          { name: "spender", type: "address" },
+          { name: "sigDeadline", type: "uint256" }
+        ]
+      };
+
+      // Sign with the WRONG account to make signature invalid
+      const invalidSignature = await accounts.subscriber2.signTypedData(domain, types, permitSingle);
+
+      await expect(
+        contracts.stream
+          .connect(accounts.subscriber1)
+          .subscribeWithPermit(subscriptionAmount, accounts.subscriber1.address, permitSingle, invalidSignature)
+      ).to.be.reverted; // invalid signer
+    });
+
+    it("Should not allow subscription with expired permit", async function () {
+      const { contracts, timeParams, accounts } = await loadFixture(stream().build());
+
+      await ethers.provider.send("evm_setNextBlockTimestamp", [timeParams.streamStartTime + 1]);
+      await ethers.provider.send("evm_mine", []);
+      await contracts.stream.syncStreamExternal();
+
+      const subscriptionAmount = ethers.parseEther("100");
+
+      // Approve token to Permit2
+      await contracts.inSupplyToken
+        .connect(accounts.subscriber1)
+        .approve(contracts.permit2.getAddress(), ethers.MaxUint256);
+
+      const now = Math.floor(Date.now() / 1000);
+      const sigDeadline = now - 10; // already expired
+
+      const permitDetails = {
+        token: await contracts.inSupplyToken.getAddress(),
+        amount: BigInt(subscriptionAmount),
+        expiration: BigInt(sigDeadline),
+        nonce: BigInt(0)
+      };
+      const permitSingle = {
+        details: permitDetails,
+        spender: await contracts.stream.getAddress(),
+        sigDeadline: BigInt(sigDeadline)
+      };
+      const domain = {
+        name: "Permit2",
+        chainId: Number((await ethers.provider.getNetwork()).chainId),
+        verifyingContract: await contracts.permit2.getAddress()
+      };
+      const types = {
+        PermitDetails: [
+          { name: "token", type: "address" },
+          { name: "amount", type: "uint160" },
+          { name: "expiration", type: "uint48" },
+          { name: "nonce", type: "uint48" }
+        ],
+        PermitSingle: [
+          { name: "details", type: "PermitDetails" },
+          { name: "spender", type: "address" },
+          { name: "sigDeadline", type: "uint256" }
+        ]
+      };
+
+      const signature = await accounts.subscriber1.signTypedData(domain, types, permitSingle);
+
+      await expect(
+        contracts.stream
+          .connect(accounts.subscriber1)
+          .subscribeWithPermit(subscriptionAmount, accounts.subscriber1.address, permitSingle, signature)
+      ).to.be.revertedWithCustomError(contracts.stream, "InvalidAmount");
+    });
+
     it("Should fail subscription during waiting phase", async function () {
       const { contracts, timeParams, accounts } = await loadFixture(stream().build());
 
@@ -42,7 +300,7 @@ describe("Stream Subscribe", function () {
       await ethers.provider.send("evm_setNextBlockTimestamp", [timeParams.bootstrappingStartTime - 3]);
       await ethers.provider.send("evm_mine", []);
 
-      const subscriptionAmount = 100;
+      const subscriptionAmount = ethers.parseEther("100"); // Convert to wei (18 decimals)
       await contracts.inSupplyToken
         .connect(accounts.subscriber1)
         .approve(contracts.stream.getAddress(), subscriptionAmount);
@@ -60,7 +318,7 @@ describe("Stream Subscribe", function () {
       await ethers.provider.send("evm_mine", []);
 
       // Subscribe with 100 tokens
-      const subscriptionAmount = 100;
+      const subscriptionAmount = ethers.parseEther("100"); // Convert to wei (18 decimals)
       await contracts.inSupplyToken
         .connect(accounts.subscriber1)
         .approve(contracts.stream.getAddress(), subscriptionAmount);
@@ -99,7 +357,7 @@ describe("Stream Subscribe", function () {
       await contracts.stream.syncStreamExternal();
 
       // Try to subscribe during ended phase
-      const subscriptionAmount = 100;
+      const subscriptionAmount = ethers.parseEther("100"); // Convert to wei (18 decimals)
       await contracts.inSupplyToken
         .connect(accounts.subscriber1)
         .approve(contracts.stream.getAddress(), subscriptionAmount);
@@ -154,12 +412,12 @@ describe("Stream Subscribe", function () {
       await contracts.stream.syncStreamExternal();
 
       // First user subscribes
-      const amount1 = 100;
+      const amount1 = ethers.parseEther("100"); // Convert to wei (18 decimals)
       await contracts.inSupplyToken.connect(accounts.subscriber1).approve(contracts.stream.getAddress(), amount1);
       await contracts.stream.connect(accounts.subscriber1).subscribe(amount1);
 
       // Second user subscribes
-      const amount2 = 50;
+      const amount2 = ethers.parseEther("50"); // Convert to wei (18 decimals)
       await contracts.inSupplyToken.connect(accounts.subscriber2).approve(contracts.stream.getAddress(), amount2);
       await contracts.stream.connect(accounts.subscriber2).subscribe(amount2);
 
@@ -206,7 +464,7 @@ describe("Stream Subscribe", function () {
       await contracts.stream.syncStreamExternal();
 
       // Try to subscribe without approval
-      const subscriptionAmount = 100;
+      const subscriptionAmount = ethers.parseEther("100"); // Convert to wei (18 decimals)
       await expect(contracts.stream.connect(accounts.subscriber1).subscribe(subscriptionAmount)).to.be.reverted;
     });
   });
@@ -220,7 +478,7 @@ describe("Stream Subscribe", function () {
       await ethers.provider.send("evm_mine", []);
 
       // Subscribe with 100 tokens
-      const subscriptionAmount = 100;
+      const subscriptionAmount = ethers.parseEther("100"); // Convert to wei (18 decimals)
       await contracts.inSupplyToken
         .connect(accounts.subscriber1)
         .approve(contracts.stream.getAddress(), subscriptionAmount);

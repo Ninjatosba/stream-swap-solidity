@@ -183,6 +183,18 @@ export class StreamFixtureBuilder {
         const feeToken = await FeeToken.deploy("Fee Token", "FEE");
         const feeTokenAddress = await feeToken.getAddress();
 
+        // Deploy Permit2 at the hardcoded address
+        const PERMIT2_ADDRESS = "0x000000000022D473030F116dDEE9F6B43aC78BA3";
+
+        // Read Permit2 bytecode from file
+        const fs = require("fs");
+        const path = require("path");
+        const permit2BytecodePath = path.join(__dirname, "../../../../permit2_bytecode.txt");
+        const permit2Bytecode = fs.readFileSync(permit2BytecodePath, "utf8").trim();
+
+        // Deploy Permit2 at the hardcoded address using setCode
+        await ethers.provider.send("hardhat_setCode", [PERMIT2_ADDRESS, permit2Bytecode]);
+
         // Deploy Uniswap V2 mock contracts
         const UniswapV2FactoryFactory = await ethers.getContractFactory("MockUniswapV2Factory");
         const uniswapV2Factory = (await UniswapV2FactoryFactory.deploy()) as unknown as MockUniswapV2Factory;
@@ -313,6 +325,9 @@ export class StreamFixtureBuilder {
 
         const stream = await ethers.getContractAt("Stream", streamAddress);
 
+        // Get Permit2 contract instance
+        const permit2 = await ethers.getContractAt("IPermit2", PERMIT2_ADDRESS);
+
         return {
           contracts: {
             stream,
@@ -320,6 +335,7 @@ export class StreamFixtureBuilder {
             inSupplyToken,
             outSupplyToken,
             poolWrapper,
+            permit2,
           },
           accounts: {
             deployer,
