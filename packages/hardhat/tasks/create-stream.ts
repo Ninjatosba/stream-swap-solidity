@@ -104,7 +104,7 @@ task("create-stream", "Creates a new stream using the deployed factory").setActi
     streamStartTime,
     streamEndTime,
     threshold: defaultStreamConfig.threshold,
-    metadata: { ipfsHash: "QmTqA1yioEJdrFJkBiaGVv38NN55XLX8fMYmGCmqErnMng" },
+    metadata: { ipfsHash: "QmcA6XHQ6ERUfaXkJuS9qxHG12nYCDx7QrRXZKKmNr6GJQ" },
     inSupplyToken: inTokenAddress,
     tosVersion: defaultStreamConfig.tosVersion,
     creator: creator.address,

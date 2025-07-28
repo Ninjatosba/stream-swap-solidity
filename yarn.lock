@@ -1534,8 +1534,10 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@se-2/hardhat@workspace:packages/hardhat"
   dependencies:
+    "@openzeppelin/contracts": ^4.9.3
     "@uniswap/v2-core": ^1.0.1
     "@uniswap/v2-periphery": ^1.1.0-beta.0
+    permit2: "github:Uniswap/permit2#main"
   languageName: unknown
   linkType: soft
 
@@ -5855,6 +5857,13 @@ __metadata:
     sha.js: ^2.4.11
     to-buffer: ^1.2.0
   checksum: afd1ec13044343ad877065b806d5b4d7625806139d22bec46cb146d1d52bb8debf4200767e33672b681e024307048e558a16f5997d86838d95552b88fa546530
+  languageName: node
+  linkType: hard
+
+"permit2@github:Uniswap/permit2#main":
+  version: 1.0.0
+  resolution: "permit2@https://github.com/Uniswap/permit2.git#commit=cc56ad0f3439c502c246fc5cfcc3db92bb8b7219"
+  checksum: 2f395ac06c43a9a4343ad5ad5fbcb98d4315c443adcfec8c6449c9b306ceb33b4201756fefe48bf048a4fb912e1eb1f217b2f617b22e9a54335dbed8b49de03f
   languageName: node
   linkType: hard
 

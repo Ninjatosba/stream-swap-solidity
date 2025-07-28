@@ -42,6 +42,7 @@ import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.s
 import { IPoolWrapper } from "./interfaces/IPoolWrapper.sol";
 import { IVestingFactory } from "./interfaces/IVestingFactory.sol";
 import { PoolWrapperTypes } from "./types/PoolWrapperTypes.sol";
+import { IPermit2 } from "./interfaces/IPermit2.sol";
 
 /**
  * @title Stream
@@ -82,6 +83,9 @@ contract Stream is IStreamErrors, IStreamEvents {
 
     /// @notice Post-stream actions like vesting and pool creation
     StreamTypes.PostStreamActions public postStreamActions;
+
+    /// @notice Address of the Permit2 contract
+    address public constant PERMIT2 = 0x000000000022D473030F116dDEE9F6B43aC78BA3;
 
     // ============ Modifiers ============
 
@@ -206,11 +210,12 @@ contract Stream is IStreamErrors, IStreamEvents {
     // ============ Core Stream Functions ============
 
     /**
-     * @dev Allows users to subscribe to the stream by providing input tokens
+     * @dev Internal function containing the core subscription logic
+     *      Assumes `amountIn` tokens have already been transferred to this contract.
      * @param amountIn Amount of input tokens to subscribe with
-     * @notice Users can subscribe during Bootstrapping or Active phases
+     * @notice Business logic for updating positions and stream state.
      */
-    function subscribe(uint256 amountIn) external {
+    function _subscribeCore(uint256 amountIn) internal {
         if (amountIn == 0) revert InvalidAmount();
 
         // Load and validate stream state
@@ -234,9 +239,6 @@ contract Stream is IStreamErrors, IStreamEvents {
         // Calculate shares before any state changes
         uint256 newShares = StreamMathLib.computeSharesAmount(amountIn, false, state.inSupply, state.shares);
 
-        // Transfer tokens
-        IERC20(streamTokens.inSupplyToken).safeTransferFrom(msg.sender, address(this), amountIn);
-
         // Update position
         position.inBalance += amountIn;
         position.shares += newShares;
@@ -244,8 +246,6 @@ contract Stream is IStreamErrors, IStreamEvents {
         // Update stream state
         state.inSupply += amountIn;
         state.shares += newShares;
-
-        
 
         // Save all states
         saveStreamStatus(status);
@@ -264,6 +264,50 @@ contract Stream is IStreamErrors, IStreamEvents {
             state.inSupply,
             state.shares
         );
+    }
+
+    /**
+     * @dev Allows users to subscribe to the stream by providing input tokens
+     * @param amountIn Amount of input tokens to subscribe with
+     * @notice Users can subscribe during Bootstrapping or Active phases
+     */
+    function subscribe(uint256 amountIn) external {
+        // Pull tokens first via standard ERC-20 transferFrom
+        IERC20(streamTokens.inSupplyToken).safeTransferFrom(msg.sender, address(this), amountIn);
+        _subscribeCore(amountIn);
+    }
+
+    /**
+     * @dev Allows users to subscribe using Permit2 signature-based allowance.
+     *      The Permit2 signature (PermitSingle) is verified and consumed, then the
+     *      tokens are pulled from `owner` to this Stream contract. The rest of the
+     *      logic mirrors the regular `subscribe` flow.
+     * @param amountIn      Amount of input tokens user wants to contribute
+     * @param owner         Address that actually holds the tokens (signer of permit)
+     * @param permitSingle  Full Permit2 data struct describing the allowance
+     * @param signature     EIP-712 signature over `permitSingle`
+     */
+    function subscribeWithPermit(
+        uint256 amountIn,
+        address owner,
+        IPermit2.PermitSingle calldata permitSingle,
+        bytes calldata signature
+    ) external {
+        // Validate the permit matches the stream requirements
+        if (permitSingle.details.token != streamTokens.inSupplyToken) revert InvalidAmount();
+        if (permitSingle.details.amount < uint160(amountIn)) revert InvalidAmount();
+        if (permitSingle.spender != address(this)) revert InvalidAmount();
+        if (permitSingle.sigDeadline < block.timestamp) revert InvalidAmount();
+
+        // Execute Permit2 flow
+        IPermit2 permit2 = IPermit2(PERMIT2);
+        // 1. Validate & store allowance via signature
+        permit2.permit(owner, permitSingle, signature);
+        // 2. Pull tokens from owner to the stream contract
+        permit2.transferFrom(owner, address(this), uint160(amountIn), streamTokens.inSupplyToken);
+
+        // Tokens are now in this contract — proceed with core logic
+        _subscribeCore(amountIn);
     }
 
     /**
