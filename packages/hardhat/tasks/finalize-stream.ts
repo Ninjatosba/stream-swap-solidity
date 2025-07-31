@@ -68,6 +68,49 @@ task("finalize-stream", "Finalizes a stream")
         console.log("\nStream was finalized with refund:");
         console.log(`Refunded Out Amount: ${finalizedRefundedEvent.args.refundedOutAmount}`);
       }
+
+      // Look for PoolCreated event from PoolWrapper
+      console.log("\n🔍 Looking for PoolCreated event...");
+
+      // Get PoolWrapper address from StreamFactory
+      const streamFactory = await ethers.getContractAt("StreamFactory", await stream.STREAM_FACTORY_ADDRESS());
+      const poolWrapperAddress = (await streamFactory.getParams()).poolWrapperAddress;
+      console.log(`PoolWrapper address: ${poolWrapperAddress}`);
+
+      // Get PoolWrapper contract
+      const poolWrapper = await ethers.getContractAt("PoolWrapper", poolWrapperAddress);
+
+      // Look for PoolCreated event in the receipt
+      const poolCreatedEventTopic = poolWrapper.interface.getEvent("PoolCreated").topicHash;
+      const poolCreatedLog = receipt.logs.find((log: any) =>
+        log.topics[0] === poolCreatedEventTopic &&
+        log.address.toLowerCase() === poolWrapperAddress.toLowerCase()
+      );
+
+      if (poolCreatedLog) {
+        const poolCreatedEvent = poolWrapper.interface.parseLog(poolCreatedLog);
+        if (poolCreatedEvent) {
+          console.log("\n🎉 Pool Created Successfully!");
+          console.log(`📍 Pool Address: ${poolCreatedEvent.args.pool}`);
+          console.log(`🏭 PoolWrapper: ${poolCreatedEvent.args.poolWrapper}`);
+          console.log(`🪙 Token0 (In): ${poolCreatedEvent.args.token0}`);
+          console.log(`🪙 Token1 (Out): ${poolCreatedEvent.args.token1}`);
+          console.log(`💰 Token0 Amount: ${poolCreatedEvent.args.token0Amount}`);
+          console.log(`💰 Token1 Amount: ${poolCreatedEvent.args.token1Amount}`);
+          console.log(`📊 Stream: ${poolCreatedEvent.args.stream}`);
+
+          // Get pool info from PoolWrapper
+          const poolInfo = await poolWrapper.getPoolInfo(taskArgs.stream);
+          console.log("\n📋 Pool Info from PoolWrapper:");
+          console.log(`📍 Pool Address: ${poolInfo.poolAddress}`);
+          console.log(`🪙 Token0: ${poolInfo.token0}`);
+          console.log(`🪙 Token1: ${poolInfo.token1}`);
+        } else {
+          console.log("\n⚠️  Could not parse PoolCreated event.");
+        }
+      } else {
+        console.log("\n⚠️  No PoolCreated event found. Pool might not have been created.");
+      }
     } catch (error: any) {
       console.error("Error details:", {
         message: error.message,

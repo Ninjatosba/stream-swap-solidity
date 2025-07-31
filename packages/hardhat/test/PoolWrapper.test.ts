@@ -33,7 +33,7 @@ describe("PoolWrapper", function () {
         uniswapRouter = await RouterFactory.deploy(await uniswapFactory.getAddress()) as MockUniswapV2Router02;
         await uniswapRouter.waitForDeployment();
         // Deploy PoolWrapper
-        const PoolWrapperFactory = await ethers.getContractFactory("PoolWrapper");
+        const PoolWrapperFactory = await ethers.getContractFactory("UniswapV2PoolWrapper");
         poolWrapper = await PoolWrapperFactory.deploy(
             await uniswapFactory.getAddress(),
             await uniswapRouter.getAddress()
@@ -43,21 +43,21 @@ describe("PoolWrapper", function () {
 
     describe("constructor", function () {
         it("should revert if factory is zero address", async function () {
-            const PoolWrapperFactory = await ethers.getContractFactory("PoolWrapper");
+            const PoolWrapperFactory = await ethers.getContractFactory("UniswapV2PoolWrapper");
             await expect(PoolWrapperFactory.deploy(ethers.ZeroAddress, await uniswapRouter.getAddress())).to.be.revertedWithCustomError(
                 poolWrapper,
                 "InvalidAddress"
             );
         });
         it("should revert if router is zero address", async function () {
-            const PoolWrapperFactory = await ethers.getContractFactory("PoolWrapper");
+            const PoolWrapperFactory = await ethers.getContractFactory("UniswapV2PoolWrapper");
             await expect(PoolWrapperFactory.deploy(await uniswapFactory.getAddress(), ethers.ZeroAddress)).to.be.revertedWithCustomError(
                 poolWrapper,
                 "InvalidAddress"
             );
         });
         it("should deploy with valid addresses", async function () {
-            const PoolWrapperFactory = await ethers.getContractFactory("PoolWrapper");
+            const PoolWrapperFactory = await ethers.getContractFactory("UniswapV2PoolWrapper");
             const wrapper = await PoolWrapperFactory.deploy(await uniswapFactory.getAddress(), await uniswapRouter.getAddress());
             await wrapper.waitForDeployment();
             expect(await wrapper.UNISWAP_V2_FACTORY()).to.equal(await uniswapFactory.getAddress());

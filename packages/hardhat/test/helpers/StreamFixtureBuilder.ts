@@ -205,7 +205,7 @@ export class StreamFixtureBuilder {
         const uniswapV2RouterAddress = await uniswapV2Router.getAddress();
 
         // Deploy pool wrapper contract
-        const PoolWrapperFactory = await ethers.getContractFactory("PoolWrapper");
+        const PoolWrapperFactory = await ethers.getContractFactory("UniswapV2PoolWrapper");
         const poolWrapper = await PoolWrapperFactory.deploy(uniswapV2FactoryAddress, uniswapV2RouterAddress);
         const poolWrapperAddress = await poolWrapper.getAddress();
 
