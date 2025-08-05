@@ -197,7 +197,9 @@ const config: HardhatUserConfig = {
     },
     baseSepolia: {
       url: "https://sepolia.base.org",
-      accounts: deployerPrivateKey ? [deployerPrivateKey] : [],
+      accounts: deployerPrivateKey ? [deployerPrivateKey, creatorPrivateKey, subscriber1PrivateKey, subscriber2PrivateKey].filter(
+        (account): account is string => !!account,
+      ) : [],
       verify: {
         etherscan: {
           apiUrl: "https://api-sepolia.basescan.org",

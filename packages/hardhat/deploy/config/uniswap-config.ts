@@ -48,6 +48,12 @@ export const DEX_CONFIG = {
         factory: "0x82438CE666d9403e488bA720c7424434e8Aa47CD", // PancakeFactory
         router: "0x3a3eBAe0Eec80852FBC7B9E824C6756969cc8dc1", // PancakeRouter
     },
+    // Base Sepolia testnet
+    baseSepolia: {
+        type: "uniswap-v2",
+        factory: "0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f", // Base Sepolia Uniswap V2 Factory
+        router: "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D", // Base Sepolia Uniswap V2 Router
+    },
 };
 
 export function getDexConfig(network: string) {

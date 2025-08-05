@@ -79,9 +79,17 @@ task("finalize-stream", "Finalizes a stream")
 
       // Get PoolWrapper contract
       const poolWrapper = await ethers.getContractAt("PoolWrapper", poolWrapperAddress);
+      if (!poolWrapper) {
+        throw new Error("Failed to get PoolWrapper contract");
+      }
 
       // Look for PoolCreated event in the receipt
-      const poolCreatedEventTopic = poolWrapper.interface.getEvent("PoolCreated").topicHash;
+      const poolCreatedEvent = poolWrapper.interface.getEvent("PoolCreated");
+      if (!poolCreatedEvent) {
+        console.log("\n⚠️  PoolCreated event not found in PoolWrapper interface. Skipping pool event parsing.");
+        return;
+      }
+      const poolCreatedEventTopic = poolCreatedEvent.topicHash;
       const poolCreatedLog = receipt.logs.find((log: any) =>
         log.topics[0] === poolCreatedEventTopic &&
         log.address.toLowerCase() === poolWrapperAddress.toLowerCase()
