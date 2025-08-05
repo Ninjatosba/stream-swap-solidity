@@ -5,16 +5,11 @@ import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { PoolWrapperTypes } from "./types/PoolWrapperTypes.sol";
-import { IUniswapV2Factory, IUniswapV2Router02 } from "./interfaces/IUniswapV2.sol";
 import { IPoolWrapperErrors } from "./interfaces/IPoolWrapperErrors.sol";
 
-contract PoolWrapper is Ownable, IPoolWrapperErrors {
+abstract contract PoolWrapper is Ownable, IPoolWrapperErrors {
     using SafeERC20 for IERC20;
 
-    // Uniswap V2 addresses - these should be configurable per network
-    address public immutable UNISWAP_V2_FACTORY;
-    address public immutable UNISWAP_V2_ROUTER;
-    
     // Mapping from stream address to pool info
     mapping(address => PoolWrapperTypes.CreatedPoolInfo) public streamPools;
 
@@ -28,13 +23,7 @@ contract PoolWrapper is Ownable, IPoolWrapperErrors {
         uint256 token1Amount
     );
 
-    constructor(address _uniswapV2Factory, address _uniswapV2Router) Ownable() {
-        if (_uniswapV2Factory == address(0)) revert InvalidAddress();
-        if (_uniswapV2Router == address(0)) revert InvalidAddress();
-        
-        UNISWAP_V2_FACTORY = _uniswapV2Factory;
-        UNISWAP_V2_ROUTER = _uniswapV2Router;
-    }
+    constructor() Ownable() {}
 
     /**
      * @notice Creates a pool and adds liquidity
@@ -59,37 +48,8 @@ contract PoolWrapper is Ownable, IPoolWrapperErrors {
             revert InsufficientBalance();
         }
 
-        // Check if pool already exists
-        IUniswapV2Factory factory = IUniswapV2Factory(UNISWAP_V2_FACTORY);
-        address existingPool = factory.getPair(createPoolMsg.token0, createPoolMsg.token1);
-        
-        address poolAddress;
-        if (existingPool == address(0)) {
-            // Create the pool
-            poolAddress = factory.createPair(createPoolMsg.token0, createPoolMsg.token1);
-            if (poolAddress == address(0)) revert PoolCreationFailed();
-        } else {
-            poolAddress = existingPool;
-        }
-
-        // Add liquidity to the pool
-        IUniswapV2Router02 router = IUniswapV2Router02(UNISWAP_V2_ROUTER);
-        
-        // Approve router to spend tokens
-        IERC20(createPoolMsg.token0).approve(UNISWAP_V2_ROUTER, createPoolMsg.amount0);
-        IERC20(createPoolMsg.token1).approve(UNISWAP_V2_ROUTER, createPoolMsg.amount1);
-        
-        // Add liquidity (returns actual amounts added and LP tokens received)
-        (uint256 amountA, uint256 amountB, ) = router.addLiquidity(
-            createPoolMsg.token0,
-            createPoolMsg.token1,
-            createPoolMsg.amount0,
-            createPoolMsg.amount1,
-            0, // amountAMin - accept any amount
-            0, // amountBMin - accept any amount
-            address(0), // LP tokens are burned
-            block.timestamp + 300 // 5 minute deadline
-        );
+        // DEX-specific pool creation and liquidity addition
+        (address poolAddress, uint256 amountA, uint256 amountB) = _createPoolInternal(createPoolMsg);
 
         // Store the pool info
         PoolWrapperTypes.CreatedPoolInfo memory poolInfo = PoolWrapperTypes.CreatedPoolInfo({
@@ -121,4 +81,25 @@ contract PoolWrapper is Ownable, IPoolWrapperErrors {
     function getPoolInfo(address stream) external view returns (PoolWrapperTypes.CreatedPoolInfo memory) {
         return streamPools[stream];
     }
+
+    /**
+     * @dev Abstract method for DEX-specific pool creation and liquidity addition
+     * @param createPoolMsg The pool creation parameters
+     * @return poolAddress The address of the created pool
+     * @return amountA The actual amount of token0 added
+     * @return amountB The actual amount of token1 added
+     */
+    function _createPoolInternal(
+        PoolWrapperTypes.CreatePoolMsg calldata createPoolMsg
+    ) internal virtual returns (address poolAddress, uint256 amountA, uint256 amountB);
+
+    /**
+     * @dev Abstract method to get the DEX factory address
+     */
+    function _getFactory() internal view virtual returns (address);
+
+    /**
+     * @dev Abstract method to get the DEX router address
+     */
+    function _getRouter() internal view virtual returns (address);
 }

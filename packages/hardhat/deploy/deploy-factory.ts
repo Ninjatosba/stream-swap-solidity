@@ -6,7 +6,7 @@ import {
   createTestnetFactoryConfig,
   FactoryConfig,
 } from "./config/factory-config";
-import { getUniswapV2Addresses } from "./config/uniswap-config";
+import { getDexConfig } from "./config/uniswap-config";
 import { StreamFactoryTypes } from "../typechain-types/src/StreamFactory";
 import { StreamFactory } from "../typechain-types/src/StreamFactory";
 
@@ -59,19 +59,33 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
       config = createFactoryConfig(deployer, [inTokenAddress], 0, streamCreationFeeToken);
   }
 
-  // Get Uniswap V2 addresses for the network
-  const uniswapAddresses = getUniswapV2Addresses(environment);
-  console.log(`Using Uniswap V2 Factory: ${uniswapAddresses.factory}`);
-  console.log(`Using Uniswap V2 Router: ${uniswapAddresses.router}`);
+  // Get DEX configuration for the network
+  const dexConfig = getDexConfig(environment);
+  console.log(`Using DEX Type: ${dexConfig.type}`);
+  console.log(`Using Factory: ${dexConfig.factory}`);
+  console.log(`Using Router: ${dexConfig.router}`);
 
-  // Deploy pool wrapper with Uniswap V2 addresses
-  const poolWrapper = await deploy("PoolWrapper", {
-    from: deployer,
-    args: [uniswapAddresses.factory, uniswapAddresses.router],
-    log: true,
-    skipIfAlreadyDeployed: false,
-    deterministicDeployment: false,
-  });
+  // Deploy the appropriate PoolWrapper based on DEX type
+  let poolWrapper;
+  if (dexConfig.type === "uniswap-v2") {
+    poolWrapper = await deploy("UniswapV2PoolWrapper", {
+      from: deployer,
+      args: [dexConfig.factory, dexConfig.router],
+      log: true,
+      skipIfAlreadyDeployed: false,
+      deterministicDeployment: false,
+    });
+  } else if (dexConfig.type === "pancake") {
+    poolWrapper = await deploy("PancakePoolWrapper", {
+      from: deployer,
+      args: [dexConfig.factory, dexConfig.router],
+      log: true,
+      skipIfAlreadyDeployed: false,
+      deterministicDeployment: false,
+    });
+  } else {
+    throw new Error(`Unsupported DEX type: ${dexConfig.type}`);
+  }
   const poolWrapperAddress = poolWrapper.address;
   console.log(`PoolWrapper contract deployed at: ${poolWrapperAddress}`);
   console.log(`Deployer: ${deployer}`);
