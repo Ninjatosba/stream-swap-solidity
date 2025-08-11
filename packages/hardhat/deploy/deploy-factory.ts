@@ -44,8 +44,10 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     console.log(`Found stream creation fee token at: ${streamCreationFeeToken}`);
   } catch (error) {
     void error; // Explicitly ignore the error parameter
-    console.error("stream creation fee token not found. Please deploy it first.");
-    throw new Error("stream creation fee token not deployed");
+    console.log("stream creation fee token not found. Please deploy it first.");
+    //throw new Error("stream creation fee token not deployed");
+    console.log("Using InToken as stream creation fee token");
+    streamCreationFeeToken = inTokenAddress;
   }
 
   switch (environment) {
