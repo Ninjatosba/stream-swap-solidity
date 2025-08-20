@@ -123,16 +123,13 @@ describe("StreamFactoryCore", function () {
             );
         });
 
-        it("should revert if stream creation fee token is zero address", async function () {
-            const invalidInitMessage = {
+        it("should allow zero address as stream creation fee token for native token support", async function () {
+            const nativeTokenInitMessage = {
                 ...validInitMessage,
                 streamCreationFeeToken: ethers.ZeroAddress,
             };
 
-            await expect(streamFactory.connect(protocolAdmin).initialize(invalidInitMessage)).to.be.revertedWithCustomError(
-                streamFactory,
-                "InvalidStreamCreationFeeToken",
-            );
+            await expect(streamFactory.connect(protocolAdmin).initialize(nativeTokenInitMessage)).to.not.be.reverted;
         });
 
         it("should revert if stream implementation address is zero address", async function () {
@@ -159,16 +156,13 @@ describe("StreamFactoryCore", function () {
             );
         });
 
-        it("should revert if accepted tokens contain zero address", async function () {
-            const invalidInitMessage = {
+        it("should allow zero address in accepted tokens for native token support", async function () {
+            const nativeTokenInitMessage = {
                 ...validInitMessage,
                 acceptedInSupplyTokens: [await mockToken.getAddress(), ethers.ZeroAddress],
             };
 
-            await expect(streamFactory.connect(protocolAdmin).initialize(invalidInitMessage)).to.be.revertedWithCustomError(
-                streamFactory,
-                "InvalidAcceptedInSupplyTokens",
-            );
+            await expect(streamFactory.connect(protocolAdmin).initialize(nativeTokenInitMessage)).to.not.be.reverted;
         });
 
         it("should emit FactoryInitialized event on successful initialization", async function () {

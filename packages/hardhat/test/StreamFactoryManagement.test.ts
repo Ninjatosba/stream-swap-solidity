@@ -43,14 +43,14 @@ describe("StreamFactoryManagement", function () {
                 expect(params.streamCreationFeeToken).to.equal(newToken);
             });
 
-            it("should not allow zero address as fee token", async function () {
+            it("should allow zero address as fee token for native token support", async function () {
                 const fixture = await loadFixture(streamFactory().build());
 
                 await expect(
                     fixture.contracts.streamFactory
                         .connect(fixture.accounts.protocolAdmin)
                         .updateStreamCreationFeeToken(ethers.ZeroAddress),
-                ).to.be.revertedWithCustomError(fixture.contracts.streamFactory, "InvalidStreamCreationFeeToken");
+                ).to.not.be.reverted;
             });
 
             it("should not allow non-admin to update fee token", async function () {

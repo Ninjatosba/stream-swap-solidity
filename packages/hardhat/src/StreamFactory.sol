@@ -25,6 +25,7 @@ import { StreamFactoryTypes } from "./types/StreamFactoryTypes.sol";
 import { Clones } from "@openzeppelin/contracts/proxy/Clones.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { TransferLib } from "./lib/TransferLib.sol";
 import { PositionStorage } from "./storage/PositionStorage.sol";
 import { DecimalMath, Decimal } from "./lib/math/DecimalMath.sol";
 
@@ -35,6 +36,7 @@ import { DecimalMath, Decimal } from "./lib/math/DecimalMath.sol";
  */
 contract StreamFactory is IStreamEvents, IStreamFactoryErrors {
     using SafeERC20 for IERC20;
+    using TransferLib for address;
 
     // ============ State Variables ============
 
@@ -101,7 +103,8 @@ contract StreamFactory is IStreamEvents, IStreamFactoryErrors {
 
         if (initializeStreamMessage.acceptedInSupplyTokens.length == 0) revert InvalidAcceptedInSupplyTokens();
 
-        if (initializeStreamMessage.streamCreationFeeToken == address(0)) revert InvalidStreamCreationFeeToken();
+        // Allow zero address for native token support
+        // if (initializeStreamMessage.streamCreationFeeToken == address(0)) revert InvalidStreamCreationFeeToken();
 
         if (initializeStreamMessage.streamImplementationAddress == address(0))
             revert InvalidStreamImplementationAddress();
@@ -125,9 +128,10 @@ contract StreamFactory is IStreamEvents, IStreamFactoryErrors {
         params.poolWrapperAddress = initializeStreamMessage.poolWrapperAddress;
         params.streamImplementationAddress = initializeStreamMessage.streamImplementationAddress;
 
-        // Set accepted tokens
+        // Set accepted tokens (including zero address for native token)
         for (uint256 i = 0; i < initializeStreamMessage.acceptedInSupplyTokens.length; i++) {
-            if (initializeStreamMessage.acceptedInSupplyTokens[i] == address(0)) revert InvalidAcceptedInSupplyTokens();
+            // Allow zero address for native token support
+            // if (initializeStreamMessage.acceptedInSupplyTokens[i] == address(0)) revert InvalidAcceptedInSupplyTokens();
             acceptedInSupplyTokens[initializeStreamMessage.acceptedInSupplyTokens[i]] = true;
         }
 
@@ -156,7 +160,7 @@ contract StreamFactory is IStreamEvents, IStreamFactoryErrors {
      * @param createStreamMessage Stream creation parameters
      * @notice Anyone can create a stream if they provide the required tokens and fees
      */
-    function createStream(StreamTypes.CreateStreamMessage memory createStreamMessage) external {
+    function createStream(StreamTypes.CreateStreamMessage memory createStreamMessage) external payable {
         // Check if contract is accepting new streams (not frozen)
         if (frozen) revert ContractFrozen();
 
@@ -195,7 +199,7 @@ contract StreamFactory is IStreamEvents, IStreamFactoryErrors {
         currentStreamId++;
         streamAddresses[streamId] = address(stream);
 
-        // Transfer tokens to stream
+        // Transfer output tokens to stream (output tokens cannot be native)
         IERC20(createStreamMessage.outSupplyToken).safeTransferFrom(
             msg.sender,
             address(stream),
@@ -205,9 +209,10 @@ contract StreamFactory is IStreamEvents, IStreamFactoryErrors {
         // Initialize the cloned stream
         stream.initialize(createStreamMessage, address(positionStorage));
 
-        // Handle creation fee
+        // Handle creation fee (can be native token)
         if (params.streamCreationFee > 0) {
-            IERC20(params.streamCreationFeeToken).safeTransferFrom(
+            TransferLib.transferFrom(
+                params.streamCreationFeeToken,
                 msg.sender,
                 address(params.feeCollector),
                 params.streamCreationFee
@@ -255,7 +260,8 @@ contract StreamFactory is IStreamEvents, IStreamFactoryErrors {
      * @param streamCreationFeeToken New fee token address
      */
     function updateStreamCreationFeeToken(address streamCreationFeeToken) external onlyAdmin {
-        if (streamCreationFeeToken == address(0)) revert InvalidStreamCreationFeeToken();
+        // Allow zero address for native token support
+        // if (streamCreationFeeToken == address(0)) revert InvalidStreamCreationFeeToken();
         params.streamCreationFeeToken = streamCreationFeeToken;
         emit ParamsUpdated(
             address(this),

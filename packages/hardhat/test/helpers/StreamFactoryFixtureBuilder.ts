@@ -50,6 +50,8 @@ export class StreamFactoryFixtureBuilder {
   private minStreamDuration: number = 1; // 1 second
   private tosVersion: string = "1.0";
   private initialTokenSupply: bigint = ethers.parseEther("100000");
+  private useNativeTokenFee: boolean = false;
+  private useNativeInputToken: boolean = false;
 
   // Method to set stream creation fee
   public fee(amount: bigint): StreamFactoryFixtureBuilder {
@@ -92,6 +94,18 @@ export class StreamFactoryFixtureBuilder {
     return this;
   }
 
+  // Method to use native token as fee token
+  public nativeFee(): StreamFactoryFixtureBuilder {
+    this.useNativeTokenFee = true;
+    return this;
+  }
+
+  // Method to use native token as input supply token
+  public nativeInput(): StreamFactoryFixtureBuilder {
+    this.useNativeInputToken = true;
+    return this;
+  }
+
   // Build method that returns the fixture function
   public build(): () => Promise<StreamFactoryFixture> {
     // Store the current configuration in variables that will be captured in the closure
@@ -103,6 +117,9 @@ export class StreamFactoryFixtureBuilder {
       minStreamDuration: this.minStreamDuration,
       tosVersion: this.tosVersion,
     };
+
+    const useNativeTokenFee = this.useNativeTokenFee;
+    const useNativeInputToken = this.useNativeInputToken;
 
     const initialSupply = this.initialTokenSupply;
 
@@ -161,7 +178,7 @@ export class StreamFactoryFixtureBuilder {
         // Initialize the factory
         const initMessage: StreamFactoryTypes.InitializeStreamMessageStruct = {
           streamCreationFee: config.streamCreationFee,
-          streamCreationFeeToken: await feeToken.getAddress(),
+          streamCreationFeeToken: useNativeTokenFee ? ethers.ZeroAddress : await feeToken.getAddress(),
           exitFeeRatio: config.ExitFeeRatio,
           minWaitingDuration: config.minWaitingDuration,
           minBootstrappingDuration: config.minBootstrappingDuration,
@@ -169,7 +186,7 @@ export class StreamFactoryFixtureBuilder {
           feeCollector: feeCollector.address,
           protocolAdmin: protocolAdmin.address,
           tosVersion: config.tosVersion,
-          acceptedInSupplyTokens: [await inSupplyToken.getAddress()],
+          acceptedInSupplyTokens: useNativeInputToken ? [ethers.ZeroAddress] : [await inSupplyToken.getAddress()],
           poolWrapperAddress: await poolWrapper.getAddress(),
           streamImplementationAddress: await streamImplementation.getAddress(),
         };
