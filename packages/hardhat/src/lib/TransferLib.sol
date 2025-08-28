@@ -17,92 +17,58 @@ library TransferLib {
     /// @notice Native token address (zero address)
     address public constant NATIVE_TOKEN = address(0);
 
+    // Deprecated helpers removed: transferFrom, transfer, balanceOf, allowance
+
     /**
-     * @dev Transfers tokens from one address to another
+     * @dev Pull funds into this contract. Supports native token and ERC20.
      * @param token Token address (zero address for native token)
-     * @param from Source address
-     * @param to Destination address
-     * @param amount Amount to transfer
+     * @param payer Address that pays the funds (ignored for native token)
+     * @param amount Amount to pull
      */
-    function transferFrom(
+    function pullFunds(
         address token,
-        address from,
+        address payer,
+        uint256 amount
+    ) internal {
+        if (amount == 0) {
+            return;
+        }
+
+        if (token == NATIVE_TOKEN) {
+            if (msg.value != amount) revert IncorrectNativeAmount(amount, msg.value);
+            // For native tokens, ETH is already transferred with this call
+            return;
+        }
+
+        // ERC20
+        IERC20(token).safeTransferFrom(payer, address(this), amount);
+    }
+
+    /**
+     * @dev Push funds from this contract to a recipient. Supports native token and ERC20.
+     * @param token Token address (zero address for native token)
+     * @param to Recipient address
+     * @param amount Amount to push
+     */
+    function pushFunds(
+        address token,
         address to,
         uint256 amount
     ) internal {
+        if (amount == 0) return;
+
         if (token == NATIVE_TOKEN) {
-            // Native token transfer
-            if (from != address(this)) {
-                // If from is not this contract, we need to receive the native tokens first
-                // This should be handled by the caller sending the native tokens with the transaction
-                if (msg.value < amount) revert InsufficientNativeTokenAmount();
-            }
-            
-            // Transfer native tokens to destination
-            (bool success, ) = to.call{value: amount}("");
+            (bool success, ) = to.call{ value: amount }("");
             if (!success) revert NativeTokenTransferFailed();
-        } else {
-            // ERC20 token transfer
-            IERC20(token).safeTransferFrom(from, to, amount);
+            return;
         }
-    }
 
-    /**
-     * @dev Transfers tokens from this contract to another address
-     * @param token Token address (zero address for native token)
-     * @param to Destination address
-     * @param amount Amount to transfer
-     */
-    function transfer(
-        address token,
-        address to,
-        uint256 amount
-    ) internal {
-        if (token == NATIVE_TOKEN) {
-            // Native token transfer
-            (bool success, ) = to.call{value: amount}("");
-            if (!success) revert NativeTokenTransferFailed();
-        } else {
-            // ERC20 token transfer
-            IERC20(token).safeTransfer(to, amount);
-        }
-    }
-
-    /**
-     * @dev Gets the balance of tokens for an address
-     * @param token Token address (zero address for native token)
-     * @param account Address to check balance for
-     * @return Balance amount
-     */
-    function balanceOf(address token, address account) internal view returns (uint256) {
-        if (token == NATIVE_TOKEN) {
-            return account.balance;
-        } else {
-            return IERC20(token).balanceOf(account);
-        }
-    }
-
-    /**
-     * @dev Gets the allowance for ERC20 tokens (returns 0 for native tokens)
-     * @param token Token address (zero address for native token)
-     * @param owner Owner address
-     * @param spender Spender address
-     * @return Allowance amount
-     */
-    function allowance(
-        address token,
-        address owner,
-        address spender
-    ) internal view returns (uint256) {
-        if (token == NATIVE_TOKEN) {
-            return 0; // Native tokens don't have allowance concept
-        } else {
-            return IERC20(token).allowance(owner, spender);
-        }
+        // ERC20
+        IERC20(token).safeTransfer(to, amount);
     }
 
     // ============ Errors ============
 
-    error InsufficientNativeTokenAmount();
-        error NativeTokenTransferFailed();
+    error NativeTokenTransferFailed();
+    error IncorrectNativeAmount(uint256 expected, uint256 actual);
 }

@@ -543,6 +543,41 @@ describe("StreamCreation", function () {
             ).to.be.revertedWithCustomError(fixture.contracts.streamFactory, "InvalidOutSupplyToken");
         });
 
+        it("should revert if in supply token is same as out supply token", async function () {
+            const fixture = await loadFixture(streamFactory().build());
+
+            const now = Math.floor(Date.now() / 1000);
+            const createStreamMessage = {
+                creator: fixture.accounts.creator.address,
+                streamOutAmount: ethers.parseEther("1000"),
+                inSupplyToken: await fixture.contracts.inSupplyToken.getAddress(),
+                outSupplyToken: await fixture.contracts.inSupplyToken.getAddress(),
+                bootstrappingStartTime: now + 3600,
+                streamStartTime: now + 7200,
+                streamEndTime: now + 10800,
+                threshold: ethers.parseEther("500"),
+                metadata: {
+                    ipfsHash: "QmTest123",
+                },
+                creatorVesting: {
+                    isVestingEnabled: false,
+                    vestingDuration: 0,
+                },
+                beneficiaryVesting: {
+                    isVestingEnabled: false,
+                    vestingDuration: 0,
+                },
+                poolInfo: {
+                    poolOutSupplyAmount: ethers.parseEther("100"),
+                },
+                tosVersion: "1.0",
+            };
+
+            await expect(
+                fixture.contracts.streamFactory.connect(fixture.accounts.creator).createStream(createStreamMessage)
+            ).to.be.revertedWithCustomError(fixture.contracts.streamFactory, "SameInputAndOutputToken");
+        });
+
         it("should revert if creator vesting is enabled but duration is zero", async function () {
             const fixture = await loadFixture(streamFactory().build());
 
@@ -968,7 +1003,7 @@ describe("StreamCreation", function () {
                 fixture.contracts.streamFactory.connect(fixture.accounts.creator).createStream(createStreamMessage, {
                     value: ethers.parseEther("0.05"), // Less than required fee
                 })
-            ).to.be.revertedWithCustomError(fixture.contracts.streamFactory, "InsufficientNativeTokenAmount");
+            ).to.be.revertedWithCustomError(fixture.contracts.streamFactory, "IncorrectNativeAmount");
         });
 
         it("should create stream with zero native token fee", async function () {

@@ -22,4 +22,6 @@ interface IStreamErrors {
     error InvalidStreamFactoryAddress();
     error InvalidPositionStorageAddress();
     error InvalidImplementationAddress();
+    error InvalidInputToken();
+    error SameInputAndOutputToken();
 }

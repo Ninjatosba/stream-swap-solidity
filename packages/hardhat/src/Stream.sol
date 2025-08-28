@@ -38,11 +38,12 @@ import { StreamFactoryTypes } from "./types/StreamFactoryTypes.sol";
 import { DecimalMath, Decimal } from "./lib/math/DecimalMath.sol";
 import { StreamMathLib } from "./lib/math/StreamMathLib.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { IPoolWrapper } from "./interfaces/IPoolWrapper.sol";
 import { IVestingFactory } from "./interfaces/IVestingFactory.sol";
 import { PoolWrapperTypes } from "./types/PoolWrapperTypes.sol";
 import { IPermit2 } from "./interfaces/IPermit2.sol";
+import { TransferLib } from "./lib/TransferLib.sol";
+
 
 /**
  * @title Stream
@@ -50,7 +51,6 @@ import { IPermit2 } from "./interfaces/IPermit2.sol";
  * @notice This contract handles the core streaming logic including subscriptions, withdrawals, exits, and finalization
  */
 contract Stream is IStreamErrors, IStreamEvents {
-    using SafeERC20 for IERC20;
 
     // ============ State Variables ============
 
@@ -272,8 +272,16 @@ contract Stream is IStreamErrors, IStreamEvents {
      * @notice Users can subscribe during Bootstrapping or Active phases
      */
     function subscribe(uint256 amountIn) external {
-        // Pull tokens first via standard ERC-20 transferFrom
-        IERC20(streamTokens.inSupplyToken).safeTransferFrom(msg.sender, address(this), amountIn);
+        if (streamTokens.inSupplyToken == address(0)) revert InvalidInputToken();
+        // Pull funds (ERC20)
+        TransferLib.pullFunds(streamTokens.inSupplyToken, msg.sender, amountIn);
+        _subscribeCore(amountIn);
+    }
+
+    function subscribeWithNativeToken(uint256 amountIn) external payable {
+        if (streamTokens.inSupplyToken != address(0)) revert InvalidInputToken();
+        // Pull funds (native)
+        TransferLib.pullFunds(address(0), msg.sender, amountIn);
         _subscribeCore(amountIn);
     }
 
@@ -384,7 +392,7 @@ contract Stream is IStreamErrors, IStreamEvents {
         );
 
         // Transfer tokens
-        IERC20(streamTokens.inSupplyToken).safeTransfer(msg.sender, withdrawAmount);
+        TransferLib.pushFunds(streamTokens.inSupplyToken, msg.sender, withdrawAmount);
     }
 
     /**
@@ -429,7 +437,7 @@ contract Stream is IStreamErrors, IStreamEvents {
             // Case 1: Successful exit - return unused input tokens and deliver output
             // This case is highly unlikely to happen because the stream is designed to spend all input tokens if stream is ended
             if (inBalance > 0) {
-                IERC20(streamTokens.inSupplyToken).safeTransfer(msg.sender, inBalance);
+                TransferLib.pushFunds(streamTokens.inSupplyToken, msg.sender, inBalance);
             }
 
             if (postStreamActions.beneficiaryVesting.isVestingEnabled) {
@@ -446,7 +454,7 @@ contract Stream is IStreamErrors, IStreamEvents {
                     purchased
                 );
             } else {
-                IERC20(streamTokens.outSupplyToken).safeTransfer(msg.sender, purchased);
+                TransferLib.pushFunds(streamTokens.outSupplyToken, msg.sender, purchased);
             }
 
             emit ExitStreamed(address(this), msg.sender, purchased, spentIn, position.index.value, inBalance, block.timestamp);
@@ -457,7 +465,7 @@ contract Stream is IStreamErrors, IStreamEvents {
             position.spentIn = 0;
             position.inBalance = totalRefund;
             savePosition(msg.sender, position);
-            IERC20(streamTokens.inSupplyToken).safeTransfer(msg.sender, totalRefund);
+            TransferLib.pushFunds(streamTokens.inSupplyToken, msg.sender, totalRefund);
             emit ExitRefunded(address(this), msg.sender, position.inBalance, position.spentIn, block.timestamp);
         } else {
             // Case 3: No exit allowed
@@ -533,7 +541,7 @@ contract Stream is IStreamErrors, IStreamEvents {
             emit FinalizedStreamed(address(this), creator, creatorRevenue, feeAmount, outRemaining);
 
             // External calls last
-            IERC20(streamTokens.inSupplyToken).safeTransfer(feeCollector, feeAmount);
+            TransferLib.pushFunds(streamTokens.inSupplyToken, feeCollector, feeAmount);
 
             if (poolOutSupplyAmount > 0) {
                 createPoolAndAddLiquidity(
@@ -555,11 +563,11 @@ contract Stream is IStreamErrors, IStreamEvents {
                     creatorRevenue
                 );
             } else {
-                IERC20(streamTokens.inSupplyToken).safeTransfer(creator, creatorRevenue);
+                TransferLib.pushFunds(streamTokens.inSupplyToken, creator, creatorRevenue);
             }
 
             if (outRemaining > 0) {
-                IERC20(streamTokens.outSupplyToken).safeTransfer(creator, outRemaining);
+                TransferLib.pushFunds(streamTokens.outSupplyToken, creator, outRemaining);
             }
         } else {
             // Update status
@@ -571,7 +579,7 @@ contract Stream is IStreamErrors, IStreamEvents {
             emit FinalizedRefunded(address(this), creator, outSupply);
 
             // External call last
-            IERC20(streamTokens.outSupplyToken).safeTransfer(creator, outSupply);
+            TransferLib.pushFunds(streamTokens.outSupplyToken, creator, outSupply);
         }
     }
 
@@ -598,8 +606,7 @@ contract Stream is IStreamErrors, IStreamEvents {
         saveStreamStatus(status);
 
         emit StreamCancelled(address(this), creator, amountToTransfer, uint8(status));
-
-        IERC20(streamTokens.outSupplyToken).safeTransfer(creator, amountToTransfer);
+        TransferLib.pushFunds(streamTokens.outSupplyToken, creator, amountToTransfer);
     }
 
     /**
@@ -631,7 +638,7 @@ contract Stream is IStreamErrors, IStreamEvents {
         emit StreamCancelled(address(this), creator, amountToTransfer, uint8(status));
 
         // External call last
-        IERC20(streamTokens.outSupplyToken).safeTransfer(creator, amountToTransfer);
+        TransferLib.pushFunds(streamTokens.outSupplyToken, creator, amountToTransfer);
     }
 
     /**
@@ -892,8 +899,8 @@ contract Stream is IStreamErrors, IStreamEvents {
         IPoolWrapper poolWrapper = IPoolWrapper(poolWrapperAddress);
 
         // Transfer pool tokens to the pool wrapper contract first
-        IERC20(tokenA).safeTransfer(poolWrapperAddress, amountADesired);
-        IERC20(tokenB).safeTransfer(poolWrapperAddress, amountBDesired);
+        TransferLib.pushFunds(tokenA, poolWrapperAddress, amountADesired);
+        TransferLib.pushFunds(tokenB, poolWrapperAddress, amountBDesired);
 
         PoolWrapperTypes.CreatePoolMsg memory createPoolMsg = PoolWrapperTypes.CreatePoolMsg({
             token0: tokenA,

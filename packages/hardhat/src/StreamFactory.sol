@@ -24,7 +24,6 @@ import { IStream } from "./interfaces/IStream.sol";
 import { StreamFactoryTypes } from "./types/StreamFactoryTypes.sol";
 import { Clones } from "@openzeppelin/contracts/proxy/Clones.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { TransferLib } from "./lib/TransferLib.sol";
 import { PositionStorage } from "./storage/PositionStorage.sol";
 import { DecimalMath, Decimal } from "./lib/math/DecimalMath.sol";
@@ -35,7 +34,6 @@ import { DecimalMath, Decimal } from "./lib/math/DecimalMath.sol";
  * @notice Handles stream creation, parameter management, and accepted token management
  */
 contract StreamFactory is IStreamEvents, IStreamFactoryErrors {
-    using SafeERC20 for IERC20;
     using TransferLib for address;
 
     // ============ State Variables ============
@@ -169,6 +167,8 @@ contract StreamFactory is IStreamEvents, IStreamFactoryErrors {
         if (createStreamMessage.outSupplyToken == address(0)) revert InvalidOutSupplyToken();
         if (createStreamMessage.creator == address(0)) revert InvalidCreator();
         if (!acceptedInSupplyTokens[createStreamMessage.inSupplyToken]) revert StreamInputTokenNotAccepted();
+        if (createStreamMessage.inSupplyToken == createStreamMessage.outSupplyToken) revert SameInputAndOutputToken();
+    
 
         // Validate vesting configurations
         validateVesting(createStreamMessage.creatorVesting);
@@ -188,6 +188,19 @@ contract StreamFactory is IStreamEvents, IStreamFactoryErrors {
             keccak256(abi.encodePacked(params.tosVersion))
         ) revert InvalidToSVersion();
 
+        // Handle creation fee (can be native or ERC20) BEFORE any cloning/deployment
+        // Pull the fee into the factory. msg.value must be handled by callee via checks.
+        TransferLib.pullFunds(
+            params.streamCreationFeeToken,
+            msg.sender,
+            params.streamCreationFee
+        );
+        TransferLib.pushFunds(
+            params.streamCreationFeeToken,
+            params.feeCollector,
+            params.streamCreationFee
+        );
+
         // Clone stream contract
         address clone = Clones.clone(params.streamImplementationAddress);
         IStream stream = IStream(clone);
@@ -200,24 +213,12 @@ contract StreamFactory is IStreamEvents, IStreamFactoryErrors {
         streamAddresses[streamId] = address(stream);
 
         // Transfer output tokens to stream (output tokens cannot be native)
-        IERC20(createStreamMessage.outSupplyToken).safeTransferFrom(
-            msg.sender,
-            address(stream),
-            createStreamMessage.streamOutAmount + createStreamMessage.poolInfo.poolOutSupplyAmount
-        );
+        uint256 totalOut = createStreamMessage.streamOutAmount + createStreamMessage.poolInfo.poolOutSupplyAmount;
+        TransferLib.pullFunds(createStreamMessage.outSupplyToken, msg.sender, totalOut);
+        TransferLib.pushFunds(createStreamMessage.outSupplyToken, address(stream), totalOut);
 
         // Initialize the cloned stream
         stream.initialize(createStreamMessage, address(positionStorage));
-
-        // Handle creation fee (can be native token)
-        if (params.streamCreationFee > 0) {
-            TransferLib.transferFrom(
-                params.streamCreationFeeToken,
-                msg.sender,
-                address(params.feeCollector),
-                params.streamCreationFee
-            );
-        }
 
         emit StreamCreated(
             address(this),
