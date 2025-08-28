@@ -231,7 +231,7 @@ const config: HardhatUserConfig = {
       url: "https://alfajores-forno.celo-testnet.org",
       accounts: deployerPrivateKey ? [deployerPrivateKey] : [],
     },
-    hyperliquidTestnet: {
+    hyperEvmTestnet: {
       url: "https://rpc.hyperliquid-testnet.xyz/evm",
       accounts: [deployerPrivateKey, creatorPrivateKey, subscriber1PrivateKey, subscriber2PrivateKey].filter(
         (account): account is string => !!account,

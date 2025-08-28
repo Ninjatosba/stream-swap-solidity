@@ -34,7 +34,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   // Use simplified config based on environment
   const config = environment === "production"
     ? createProductionFactoryConfig(deployer, inTokenAddress)
-    : createFactoryConfig(deployer, [inTokenAddress]);
+    : createFactoryConfig(deployer, [inTokenAddress, "0x0000000000000000000000000000000000000000"]);
 
   // Get DEX configuration for the network
   const dexConfig = getDexConfig(environment);

@@ -22,14 +22,14 @@ export const createFactoryConfig = (
   acceptedInTokens: AddressLike[],
 ): FactoryConfig => ({
   ExitFeeRatio: {
-    value: 100000, // 10% fee
+    value: 10000, // 1% fee
   },
   feeCollector: deployer,
   minWaitingDuration: 1, // 1 block for hardhat testing
   minBootstrappingDuration: 1, // 1 block for hardhat testing
   minStreamDuration: 1, // 1 block for hardhat testing
   acceptedInTokens,
-  streamCreationFee: 0, // No creation fee
+  streamCreationFee: 1_000_000_000_000_00, // 0.0001 native token
   streamCreationFeeToken: "0x0000000000000000000000000000000000000000", // Zero address for native
   protocolAdmin: deployer,
   tosVersion: "1.0.0",

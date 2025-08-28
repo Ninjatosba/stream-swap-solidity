@@ -25,7 +25,7 @@ export const DEX_CONFIG = {
         router: "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D", // Mock address
     },
     // Hyperliquid testnet
-    hyperliquidTestnet: {
+    hyperEvmTestnet: {
         type: "uniswap-v2",
         factory: "0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f", // Mock address
         router: "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D", // Mock address
