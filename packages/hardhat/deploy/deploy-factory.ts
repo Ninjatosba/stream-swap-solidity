@@ -3,8 +3,6 @@ import { DeployFunction } from "hardhat-deploy/types";
 import {
   createFactoryConfig,
   createProductionFactoryConfig,
-  createTestnetFactoryConfig,
-  FactoryConfig,
 } from "./config/factory-config";
 import { getDexConfig } from "./config/uniswap-config";
 import { StreamFactoryTypes } from "../typechain-types/src/StreamFactory";
@@ -13,9 +11,6 @@ import { StreamFactory } from "../typechain-types/src/StreamFactory";
 const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const { deployer } = await hre.getNamedAccounts();
   const { deploy, get } = hre.deployments;
-
-  // Get config from environment or use default
-  let config: FactoryConfig;
 
   // Get environment from args
   const environment =
@@ -36,30 +31,10 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     throw new Error("in token not deployed");
   }
 
-  // get stream creation fee
-  let streamCreationFeeToken: string;
-  try {
-    const streamCreationFeeTokenDeployment = await get("StreamCreationFeeToken");
-    streamCreationFeeToken = streamCreationFeeTokenDeployment.address;
-    console.log(`Found stream creation fee token at: ${streamCreationFeeToken}`);
-  } catch (error) {
-    void error; // Explicitly ignore the error parameter
-    console.log("stream creation fee token not found. Please deploy it first.");
-    //throw new Error("stream creation fee token not deployed");
-    console.log("Using InToken as stream creation fee token");
-    streamCreationFeeToken = inTokenAddress;
-  }
-
-  switch (environment) {
-    case "sepolia":
-      config = createTestnetFactoryConfig(deployer, inTokenAddress, 0, streamCreationFeeToken);
-      break;
-    case "production":
-      config = createProductionFactoryConfig(deployer, inTokenAddress, 0, streamCreationFeeToken);
-      break;
-    default:
-      config = createFactoryConfig(deployer, [inTokenAddress], 0, streamCreationFeeToken);
-  }
+  // Use simplified config based on environment
+  const config = environment === "production"
+    ? createProductionFactoryConfig(deployer, inTokenAddress)
+    : createFactoryConfig(deployer, [inTokenAddress]);
 
   // Get DEX configuration for the network
   const dexConfig = getDexConfig(environment);

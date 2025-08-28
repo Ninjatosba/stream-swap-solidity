@@ -44,33 +44,9 @@ const deployTokens: DeployFunction = async function (hre: HardhatRuntimeEnvironm
 
     console.log(`OutToken at: ${outTokenDeployment.address}`);
 
-    // Deploy or get existing stream creation fee token
-    console.log(`Deploying or getting stream creation fee token...`);
-    const streamCreationFeeTokenDeployment = await deploy("StreamCreationFeeToken", {
-      from: deployer,
-      contract: "ERC20Mock",
-      args: ["StreamCreationFeeToken", "SFT"],
-      log: true,
-      autoMine: true,
-    });
-
     // Get contract instances
     const inTokenContract = await hre.ethers.getContractAt("ERC20Mock", inTokenDeployment.address);
     const outTokenContract = await hre.ethers.getContractAt("ERC20Mock", outTokenDeployment.address);
-    const streamCreationFeeTokenContract = await hre.ethers.getContractAt(
-      "ERC20Mock",
-      streamCreationFeeTokenDeployment.address,
-    );
-
-    // Mint stream creation fee tokens only stream creator needs it
-    console.log("Minting stream creation fee tokens...");
-    const streamCreationFeeTokenMintAmount = parseEther("1000000");
-    const streamCreationFeeTokenMintTx = await streamCreationFeeTokenContract.mint(
-      creator,
-      streamCreationFeeTokenMintAmount,
-    );
-    await streamCreationFeeTokenMintTx.wait();
-    console.log(`Minted ${streamCreationFeeTokenMintAmount} stream creation fee tokens to deployer`);
 
     // Always mint tokens regardless of deployment status
     console.log("Minting in tokens for testing...");
