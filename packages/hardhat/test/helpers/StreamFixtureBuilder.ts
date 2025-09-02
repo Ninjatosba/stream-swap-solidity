@@ -5,6 +5,7 @@ import { DecimalStruct, StreamTypes } from "../../typechain-types/src/Stream";
 import { StreamFactoryTypes } from "../../typechain-types/src/StreamFactory";
 import { MockUniswapV2Factory, MockUniswapV2Router02 } from "../../typechain-types";
 
+// Configuration interfaces
 interface StreamTimeConfig {
   waitSeconds: number;
   bootstrappingDuration: number;
@@ -48,7 +49,7 @@ export class StreamFixtureBuilder {
 
   private amountConfig: StreamAmountConfig = {
     streamOutAmount: ethers.parseEther("1000"),
-    threshold: ethers.parseEther("100"),
+    threshold: ethers.parseEther("0"),
   };
 
   private metadataConfig: StreamMetadataConfig = {
@@ -79,6 +80,11 @@ export class StreamFixtureBuilder {
     minBootstrappingDuration: 1,
     minStreamDuration: 1,
   };
+
+  // Simplified token configuration
+  private inSupplyTokenAddress?: string;
+  private outSupplyTokenAddress?: string;
+  private feeTokenAddress?: string;
 
   private nowSeconds?: number;
 
@@ -152,6 +158,19 @@ export class StreamFixtureBuilder {
     return this;
   }
 
+  // Simplified token configuration - single method handles both ERC20 and native
+  public tokens(inSupplyToken?: string, outSupplyToken?: string, feeToken?: string): StreamFixtureBuilder {
+    this.inSupplyTokenAddress = inSupplyToken;
+    this.outSupplyTokenAddress = outSupplyToken;
+    this.feeTokenAddress = feeToken;
+    return this;
+  }
+
+  // Convenience method for native token
+  public nativeToken(): StreamFixtureBuilder {
+    return this.tokens(ethers.ZeroAddress);
+  }
+
   // Time manipulation method
   public currentTime(timestamp: number): StreamFixtureBuilder {
     this.nowSeconds = timestamp;
@@ -170,18 +189,30 @@ export class StreamFixtureBuilder {
         const [deployer, creator, subscriber1, subscriber2, subscriber3, subscriber4, protocolAdmin, feeCollector] =
           await ethers.getSigners();
 
-        // Deploy token contracts with deployer
-        const InSupplyToken = await ethers.getContractFactory("ERC20Mock");
-        const inSupplyToken = await InSupplyToken.deploy("StreamInSupply Token", "IN");
-        const inSupplyTokenAddress = await inSupplyToken.getAddress();
+        // Deploy or configure inSupply token
+        let inSupplyToken: any;
+        let inSupplyTokenAddress: string;
 
+        if (self.inSupplyTokenAddress === ethers.ZeroAddress) {
+          // Native token
+          inSupplyTokenAddress = ethers.ZeroAddress;
+          inSupplyToken = null;
+        } else {
+          // ERC20 token
+          const InSupplyToken = await ethers.getContractFactory("ERC20Mock");
+          inSupplyToken = await InSupplyToken.deploy("StreamInSupply Token", "IN");
+          inSupplyTokenAddress = self.inSupplyTokenAddress ?? await inSupplyToken.getAddress();
+        }
+
+        // Deploy outSupply token (always ERC20)
         const OutSupplyToken = await ethers.getContractFactory("ERC20Mock");
         const outSupplyToken = await OutSupplyToken.deploy("StreamOutSupply Token", "OUT");
-        const outSupplyTokenAddress = await outSupplyToken.getAddress();
+        const outSupplyTokenAddress = self.outSupplyTokenAddress ?? await outSupplyToken.getAddress();
 
+        // Deploy fee token (always ERC20)
         const FeeToken = await ethers.getContractFactory("ERC20Mock");
         const feeToken = await FeeToken.deploy("Fee Token", "FEE");
-        const feeTokenAddress = await feeToken.getAddress();
+        const feeTokenAddress = self.feeTokenAddress ?? await feeToken.getAddress();
 
         // Deploy Permit2 at the hardcoded address
         const PERMIT2_ADDRESS = "0x000000000022D473030F116dDEE9F6B43aC78BA3";
@@ -230,7 +261,7 @@ export class StreamFixtureBuilder {
           feeCollector: feeCollector.address,
           protocolAdmin: protocolAdmin.address,
           tosVersion: self.metadataConfig.tosVersion,
-          acceptedInSupplyTokens: [inSupplyTokenAddress],
+          acceptedInSupplyTokens: [inSupplyTokenAddress, ethers.ZeroAddress],
           poolWrapperAddress: poolWrapperAddress,
           streamImplementationAddress: streamImplementationAddress,
         };
@@ -240,15 +271,18 @@ export class StreamFixtureBuilder {
         // Get factory params
         const factoryParams = await streamFactory.getParams();
         const streamCreationFee = factoryParams.streamCreationFee;
-        const streamCreationFeeToken = factoryParams.streamCreationFeeToken;
 
         // Mint tokens
         await feeToken.mint(creator.address, ethers.parseEther("1000000000"));
         await outSupplyToken.mint(creator.address, self.amountConfig.streamOutAmount);
-        await inSupplyToken.mint(subscriber1.address, ethers.parseEther("1000000000"));
-        await inSupplyToken.mint(subscriber2.address, ethers.parseEther("1000000000"));
-        await inSupplyToken.mint(subscriber3.address, ethers.parseEther("1000000000"));
-        await inSupplyToken.mint(subscriber4.address, ethers.parseEther("1000000000"));
+
+        // Mint inSupply tokens only if using ERC20
+        if (inSupplyToken) {
+          await inSupplyToken.mint(subscriber1.address, ethers.parseEther("1000000000"));
+          await inSupplyToken.mint(subscriber2.address, ethers.parseEther("1000000000"));
+          await inSupplyToken.mint(subscriber3.address, ethers.parseEther("1000000000"));
+          await inSupplyToken.mint(subscriber4.address, ethers.parseEther("1000000000"));
+        }
 
         // Mint pool tokens if needed
         if (self.poolConfig.poolOutSupplyAmount > 0) {
@@ -360,6 +394,13 @@ export class StreamFixtureBuilder {
             beneficiaryVestingInfo: self.vestingConfig.beneficiary,
             poolConfig: self.poolConfig,
             exitFeeRatio: self.factoryConfig.exitFeeRatio,
+            tokenConfig: {
+              inSupplyTokenType: inSupplyToken ? "erc20" : "native",
+              inSupplyTokenAddress: inSupplyTokenAddress,
+              outSupplyTokenAddress: outSupplyTokenAddress,
+              feeTokenAddress: feeTokenAddress,
+              isNativeToken: !inSupplyToken,
+            },
           },
           factoryParams: {
             streamCreationFee: self.factoryConfig.streamCreationFee,

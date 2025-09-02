@@ -16,7 +16,7 @@ enum Status {
 describe("Stream Exit", function () {
   describe("Successful Exit (Status.Ended)", function () {
     it("Should allow exit and distribute out tokens when stream is ended", async function () {
-      const { contracts, timeParams, accounts } = await loadFixture(stream().build());
+      const { contracts, timeParams, accounts } = await loadFixture(stream().setThreshold(ethers.parseEther("100")).build());
 
       // Fast forward time to stream phase
       await ethers.provider.send("evm_setNextBlockTimestamp", [timeParams.streamStartTime + 1]);
@@ -63,6 +63,7 @@ describe("Stream Exit", function () {
       const { contracts, timeParams, accounts, config } = await loadFixture(
         stream()
           .beneficiaryVesting(3600) // 1 hour vesting
+          .setThreshold(ethers.parseEther("100"))
           .build()
       );
 
@@ -132,7 +133,7 @@ describe("Stream Exit", function () {
 
   describe("Refund Exit (Status.Ended)", function () {
     it("Should refund in tokens when stream is ended and threshold not reached", async function () {
-      const { contracts, timeParams, accounts } = await loadFixture(stream().build());
+      const { contracts, timeParams, accounts } = await loadFixture(stream().setThreshold(ethers.parseEther("100")).build());
 
       // Fast forward time to stream phase
       await ethers.provider.send("evm_setNextBlockTimestamp", [timeParams.streamStartTime + 1]);
@@ -221,7 +222,7 @@ describe("Stream Exit", function () {
 
   describe("Refund Exit (Status.FinalizedRefunded)", function () {
     it("Should refund in tokens when stream is finalized with refund", async function () {
-      const { contracts, timeParams, accounts } = await loadFixture(stream().build());
+      const { contracts, timeParams, accounts } = await loadFixture(stream().setThreshold(ethers.parseEther("100")).build());
 
       // Fast forward time to stream phase
       await ethers.provider.send("evm_setNextBlockTimestamp", [timeParams.streamStartTime + 1]);
@@ -253,7 +254,6 @@ describe("Stream Exit", function () {
 
       // Get balances before exit
       const subscriberInBalanceBefore = await contracts.inSupplyToken.balanceOf(accounts.subscriber1.address);
-      const streamInBalanceBefore = await contracts.inSupplyToken.balanceOf(contracts.stream.getAddress());
 
       // Exit the stream
       await contracts.stream.connect(accounts.subscriber1).exitStream();
@@ -262,10 +262,14 @@ describe("Stream Exit", function () {
       const subscriberInBalanceAfter = await contracts.inSupplyToken.balanceOf(accounts.subscriber1.address);
       const streamInBalanceAfter = await contracts.inSupplyToken.balanceOf(contracts.stream.getAddress());
 
+
       // Verify subscriber received full refund of in tokens
       expect(subscriberInBalanceAfter - subscriberInBalanceBefore).to.equal(subscribeAmount);
       // Verify stream contract has no in tokens
       expect(streamInBalanceAfter).to.equal(0);
+
+      // Check status is finalized refunded
+      expect(await contracts.stream.getStreamStatus()).to.equal(Status.FinalizedRefunded);
     });
   });
 

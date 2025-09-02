@@ -513,4 +513,44 @@ describe("Stream Subscribe", function () {
       expect(updatedPosition.shares).to.be.gt(0);
     });
   });
+
+  describe("Native Token Subscription", function () {
+    it("Should allow subscription with native token", async function () {
+      const { contracts, timeParams, accounts, config } = await loadFixture(
+        stream().nativeToken().setThreshold(0n).build()
+      );
+
+      // Verify we have a native token stream
+      expect(config.tokenConfig.isNativeToken).to.be.true;
+      expect(config.tokenConfig.inSupplyTokenAddress).to.equal(ethers.ZeroAddress);
+
+      // Fast forward time to stream phase
+      await ethers.provider.send("evm_setNextBlockTimestamp", [timeParams.streamStartTime + 1]);
+      await ethers.provider.send("evm_mine", []);
+
+      const subscriptionAmount = ethers.parseEther("1");
+      const initialBalance = await ethers.provider.getBalance(accounts.subscriber1.address);
+
+      // Subscribe with native token using subscribeWithNativeToken
+      const tx = await contracts.stream
+        .connect(accounts.subscriber1)
+        .subscribeWithNativeToken(subscriptionAmount, { value: subscriptionAmount });
+
+      const receipt = await tx.wait();
+      const gasUsed = receipt!.gasUsed * receipt!.gasPrice;
+      const finalBalance = await ethers.provider.getBalance(accounts.subscriber1.address);
+
+      // Verify native token transfer happened (balance decreased by amount + gas)
+      expect(initialBalance - finalBalance).to.equal(subscriptionAmount + gasUsed);
+
+      // Verify subscription was recorded
+      const position = await contracts.stream.getPosition(accounts.subscriber1.address);
+      expect(position.inBalance).to.equal(subscriptionAmount);
+      expect(position.shares).to.be.greaterThan(0);
+
+      // Verify stream state was updated
+      const streamState = await contracts.stream.getStreamState();
+      expect(streamState.inSupply).to.equal(subscriptionAmount);
+    });
+  });
 });

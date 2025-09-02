@@ -350,4 +350,42 @@ describe("Stream Withdraw", function () {
       expect(parsedEvent?.args.streamShares).to.be.gt(0);
     });
   });
+
+  describe("Native Token Withdrawal", function () {
+    it("Should allow withdrawal with native token", async function () {
+      const { contracts, timeParams, accounts } = await loadFixture(
+        stream().nativeToken().setThreshold(0n).build()
+      );
+
+      // Fast forward time to stream phase and subscribe first
+      await ethers.provider.send("evm_setNextBlockTimestamp", [timeParams.streamStartTime + 1]);
+      await ethers.provider.send("evm_mine", []);
+
+      const subscriptionAmount = ethers.parseEther("2");
+      await contracts.stream
+        .connect(accounts.subscriber1)
+        .subscribeWithNativeToken(subscriptionAmount, { value: subscriptionAmount });
+
+      // Fast forward a bit more to allow some streaming
+      await ethers.provider.send("evm_setNextBlockTimestamp", [timeParams.streamStartTime + 5]);
+      await ethers.provider.send("evm_mine", []);
+
+      const withdrawAmount = ethers.parseEther("0.5");
+      const initialBalance = await ethers.provider.getBalance(accounts.subscriber1.address);
+
+      // Withdraw native tokens
+      const tx = await contracts.stream.connect(accounts.subscriber1).withdraw(withdrawAmount);
+      const receipt = await tx.wait();
+      const gasUsed = receipt!.gasUsed * receipt!.gasPrice;
+      const finalBalance = await ethers.provider.getBalance(accounts.subscriber1.address);
+
+      // Verify native token withdrawal happened (balance should increase, accounting for gas)
+      expect(finalBalance).to.be.greaterThan(initialBalance - gasUsed);
+
+      // Verify position was updated (inBalance should be less than original due to withdrawal)
+      const position = await contracts.stream.getPosition(accounts.subscriber1.address);
+      expect(position.inBalance).to.be.lessThan(subscriptionAmount);
+      expect(position.inBalance).to.be.greaterThan(0);
+    });
+  });
 });

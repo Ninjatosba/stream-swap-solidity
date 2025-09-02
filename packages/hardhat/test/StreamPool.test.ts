@@ -22,7 +22,7 @@ describe("Stream Pool Creation", function () {
 
   it("should create pool and transfer tokens when stream is finalized", async function () {
     const { contracts, timeParams, accounts, config } = await loadFixture(
-      stream().streamOut(streamOutAmount).poolOutSupply(poolOutSupplyAmount).build(),
+      stream().streamOut(streamOutAmount).poolOutSupply(poolOutSupplyAmount).setThreshold(ethers.parseEther("100")).build(),
     );
 
     // Fast forward time to started phase
