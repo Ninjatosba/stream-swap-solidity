@@ -271,6 +271,50 @@ describe("Stream Exit", function () {
       // Check status is finalized refunded
       expect(await contracts.stream.getStreamStatus()).to.equal(Status.FinalizedRefunded);
     });
+
+    it("Should refund native in tokens when stream is finalized with refund", async function () {
+      const threshold = ethers.parseEther("100");
+      const { contracts, timeParams, accounts } = await loadFixture(stream().setThreshold(threshold).nativeToken().build());
+
+      // Fast forward time to stream phase
+      await ethers.provider.send("evm_setNextBlockTimestamp", [timeParams.streamStartTime + 1]);
+      await ethers.provider.send("evm_mine", []);
+
+      // Sync the stream to update status
+      await contracts.stream.syncStreamExternal();
+
+      // Subscribe with some amount
+      const subscribeAmount = threshold / BigInt(2);
+      await contracts.stream.connect(accounts.subscriber1).subscribeWithNativeToken(subscribeAmount, { value: subscribeAmount });
+
+      // Fast forward time to ended phase
+      await ethers.provider.send("evm_setNextBlockTimestamp", [timeParams.streamEndTime + 1]);
+      await ethers.provider.send("evm_mine", []);
+
+      // Sync the stream to update status
+      await contracts.stream.syncStreamExternal();
+
+      // Finalize the stream (which will be in refunded state since threshold not reached)
+      await contracts.stream.connect(accounts.creator).finalizeStream();
+
+      // Check status is finalized refunded
+      expect(await contracts.stream.getStreamStatus()).to.equal(Status.FinalizedRefunded);
+
+      // Get balances before exit
+      const subscriberInBalanceBefore = await ethers.provider.getBalance(accounts.subscriber1.address);
+
+      // Exit the stream
+      let tx = await contracts.stream.connect(accounts.subscriber1).exitStream();
+      let receipt = await tx.wait();
+      let gasUsed = receipt!.gasUsed * receipt!.gasPrice;
+      console.log(`Gas used: ${gasUsed}`);
+
+      // Check balances after exit
+      const subscriberInBalanceAfter = await ethers.provider.getBalance(accounts.subscriber1.address);
+
+      // Verify subscriber received full refund of in tokens
+      expect(subscriberInBalanceAfter - subscriberInBalanceBefore + gasUsed).to.equal(subscribeAmount);
+    });
   });
 
   describe("Event Emission", function () {
