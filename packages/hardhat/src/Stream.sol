@@ -45,6 +45,8 @@ import { IPermit2 } from "./interfaces/IPermit2.sol";
 import { TransferLib } from "./lib/TransferLib.sol";
 
 
+
+
 /**
  * @title Stream
  * @dev Main contract for managing token streaming with vesting and pool creation capabilities
@@ -361,7 +363,7 @@ contract Stream is IStreamErrors, IStreamEvents {
         if (withdrawAmount == position.inBalance) {
             shareDeduction = position.shares;
         } else {
-            shareDeduction = StreamMathLib.computeSharesAmount(withdrawAmount, true, state.inSupply, position.shares);
+            shareDeduction = StreamMathLib.computeSharesAmount(withdrawAmount, true, state.inSupply, state.shares);
         }
 
         // Update position
