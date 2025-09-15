@@ -18,10 +18,11 @@ const config = {
 
   // External addresses that need tokens - just add addresses to this array
   externalAddresses: [
-    "0x9aae2dc9a514dfd9f56657ace26ca66667d7a833",
-    "0x8B4c7dE9b0d2847b6Ad1b2A1ABf8E4D79C982a8d",
-    "0x6B738b310f40279377De27815B33E6211EA540Ea",
-    "0x3C5630f986BA7806fDDf0E574481d92dCCB5ec93", // Only this address will get tokens
+    "0x71caa98016843c7DB88a09B493b35EA93CE53fa2"
+    // "0x9aae2dc9a514dfd9f56657ace26ca66667d7a833",
+    // "0x8B4c7dE9b0d2847b6Ad1b2A1ABf8E4D79C982a8d",
+    // "0x6B738b310f40279377De27815B33E6211EA540Ea",
+    // "0x3C5630f986BA7806fDDf0E574481d92dCCB5ec93", // Only this address will get tokens
   ],
 
   // Token allocation for different account types
@@ -34,8 +35,8 @@ const config = {
   },
 
   // Amounts to mint.
-  inTokenAmount: parseEther("1000000"), // 1 million IN tokens.
-  outTokenAmount: parseEther("10000000"), // 10 million OUT tokens.
+  inTokenAmount: parseEther("100000000"), // 100 million IN tokens.
+  outTokenAmount: parseEther("100000000"), // 100 million OUT tokens.
 };
 // --- End of Configuration ---
 
