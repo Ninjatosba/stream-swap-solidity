@@ -9,6 +9,7 @@ interface IStreamEvents {
         address streamOutToken,
         address streamInToken,
         address streamAddress,
+        address creator,
         address positionStorageAddress,
         uint256 streamOutAmount,
         uint256 bootstrappingStartTime,

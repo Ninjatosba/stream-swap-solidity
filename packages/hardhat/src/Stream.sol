@@ -44,9 +44,7 @@ import { PoolWrapperTypes } from "./types/PoolWrapperTypes.sol";
 import { IPermit2 } from "./interfaces/IPermit2.sol";
 import { TransferLib } from "./lib/TransferLib.sol";
 
-
-
-
+    
 /**
  * @title Stream
  * @dev Main contract for managing token streaming with vesting and pool creation capabilities
@@ -404,7 +402,7 @@ contract Stream is IStreamErrors, IStreamEvents {
     function exitStream() external {
         // Load and validate position
         PositionTypes.Position memory position = loadPosition(msg.sender);
-        validatePosition(position, msg.sender);
+        if (position.exitDate != 0) revert InvalidPosition(msg.sender, position.shares, position.exitDate, "Position has already exited");
 
         // Load and sync stream state
         StreamTypes.StreamState memory state = syncStream(loadStream());

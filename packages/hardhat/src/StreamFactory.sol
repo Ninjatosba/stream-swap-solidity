@@ -225,6 +225,7 @@ contract StreamFactory is IStreamEvents, IStreamFactoryErrors {
             createStreamMessage.outSupplyToken,
             createStreamMessage.inSupplyToken,
             address(stream),
+            createStreamMessage.creator,
             address(positionStorage),
             createStreamMessage.streamOutAmount,
             createStreamMessage.bootstrappingStartTime,
