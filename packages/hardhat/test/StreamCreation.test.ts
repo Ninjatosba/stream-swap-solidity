@@ -749,15 +749,16 @@ describe("StreamCreation", function () {
             expect(parsedEvent!.args[1]).to.equal(createStreamMessage.outSupplyToken); // outSupplyToken
             expect(parsedEvent!.args[2]).to.equal(createStreamMessage.inSupplyToken); // inSupplyToken
             expect(parsedEvent!.args[3]).to.not.equal(ethers.ZeroAddress); // stream address
-            expect(parsedEvent!.args[4]).to.not.equal(ethers.ZeroAddress); // positionStorage address
-            expect(parsedEvent!.args[5]).to.equal(createStreamMessage.streamOutAmount); // streamOutAmount
-            expect(parsedEvent!.args[6]).to.equal(createStreamMessage.bootstrappingStartTime); // bootstrappingStartTime
-            expect(parsedEvent!.args[7]).to.equal(createStreamMessage.streamStartTime); // streamStartTime
-            expect(parsedEvent!.args[8]).to.equal(createStreamMessage.streamEndTime); // streamEndTime
-            expect(parsedEvent!.args[9]).to.equal(createStreamMessage.threshold); // threshold
-            expect(parsedEvent!.args[10]).to.equal(createStreamMessage.metadata.ipfsHash); // ipfsHash
-            expect(parsedEvent!.args[11]).to.equal(createStreamMessage.tosVersion); // tosVersion
-            expect(parsedEvent!.args[12]).to.equal(currentStreamId); // streamId
+            expect(parsedEvent!.args[4]).to.equal(fixture.accounts.creator.address); // creator
+            expect(parsedEvent!.args[5]).to.not.equal(ethers.ZeroAddress); // positionStorage address
+            expect(parsedEvent!.args[6]).to.equal(createStreamMessage.streamOutAmount); // streamOutAmount
+            expect(parsedEvent!.args[7]).to.equal(createStreamMessage.bootstrappingStartTime); // bootstrappingStartTime
+            expect(parsedEvent!.args[8]).to.equal(createStreamMessage.streamStartTime); // streamStartTime
+            expect(parsedEvent!.args[9]).to.equal(createStreamMessage.streamEndTime); // streamEndTime
+            expect(parsedEvent!.args[10]).to.equal(createStreamMessage.threshold); // threshold
+            expect(parsedEvent!.args[11]).to.equal(createStreamMessage.metadata.ipfsHash); // ipfsHash
+            expect(parsedEvent!.args[12]).to.equal(createStreamMessage.tosVersion); // tosVersion
+            expect(parsedEvent!.args[13]).to.equal(currentStreamId); // streamId
         });
 
         it("should increment stream ID correctly", async function () {
