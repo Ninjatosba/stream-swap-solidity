@@ -6,14 +6,9 @@ import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.s
 
 /**
  * @title TransferLib
- * @author Adnan Deniz Corlu (@Ninjatosba)
- * @notice Library for handling both ERC20 and native token transfers
- * @dev Provides a unified interface for token transfers, automatically detecting
- *      whether to use ERC20 transfers or native ETH transfers based on token address.
- *
- * Functions are neutral: you specify both `from` and `to`. If `from == msg.sender`
- * and `to == address(this)`, it behaves like a pull. If `from == address(this)` and
- * `to != address(this)`, it behaves like a push. From → To is always explicit.
+ * @author Adnan Deniz
+ * @notice Unified handling of ERC20 and native transfers.
+ * @dev Supports both fresh ETH via msg.value and already-held ETH in contract.
  */
 library TransferLib {
     using SafeERC20 for IERC20;
@@ -22,10 +17,10 @@ library TransferLib {
     address public constant NATIVE_TOKEN = address(0);
 
     /**
-     * @dev Moves funds from `from` to `to`. Supports native token and ERC20.
+     * @dev Transfer funds from `from` to `to`. Works with native token and ERC20.
      * @param token Token address (zero address for native token)
-     * @param from Address to debit funds from (msg.sender for native token)
-     * @param to Address to credit funds to
+     * @param from Address providing funds (msg.sender or this for native, any for ERC20)
+     * @param to Address receiving funds
      * @param amount Amount to transfer
      */
     function transferFunds(
@@ -37,23 +32,26 @@ library TransferLib {
         if (amount == 0) return;
 
         if (token == NATIVE_TOKEN) {
-            if (from != msg.sender) revert InvalidNativePayer(from);
-            if (msg.value != amount) revert IncorrectNativeAmount(amount, msg.value);
-
-            // If destination is contract itself, just accept ETH
-            if (to == address(this)) return;
-
-            // Otherwise forward directly
-            (bool success, ) = to.call{ value: amount }("");
-            if (!success) revert NativeTokenTransferFailed();
+            if (from == msg.sender) {
+                // Pulling fresh ETH
+                if (msg.value != amount) revert IncorrectNativeAmount(amount, msg.value);
+                if (to == address(this)) return; // staying in contract
+                (bool ok, ) = payable(to).call{ value: amount }("");
+                if (!ok) revert NativeTokenTransferFailed();
+            } else if (from == address(this)) {
+                // Sending ETH already held by contract
+                (bool ok, ) = payable(to).call{ value: amount }("");
+                if (!ok) revert NativeTokenTransferFailed();
+            } else {
+                revert InvalidNativePayer(from);
+            }
             return;
         }
 
-        // ERC20
+        // ERC20 path
         if (from == address(this)) {
             IERC20(token).safeTransfer(to, amount);
         } else {
-            // pull directly into `to`
             IERC20(token).safeTransferFrom(from, to, amount);
         }
     }

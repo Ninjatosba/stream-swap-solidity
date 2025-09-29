@@ -162,16 +162,7 @@ contract StreamFactory is IStreamEvents, IStreamFactoryErrors {
      */
     function createStream(StreamTypes.CreateStreamMessage memory createStreamMessage) external payable {
         // Handle creation fee (can be native or ERC20) BEFORE any cloning/deployment
-        TransferLib.pullFunds(
-            params.streamCreationFeeToken,
-            msg.sender,
-            params.streamCreationFee
-        );
-        TransferLib.pushFunds(
-            params.streamCreationFeeToken,
-            params.feeCollector,
-            params.streamCreationFee
-        );
+        TransferLib.transferFunds(params.streamCreationFeeToken, msg.sender, params.feeCollector, params.streamCreationFee);
 
         // Call internal function
         _createStream(createStreamMessage);
@@ -225,7 +216,7 @@ contract StreamFactory is IStreamEvents, IStreamFactoryErrors {
 
         // Transfer output tokens to stream (output tokens cannot be native)
         uint256 totalOut = createStreamMessage.streamOutAmount + createStreamMessage.poolInfo.poolOutSupplyAmount;
-        TransferLib.pushFunds(createStreamMessage.outSupplyToken, address(stream), totalOut);
+        TransferLib.transferFunds(createStreamMessage.outSupplyToken, address(this), address(stream), totalOut);
 
         // Initialize the cloned stream
         stream.initialize(createStreamMessage, address(positionStorage));
