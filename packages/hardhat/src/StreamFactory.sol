@@ -27,6 +27,7 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { TransferLib } from "./lib/TransferLib.sol";
 import { PositionStorage } from "./storage/PositionStorage.sol";
 import { DecimalMath, Decimal } from "./lib/math/DecimalMath.sol";
+import { ITokenFactory } from "./interfaces/ITokenFactory.sol";
 
 /**
  * @title StreamFactory
@@ -125,7 +126,8 @@ contract StreamFactory is IStreamEvents, IStreamFactoryErrors {
         params.vestingFactoryAddress = address(vestingFactory);
         params.poolWrapperAddress = initializeStreamMessage.poolWrapperAddress;
         params.streamImplementationAddress = initializeStreamMessage.streamImplementationAddress;
-
+        params.tokenFactoryAddress = initializeStreamMessage.tokenFactoryAddress;
+        
         // Set accepted tokens (including zero address for native token)
         for (uint256 i = 0; i < initializeStreamMessage.acceptedInSupplyTokens.length; i++) {
             // Allow zero address for native token support

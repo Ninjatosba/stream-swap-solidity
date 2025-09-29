@@ -17,6 +17,7 @@ library StreamFactoryTypes {
         address vestingFactoryAddress;
         address poolWrapperAddress;
         address streamImplementationAddress;
+        address tokenFactoryAddress;
     }
 
     struct InitializeStreamMessage {
@@ -32,5 +33,6 @@ library StreamFactoryTypes {
         address poolWrapperAddress;
         address streamImplementationAddress;
         address[] acceptedInSupplyTokens;
+        address tokenFactoryAddress;
     }
 }

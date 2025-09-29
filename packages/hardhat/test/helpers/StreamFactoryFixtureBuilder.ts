@@ -170,6 +170,11 @@ export class StreamFactoryFixtureBuilder {
         const streamFactory = await StreamFactoryFactory.deploy(protocolAdmin.address);
         await streamFactory.waitForDeployment();
 
+        // Deploy TokenFactory
+        const TokenFactoryFactory = await ethers.getContractFactory("TokenFactory");
+        const tokenFactory = await TokenFactoryFactory.deploy();
+        await tokenFactory.waitForDeployment();
+
         // Deploy Stream Implementation
         const StreamImplementationFactory = await ethers.getContractFactory("Stream");
         const streamImplementation = await StreamImplementationFactory.deploy(await streamFactory.getAddress());
@@ -189,6 +194,7 @@ export class StreamFactoryFixtureBuilder {
           acceptedInSupplyTokens: useNativeInputToken ? [ethers.ZeroAddress] : [await inSupplyToken.getAddress()],
           poolWrapperAddress: await poolWrapper.getAddress(),
           streamImplementationAddress: await streamImplementation.getAddress(),
+          tokenFactoryAddress: await tokenFactory.getAddress(),
         };
 
         // Initialize with proper error handling
