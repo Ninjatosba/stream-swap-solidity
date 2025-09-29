@@ -3,19 +3,14 @@ import { DeployFunction } from "hardhat-deploy/types";
 import {
   createFactoryConfig,
   createProductionFactoryConfig,
-  createTestnetFactoryConfig,
-  FactoryConfig,
 } from "./config/factory-config";
-import { getUniswapV2Addresses } from "./config/uniswap-config";
+import { getDexConfig } from "./config/uniswap-config";
 import { StreamFactoryTypes } from "../typechain-types/src/StreamFactory";
 import { StreamFactory } from "../typechain-types/src/StreamFactory";
 
 const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const { deployer } = await hre.getNamedAccounts();
   const { deploy, get } = hre.deployments;
-
-  // Get config from environment or use default
-  let config: FactoryConfig;
 
   // Get environment from args
   const environment =
@@ -36,42 +31,38 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     throw new Error("in token not deployed");
   }
 
-  // get stream creation fee
-  let streamCreationFeeToken: string;
-  try {
-    const streamCreationFeeTokenDeployment = await get("StreamCreationFeeToken");
-    streamCreationFeeToken = streamCreationFeeTokenDeployment.address;
-    console.log(`Found stream creation fee token at: ${streamCreationFeeToken}`);
-  } catch (error) {
-    void error; // Explicitly ignore the error parameter
-    console.error("stream creation fee token not found. Please deploy it first.");
-    throw new Error("stream creation fee token not deployed");
+  // Use simplified config based on environment
+  const config = environment === "production"
+    ? createProductionFactoryConfig(deployer, inTokenAddress)
+    : createFactoryConfig(deployer, [inTokenAddress, "0x0000000000000000000000000000000000000000"]);
+
+  // Get DEX configuration for the network
+  const dexConfig = getDexConfig(environment);
+  console.log(`Using DEX Type: ${dexConfig.type}`);
+  console.log(`Using Factory: ${dexConfig.factory}`);
+  console.log(`Using Router: ${dexConfig.router}`);
+
+  // Deploy the appropriate PoolWrapper based on DEX type
+  let poolWrapper;
+  if (dexConfig.type === "uniswap-v2") {
+    poolWrapper = await deploy("UniswapV2PoolWrapper", {
+      from: deployer,
+      args: [dexConfig.factory, dexConfig.router],
+      log: true,
+      skipIfAlreadyDeployed: false,
+      deterministicDeployment: false,
+    });
+  } else if (dexConfig.type === "pancake") {
+    poolWrapper = await deploy("PancakePoolWrapper", {
+      from: deployer,
+      args: [dexConfig.factory, dexConfig.router],
+      log: true,
+      skipIfAlreadyDeployed: false,
+      deterministicDeployment: false,
+    });
+  } else {
+    throw new Error(`Unsupported DEX type: ${dexConfig.type}`);
   }
-
-  switch (environment) {
-    case "sepolia":
-      config = createTestnetFactoryConfig(deployer, inTokenAddress, 0, streamCreationFeeToken);
-      break;
-    case "production":
-      config = createProductionFactoryConfig(deployer, inTokenAddress, 0, streamCreationFeeToken);
-      break;
-    default:
-      config = createFactoryConfig(deployer, [inTokenAddress], 0, streamCreationFeeToken);
-  }
-
-  // Get Uniswap V2 addresses for the network
-  const uniswapAddresses = getUniswapV2Addresses(environment);
-  console.log(`Using Uniswap V2 Factory: ${uniswapAddresses.factory}`);
-  console.log(`Using Uniswap V2 Router: ${uniswapAddresses.router}`);
-
-  // Deploy pool wrapper with Uniswap V2 addresses
-  const poolWrapper = await deploy("PoolWrapper", {
-    from: deployer,
-    args: [uniswapAddresses.factory, uniswapAddresses.router],
-    log: true,
-    skipIfAlreadyDeployed: false,
-    deterministicDeployment: false,
-  });
   const poolWrapperAddress = poolWrapper.address;
   console.log(`PoolWrapper contract deployed at: ${poolWrapperAddress}`);
   console.log(`Deployer: ${deployer}`);

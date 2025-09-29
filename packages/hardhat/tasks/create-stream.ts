@@ -93,7 +93,7 @@ task("create-stream", "Creates a new stream using the deployed factory").setActi
   const nowSeconds = latestBlock?.timestamp ?? 0;
   const bootstrappingStartTime = nowSeconds + 60;
   const streamStartTime = nowSeconds + 120;
-  const streamEndTime = nowSeconds + 180;
+  const streamEndTime = nowSeconds + 1240;
 
   // Prepare stream creation message
   const salt = ethers.hexlify(ethers.randomBytes(32));
@@ -104,7 +104,7 @@ task("create-stream", "Creates a new stream using the deployed factory").setActi
     streamStartTime,
     streamEndTime,
     threshold: defaultStreamConfig.threshold,
-    metadata: { ipfsHash: "QmTqA1yioEJdrFJkBiaGVv38NN55XLX8fMYmGCmqErnMng" },
+    metadata: { ipfsHash: "QmcA6XHQ6ERUfaXkJuS9qxHG12nYCDx7QrRXZKKmNr6GJQ" },
     inSupplyToken: inTokenAddress,
     tosVersion: defaultStreamConfig.tosVersion,
     creator: creator.address,

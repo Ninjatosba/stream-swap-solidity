@@ -18,7 +18,7 @@ describe("Stream Finalize", function () {
     it("Should finalize stream and collect fees when threshold is reached", async function () {
       const exitFeeRatio = 20000;
       const { contracts, timeParams, accounts, factoryParams } = await loadFixture(
-        stream().exitRatio(exitFeeRatio).build(),
+        stream().exitRatio(exitFeeRatio).setThreshold(ethers.parseEther("100")).build(),
       );
 
       // Fast forward time to stream start
@@ -154,7 +154,7 @@ describe("Stream Finalize", function () {
     it("Should handle multiple subscriptions before finalization", async function () {
       const exitFeeRatio = 20000;
       const { contracts, timeParams, accounts, config, factoryParams } = await loadFixture(
-        stream().exitRatio(exitFeeRatio).build(),
+        stream().exitRatio(exitFeeRatio).setThreshold(ethers.parseEther("100")).build(),
       );
 
       // Fast forward time to stream start
@@ -335,7 +335,21 @@ describe("Stream Finalize", function () {
 
   describe("Finalize with Threshold Not Reached", function () {
     it("Should finalize stream and refund out tokens when threshold is not reached", async function () {
-      const { contracts, timeParams, accounts, config } = await loadFixture(stream().build());
+      const { contracts, timeParams, accounts, config } = await loadFixture(stream().setThreshold(ethers.parseEther("100")).build());
+
+      // Fast forward time to stream start
+      await ethers.provider.send("evm_setNextBlockTimestamp", [timeParams.streamStartTime + 1]);
+      await ethers.provider.send("evm_mine", []);
+
+      // Query stream state
+      const streamState = await contracts.stream.getStreamState();
+      const threshold = streamState.threshold;
+
+      // Subscribe to the stream
+      await contracts.inSupplyToken
+        .connect(accounts.subscriber1)
+        .approve(contracts.stream.getAddress(), threshold - ethers.parseEther("1"));
+      await contracts.stream.connect(accounts.subscriber1).subscribe(threshold - ethers.parseEther("1"));
 
       // Fast forward time to stream end
       await ethers.provider.send("evm_setNextBlockTimestamp", [timeParams.streamEndTime + 1]);
@@ -531,6 +545,37 @@ describe("Stream Finalize", function () {
 
       // Verify status
       expect(await contracts.stream.streamStatus()).to.equal(Status.FinalizedRefunded);
+    });
+  });
+
+  describe("Native Token Finalization", function () {
+    it("Should handle stream finalization with native token", async function () {
+      const { contracts, timeParams, accounts, config } = await loadFixture(
+        stream().nativeToken().build()
+      );
+
+      // Subscribe with native token during bootstrapping
+      await ethers.provider.send("evm_setNextBlockTimestamp", [timeParams.bootstrappingStartTime + 1]);
+      await ethers.provider.send("evm_mine", []);
+
+      const subscriptionAmount = ethers.parseEther("1");
+      await contracts.stream
+        .connect(accounts.subscriber1)
+        .subscribeWithNativeToken(subscriptionAmount, { value: subscriptionAmount });
+
+      // Fast forward to after stream end
+      await ethers.provider.send("evm_setNextBlockTimestamp", [timeParams.streamEndTime + 1]);
+      await ethers.provider.send("evm_mine", []);
+
+      // Check creators native token balance
+      const creatorNativeBalanceBefore = await ethers.provider.getBalance(accounts.creator.address);
+
+      // Finalize the stream (must be called by creator)
+      await contracts.stream.connect(accounts.creator).finalizeStream();
+
+      // Check creators native token balance
+      const creatorNativeBalanceAfter = await ethers.provider.getBalance(accounts.creator.address);
+      expect(creatorNativeBalanceAfter).to.be.greaterThan(creatorNativeBalanceBefore);
     });
   });
 });

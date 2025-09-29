@@ -8,7 +8,7 @@ import { HttpNetworkConfig } from "hardhat/types";
 const config = {
   // Set to true to use token addresses from an old deployment.
   // Otherwise, it will use the latest deployments from the `deployments` folder.
-  useOldDeploymentTokens: true,
+  useOldDeploymentTokens: false,
 
   // Addresses for the old deployment tokens.
   oldDeployment: {
@@ -16,20 +16,27 @@ const config = {
     outToken: "0x5f3c9aa601fd828d61d352a14e164092c3b1d825", // Old OutSupplyToken
   },
 
-  // A list of external addresses that almost always need tokens.
-  // Add your addresses here with a descriptive comment.
-  externalAddresses: {
-    // My primary testing address for subscribing
-    subscriber1: "0x8B4c7dE9b0d2847b6Ad1b2A1ABf8E4D79C982a8d",
-    // My secondary testing address for subscribing
-    subscriber2: "0x6B738b310f40279377De27815B33E6211EA540Ea",
-    // My testing address for creating streams
-    creator: "0x3C5630f986BA7806fDDf0E574481d92dCCB5ec93",
+  // External addresses that need tokens - just add addresses to this array
+  externalAddresses: [
+    "0x71caa98016843c7DB88a09B493b35EA93CE53fa2"
+    // "0x9aae2dc9a514dfd9f56657ace26ca66667d7a833",
+    // "0x8B4c7dE9b0d2847b6Ad1b2A1ABf8E4D79C982a8d",
+    // "0x6B738b310f40279377De27815B33E6211EA540Ea",
+    // "0x3C5630f986BA7806fDDf0E574481d92dCCB5ec93", // Only this address will get tokens
+  ],
+
+  // Token allocation for different account types
+  tokenAllocation: {
+    // Local accounts get specific tokens
+    localCreator: [], // No tokens for local creator
+    localSubscribers: [], // No tokens for local subscribers
+    // External addresses get both tokens by default
+    external: ["in", "out"], // External addresses get both tokens
   },
 
   // Amounts to mint.
-  inTokenAmount: parseEther("1000000"), // 1 million IN tokens.
-  outTokenAmount: parseEther("10000000"), // 10 million OUT tokens.
+  inTokenAmount: parseEther("100000000"), // 100 million IN tokens.
+  outTokenAmount: parseEther("100000000"), // 100 million OUT tokens.
 };
 // --- End of Configuration ---
 
@@ -51,13 +58,18 @@ task("mint-tokens", "Mints tokens to test accounts based on configuration").setA
       console.log(`Deployer: ${deployerWallet.address}`);
       console.log(`Deployer balance: ${await provider.getBalance(deployerWallet.address)}`);
 
+      // Dynamically build accounts array based on configuration
       const accountsToMintFor = [
-        { name: "local creator", address: creator, tokens: ["out"] },
-        { name: "local subscriber1", address: subscriber1, tokens: ["in"] },
-        { name: "local subscriber2", address: subscriber2, tokens: ["in"] },
-        { name: "external creator", address: config.externalAddresses.creator, tokens: ["in", "out"] },
-        { name: "external subscriber1", address: config.externalAddresses.subscriber1, tokens: ["in", "out"] },
-        { name: "external subscriber2", address: config.externalAddresses.subscriber2, tokens: ["in", "out"] },
+        // Local accounts
+        { name: "local creator", address: creator, tokens: config.tokenAllocation.localCreator },
+        { name: "local subscriber1", address: subscriber1, tokens: config.tokenAllocation.localSubscribers },
+        { name: "local subscriber2", address: subscriber2, tokens: config.tokenAllocation.localSubscribers },
+        // External accounts - dynamically generated from config
+        ...config.externalAddresses.map((address, index) => ({
+          name: `external address ${index + 1}`,
+          address,
+          tokens: config.tokenAllocation.external,
+        })),
       ];
 
       console.log("\n--- Accounts to Mint For ---");

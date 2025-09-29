@@ -543,6 +543,41 @@ describe("StreamCreation", function () {
             ).to.be.revertedWithCustomError(fixture.contracts.streamFactory, "InvalidOutSupplyToken");
         });
 
+        it("should revert if in supply token is same as out supply token", async function () {
+            const fixture = await loadFixture(streamFactory().build());
+
+            const now = Math.floor(Date.now() / 1000);
+            const createStreamMessage = {
+                creator: fixture.accounts.creator.address,
+                streamOutAmount: ethers.parseEther("1000"),
+                inSupplyToken: await fixture.contracts.inSupplyToken.getAddress(),
+                outSupplyToken: await fixture.contracts.inSupplyToken.getAddress(),
+                bootstrappingStartTime: now + 3600,
+                streamStartTime: now + 7200,
+                streamEndTime: now + 10800,
+                threshold: ethers.parseEther("500"),
+                metadata: {
+                    ipfsHash: "QmTest123",
+                },
+                creatorVesting: {
+                    isVestingEnabled: false,
+                    vestingDuration: 0,
+                },
+                beneficiaryVesting: {
+                    isVestingEnabled: false,
+                    vestingDuration: 0,
+                },
+                poolInfo: {
+                    poolOutSupplyAmount: ethers.parseEther("100"),
+                },
+                tosVersion: "1.0",
+            };
+
+            await expect(
+                fixture.contracts.streamFactory.connect(fixture.accounts.creator).createStream(createStreamMessage)
+            ).to.be.revertedWithCustomError(fixture.contracts.streamFactory, "SameInputAndOutputToken");
+        });
+
         it("should revert if creator vesting is enabled but duration is zero", async function () {
             const fixture = await loadFixture(streamFactory().build());
 
@@ -714,15 +749,16 @@ describe("StreamCreation", function () {
             expect(parsedEvent!.args[1]).to.equal(createStreamMessage.outSupplyToken); // outSupplyToken
             expect(parsedEvent!.args[2]).to.equal(createStreamMessage.inSupplyToken); // inSupplyToken
             expect(parsedEvent!.args[3]).to.not.equal(ethers.ZeroAddress); // stream address
-            expect(parsedEvent!.args[4]).to.not.equal(ethers.ZeroAddress); // positionStorage address
-            expect(parsedEvent!.args[5]).to.equal(createStreamMessage.streamOutAmount); // streamOutAmount
-            expect(parsedEvent!.args[6]).to.equal(createStreamMessage.bootstrappingStartTime); // bootstrappingStartTime
-            expect(parsedEvent!.args[7]).to.equal(createStreamMessage.streamStartTime); // streamStartTime
-            expect(parsedEvent!.args[8]).to.equal(createStreamMessage.streamEndTime); // streamEndTime
-            expect(parsedEvent!.args[9]).to.equal(createStreamMessage.threshold); // threshold
-            expect(parsedEvent!.args[10]).to.equal(createStreamMessage.metadata.ipfsHash); // ipfsHash
-            expect(parsedEvent!.args[11]).to.equal(createStreamMessage.tosVersion); // tosVersion
-            expect(parsedEvent!.args[12]).to.equal(currentStreamId); // streamId
+            expect(parsedEvent!.args[4]).to.equal(fixture.accounts.creator.address); // creator
+            expect(parsedEvent!.args[5]).to.not.equal(ethers.ZeroAddress); // positionStorage address
+            expect(parsedEvent!.args[6]).to.equal(createStreamMessage.streamOutAmount); // streamOutAmount
+            expect(parsedEvent!.args[7]).to.equal(createStreamMessage.bootstrappingStartTime); // bootstrappingStartTime
+            expect(parsedEvent!.args[8]).to.equal(createStreamMessage.streamStartTime); // streamStartTime
+            expect(parsedEvent!.args[9]).to.equal(createStreamMessage.streamEndTime); // streamEndTime
+            expect(parsedEvent!.args[10]).to.equal(createStreamMessage.threshold); // threshold
+            expect(parsedEvent!.args[11]).to.equal(createStreamMessage.metadata.ipfsHash); // ipfsHash
+            expect(parsedEvent!.args[12]).to.equal(createStreamMessage.tosVersion); // tosVersion
+            expect(parsedEvent!.args[13]).to.equal(currentStreamId); // streamId
         });
 
         it("should increment stream ID correctly", async function () {
@@ -874,6 +910,189 @@ describe("StreamCreation", function () {
             await expect(
                 fixture.contracts.streamFactory.connect(fixture.accounts.creator).createStream(createStreamMessage)
             ).to.be.revertedWithCustomError(fixture.contracts.streamFactory, "StreamDurationTooShort");
+        });
+
+        it("should create stream successfully with native token as creation fee", async function () {
+            // Create fixture with native token fee
+            const fixture = await loadFixture(streamFactory().fee(ethers.parseEther("0.1")).nativeFee().build());
+
+            // Approve output tokens for the factory (need to approve streamOutAmount + poolOutSupplyAmount)
+            await fixture.contracts.outSupplyToken
+                .connect(fixture.accounts.creator)
+                .approve(await fixture.contracts.streamFactory.getAddress(), ethers.parseEther("1100"));
+
+            // Check fee collector balance before
+            const feeCollectorBalanceBefore = await ethers.provider.getBalance(fixture.accounts.feeCollector.address);
+
+            const now = Math.floor(Date.now() / 1000);
+            const createStreamMessage = {
+                creator: fixture.accounts.creator.address,
+                streamOutAmount: ethers.parseEther("1000"),
+                inSupplyToken: await fixture.contracts.inSupplyToken.getAddress(),
+                outSupplyToken: await fixture.contracts.outSupplyToken.getAddress(),
+                bootstrappingStartTime: now + 3600,
+                streamStartTime: now + 7200,
+                streamEndTime: now + 10800,
+                threshold: ethers.parseEther("500"),
+                metadata: {
+                    ipfsHash: "QmTest123",
+                },
+                creatorVesting: {
+                    isVestingEnabled: false,
+                    vestingDuration: 0,
+                },
+                beneficiaryVesting: {
+                    isVestingEnabled: false,
+                    vestingDuration: 0,
+                },
+                poolInfo: {
+                    poolOutSupplyAmount: ethers.parseEther("100"),
+                },
+                tosVersion: "1.0",
+            };
+
+            // Create stream with native token fee
+            await expect(
+                fixture.contracts.streamFactory.connect(fixture.accounts.creator).createStream(createStreamMessage, {
+                    value: ethers.parseEther("0.1"), // Send native token fee
+                })
+            ).to.emit(fixture.contracts.streamFactory, "StreamCreated");
+
+            // Check fee collector balance after
+            const feeCollectorBalanceAfter = await ethers.provider.getBalance(fixture.accounts.feeCollector.address);
+            expect(feeCollectorBalanceAfter).to.equal(feeCollectorBalanceBefore + ethers.parseEther("0.1"));
+        });
+
+        it("should revert if insufficient native token sent for creation fee", async function () {
+            // Create fixture with native token fee
+            const fixture = await loadFixture(streamFactory().fee(ethers.parseEther("0.1")).nativeFee().build());
+
+            // Approve output tokens for the factory (need to approve streamOutAmount + poolOutSupplyAmount)
+            await fixture.contracts.outSupplyToken
+                .connect(fixture.accounts.creator)
+                .approve(await fixture.contracts.streamFactory.getAddress(), ethers.parseEther("1100"));
+
+            const now = Math.floor(Date.now() / 1000);
+            const createStreamMessage = {
+                creator: fixture.accounts.creator.address,
+                streamOutAmount: ethers.parseEther("1000"),
+                inSupplyToken: await fixture.contracts.inSupplyToken.getAddress(),
+                outSupplyToken: await fixture.contracts.outSupplyToken.getAddress(),
+                bootstrappingStartTime: now + 3600,
+                streamStartTime: now + 7200,
+                streamEndTime: now + 10800,
+                threshold: ethers.parseEther("500"),
+                metadata: {
+                    ipfsHash: "QmTest123",
+                },
+                creatorVesting: {
+                    isVestingEnabled: false,
+                    vestingDuration: 0,
+                },
+                beneficiaryVesting: {
+                    isVestingEnabled: false,
+                    vestingDuration: 0,
+                },
+                poolInfo: {
+                    poolOutSupplyAmount: ethers.parseEther("100"),
+                },
+                tosVersion: "1.0",
+            };
+
+            // Try to create stream with insufficient native token
+            await expect(
+                fixture.contracts.streamFactory.connect(fixture.accounts.creator).createStream(createStreamMessage, {
+                    value: ethers.parseEther("0.05"), // Less than required fee
+                })
+            ).to.be.revertedWithCustomError(fixture.contracts.streamFactory, "IncorrectNativeAmount");
+        });
+
+        it("should create stream with zero native token fee", async function () {
+            // Create fixture with zero fee
+            const fixture = await loadFixture(streamFactory().fee(BigInt(0)).nativeFee().build());
+
+            // Approve output tokens for the factory (need to approve streamOutAmount + poolOutSupplyAmount)
+            await fixture.contracts.outSupplyToken
+                .connect(fixture.accounts.creator)
+                .approve(await fixture.contracts.streamFactory.getAddress(), ethers.parseEther("1100"));
+
+            const now = Math.floor(Date.now() / 1000);
+            const createStreamMessage = {
+                creator: fixture.accounts.creator.address,
+                streamOutAmount: ethers.parseEther("1000"),
+                inSupplyToken: await fixture.contracts.inSupplyToken.getAddress(),
+                outSupplyToken: await fixture.contracts.outSupplyToken.getAddress(),
+                bootstrappingStartTime: now + 3600,
+                streamStartTime: now + 7200,
+                streamEndTime: now + 10800,
+                threshold: ethers.parseEther("500"),
+                metadata: {
+                    ipfsHash: "QmTest123",
+                },
+                creatorVesting: {
+                    isVestingEnabled: false,
+                    vestingDuration: 0,
+                },
+                beneficiaryVesting: {
+                    isVestingEnabled: false,
+                    vestingDuration: 0,
+                },
+                poolInfo: {
+                    poolOutSupplyAmount: ethers.parseEther("100"),
+                },
+                tosVersion: "1.0",
+            };
+
+            // Create stream with zero native token fee
+            await expect(
+                fixture.contracts.streamFactory.connect(fixture.accounts.creator).createStream(createStreamMessage, {
+                    value: 0, // Zero native token
+                })
+            ).to.emit(fixture.contracts.streamFactory, "StreamCreated");
+        });
+
+        it("should create stream with native token as input supply token", async function () {
+            // Create fixture with native token fee and input token
+            const fixture = await loadFixture(streamFactory().fee(ethers.parseEther("0.1")).nativeFee().nativeInput().build());
+
+            // Approve output tokens for the factory (need to approve streamOutAmount + poolOutSupplyAmount)
+            await fixture.contracts.outSupplyToken
+                .connect(fixture.accounts.creator)
+                .approve(await fixture.contracts.streamFactory.getAddress(), ethers.parseEther("1100"));
+
+            const now = Math.floor(Date.now() / 1000);
+            const createStreamMessage = {
+                creator: fixture.accounts.creator.address,
+                streamOutAmount: ethers.parseEther("1000"),
+                inSupplyToken: ethers.ZeroAddress, // Native token as input supply
+                outSupplyToken: await fixture.contracts.outSupplyToken.getAddress(),
+                bootstrappingStartTime: now + 3600,
+                streamStartTime: now + 7200,
+                streamEndTime: now + 10800,
+                threshold: ethers.parseEther("500"),
+                metadata: {
+                    ipfsHash: "QmTest123",
+                },
+                creatorVesting: {
+                    isVestingEnabled: false,
+                    vestingDuration: 0,
+                },
+                beneficiaryVesting: {
+                    isVestingEnabled: false,
+                    vestingDuration: 0,
+                },
+                poolInfo: {
+                    poolOutSupplyAmount: ethers.parseEther("100"),
+                },
+                tosVersion: "1.0",
+            };
+
+            // Create stream with native token as input supply and fee
+            await expect(
+                fixture.contracts.streamFactory.connect(fixture.accounts.creator).createStream(createStreamMessage, {
+                    value: ethers.parseEther("0.1"), // Native token fee
+                })
+            ).to.emit(fixture.contracts.streamFactory, "StreamCreated");
         });
     });
 });

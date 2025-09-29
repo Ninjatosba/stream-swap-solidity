@@ -16,6 +16,8 @@
     "create-stream": "yarn workspace @se-2/hardhat hardhat create-stream",
     "finalize-stream": "yarn workspace @se-2/hardhat hardhat finalize-stream",
     "exit-stream": "yarn workspace @se-2/hardhat hardhat exit-stream",
+    "withdraw": "yarn workspace @se-2/hardhat hardhat withdraw",
+    "upgrade-stream-implementation": "yarn workspace @se-2/hardhat hardhat upgrade-stream-implementation",
     "deploy": "yarn hardhat:deploy",
     "fork": "yarn hardhat:fork",
     "format": "yarn hardhat:format",

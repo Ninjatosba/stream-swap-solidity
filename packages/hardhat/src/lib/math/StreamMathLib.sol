@@ -160,7 +160,7 @@ library StreamMathLib {
         if (totalShares == 0 || amountIn == 0) {
             return amountIn;
         }
-        // 42*21/42
+
         uint256 totalSharesIn = totalShares * amountIn;
 
         if (roundUp) {

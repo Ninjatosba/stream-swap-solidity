@@ -38,18 +38,19 @@ import { StreamFactoryTypes } from "./types/StreamFactoryTypes.sol";
 import { DecimalMath, Decimal } from "./lib/math/DecimalMath.sol";
 import { StreamMathLib } from "./lib/math/StreamMathLib.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { IPoolWrapper } from "./interfaces/IPoolWrapper.sol";
 import { IVestingFactory } from "./interfaces/IVestingFactory.sol";
 import { PoolWrapperTypes } from "./types/PoolWrapperTypes.sol";
+import { IPermit2 } from "./interfaces/IPermit2.sol";
+import { TransferLib } from "./lib/TransferLib.sol";
 
+    
 /**
  * @title Stream
  * @dev Main contract for managing token streaming with vesting and pool creation capabilities
  * @notice This contract handles the core streaming logic including subscriptions, withdrawals, exits, and finalization
  */
 contract Stream is IStreamErrors, IStreamEvents {
-    using SafeERC20 for IERC20;
 
     // ============ State Variables ============
 
@@ -82,6 +83,9 @@ contract Stream is IStreamErrors, IStreamEvents {
 
     /// @notice Post-stream actions like vesting and pool creation
     StreamTypes.PostStreamActions public postStreamActions;
+
+    /// @notice Address of the Permit2 contract
+    address public constant PERMIT2 = 0x000000000022D473030F116dDEE9F6B43aC78BA3;
 
     // ============ Modifiers ============
 
@@ -206,11 +210,12 @@ contract Stream is IStreamErrors, IStreamEvents {
     // ============ Core Stream Functions ============
 
     /**
-     * @dev Allows users to subscribe to the stream by providing input tokens
+     * @dev Internal function containing the core subscription logic
+     *      Assumes `amountIn` tokens have already been transferred to this contract.
      * @param amountIn Amount of input tokens to subscribe with
-     * @notice Users can subscribe during Bootstrapping or Active phases
+     * @notice Business logic for updating positions and stream state.
      */
-    function subscribe(uint256 amountIn) external {
+    function _subscribeCore(uint256 amountIn) internal {
         if (amountIn == 0) revert InvalidAmount();
 
         // Load and validate stream state
@@ -234,9 +239,6 @@ contract Stream is IStreamErrors, IStreamEvents {
         // Calculate shares before any state changes
         uint256 newShares = StreamMathLib.computeSharesAmount(amountIn, false, state.inSupply, state.shares);
 
-        // Transfer tokens
-        IERC20(streamTokens.inSupplyToken).safeTransferFrom(msg.sender, address(this), amountIn);
-
         // Update position
         position.inBalance += amountIn;
         position.shares += newShares;
@@ -244,8 +246,6 @@ contract Stream is IStreamErrors, IStreamEvents {
         // Update stream state
         state.inSupply += amountIn;
         state.shares += newShares;
-
-        
 
         // Save all states
         saveStreamStatus(status);
@@ -267,13 +267,64 @@ contract Stream is IStreamErrors, IStreamEvents {
     }
 
     /**
+     * @dev Allows users to subscribe to the stream by providing input tokens
+     * @param amountIn Amount of input tokens to subscribe with
+     * @notice Users can subscribe during Bootstrapping or Active phases
+     */
+    function subscribe(uint256 amountIn) external {
+        if (streamTokens.inSupplyToken == address(0)) revert InvalidInputToken();
+        // Pull funds (ERC20)
+        TransferLib.pullFunds(streamTokens.inSupplyToken, msg.sender, amountIn);
+        _subscribeCore(amountIn);
+    }
+
+    function subscribeWithNativeToken(uint256 amountIn) external payable {
+        if (streamTokens.inSupplyToken != address(0)) revert InvalidInputToken();
+        // Pull funds (native)
+        TransferLib.pullFunds(address(0), msg.sender, amountIn);
+        _subscribeCore(amountIn);
+    }
+
+    /**
+     * @dev Allows users to subscribe using Permit2 signature-based allowance.
+     *      The Permit2 signature (PermitSingle) is verified and consumed, then the
+     *      tokens are pulled from `owner` to this Stream contract. The rest of the
+     *      logic mirrors the regular `subscribe` flow.
+     * @param amountIn      Amount of input tokens user wants to contribute
+     * @param owner         Address that actually holds the tokens (signer of permit)
+     * @param permitSingle  Full Permit2 data struct describing the allowance
+     * @param signature     EIP-712 signature over `permitSingle`
+     */
+    function subscribeWithPermit(
+        uint256 amountIn,
+        address owner,
+        IPermit2.PermitSingle calldata permitSingle,
+        bytes calldata signature
+    ) external {
+        // Validate the permit matches the stream requirements
+        if (permitSingle.details.token != streamTokens.inSupplyToken) revert InvalidAmount();
+        if (permitSingle.details.amount < uint160(amountIn)) revert InvalidAmount();
+        if (permitSingle.spender != address(this)) revert InvalidAmount();
+        if (permitSingle.sigDeadline < block.timestamp) revert InvalidAmount();
+
+        // Execute Permit2 flow
+        IPermit2 permit2 = IPermit2(PERMIT2);
+        // 1. Validate & store allowance via signature
+        permit2.permit(owner, permitSingle, signature);
+        // 2. Pull tokens from owner to the stream contract
+        permit2.transferFrom(owner, address(this), uint160(amountIn), streamTokens.inSupplyToken);
+
+        // Tokens are now in this contract — proceed with core logic
+        _subscribeCore(amountIn);
+    }
+
+    /**
      * @dev Allows users to withdraw their input tokens from the stream
      * @param cap Amount of input tokens to withdraw
      * @notice Users can withdraw during Active or Bootstrapping phases
+     * @dev If cap is 0, the user will withdraw all their input tokens
      */
     function withdraw(uint256 cap) external {
-        if (cap == 0) revert InvalidAmount();
-
         // Load position once
         PositionTypes.Position memory position = loadPosition(msg.sender);
 
@@ -299,23 +350,26 @@ contract Stream is IStreamErrors, IStreamEvents {
         // Sync position with the updated state
         position = StreamMathLib.syncPosition(position, state.distIndex, state.shares, state.inSupply, block.timestamp);
 
+        // If cap is 0, withdraw all available balance
+        uint256 withdrawAmount = (cap == 0) ? position.inBalance : cap;
+
         // Check if withdrawal amount exceeds position balance
-        if (cap > position.inBalance) revert WithdrawAmountExceedsBalance(cap);
+        if (withdrawAmount > position.inBalance) revert WithdrawAmountExceedsBalance(withdrawAmount);
 
         uint256 shareDeduction = 0;
 
-        if (cap == position.inBalance) {
+        if (withdrawAmount == position.inBalance) {
             shareDeduction = position.shares;
         } else {
-            shareDeduction = StreamMathLib.computeSharesAmount(cap, true, state.inSupply, position.shares);
+            shareDeduction = StreamMathLib.computeSharesAmount(withdrawAmount, true, state.inSupply, state.shares);
         }
 
         // Update position
         position.shares = position.shares - shareDeduction;
-        position.inBalance = position.inBalance - cap;
+        position.inBalance = position.inBalance - withdrawAmount;
 
         // Update stream state
-        state.inSupply = state.inSupply - cap;
+        state.inSupply = state.inSupply - withdrawAmount;
         state.shares = state.shares - shareDeduction;
 
         // Save all states first
@@ -338,7 +392,7 @@ contract Stream is IStreamErrors, IStreamEvents {
         );
 
         // Transfer tokens
-        IERC20(streamTokens.inSupplyToken).safeTransfer(msg.sender, cap);
+        TransferLib.pushFunds(streamTokens.inSupplyToken, msg.sender, withdrawAmount);
     }
 
     /**
@@ -348,7 +402,7 @@ contract Stream is IStreamErrors, IStreamEvents {
     function exitStream() external {
         // Load and validate position
         PositionTypes.Position memory position = loadPosition(msg.sender);
-        validatePosition(position, msg.sender);
+        if (position.exitDate != 0) revert InvalidPosition(msg.sender, position.shares, position.exitDate, "Position has already exited");
 
         // Load and sync stream state
         StreamTypes.StreamState memory state = syncStream(loadStream());
@@ -369,6 +423,7 @@ contract Stream is IStreamErrors, IStreamEvents {
         saveStreamStatus(status);
         saveStream(state);
         savePosition(msg.sender, position);
+        
 
         // Determine outcome
         bool thresholdReached = (state.spentIn >= state.threshold);
@@ -382,7 +437,7 @@ contract Stream is IStreamErrors, IStreamEvents {
             // Case 1: Successful exit - return unused input tokens and deliver output
             // This case is highly unlikely to happen because the stream is designed to spend all input tokens if stream is ended
             if (inBalance > 0) {
-                IERC20(streamTokens.inSupplyToken).safeTransfer(msg.sender, inBalance);
+                TransferLib.pushFunds(streamTokens.inSupplyToken, msg.sender, inBalance);
             }
 
             if (postStreamActions.beneficiaryVesting.isVestingEnabled) {
@@ -399,19 +454,24 @@ contract Stream is IStreamErrors, IStreamEvents {
                     purchased
                 );
             } else {
-                IERC20(streamTokens.outSupplyToken).safeTransfer(msg.sender, purchased);
+                TransferLib.pushFunds(streamTokens.outSupplyToken, msg.sender, purchased);
             }
 
-            emit ExitStreamed(address(this), msg.sender, purchased, spentIn, block.timestamp);
+            emit ExitStreamed(address(this), msg.sender, purchased, spentIn, position.index.value, inBalance, block.timestamp);
         } else if (isRefund) {
             // Case 2: Refund exit - return all input tokens
             uint256 totalRefund = inBalance + spentIn;
-            IERC20(streamTokens.inSupplyToken).safeTransfer(msg.sender, totalRefund);
-            emit ExitRefunded(address(this), msg.sender, totalRefund, block.timestamp);
+            position.purchased = 0;
+            position.spentIn = 0;
+            position.inBalance = totalRefund;
+            savePosition(msg.sender, position);
+            TransferLib.pushFunds(streamTokens.inSupplyToken, msg.sender, totalRefund);
+            emit ExitRefunded(address(this), msg.sender, position.inBalance, position.spentIn, block.timestamp);
         } else {
             // Case 3: No exit allowed
             revert OperationNotAllowed();
         }
+      
     }
 
     // ============ Stream Management Functions ============
@@ -481,7 +541,7 @@ contract Stream is IStreamErrors, IStreamEvents {
             emit FinalizedStreamed(address(this), creator, creatorRevenue, feeAmount, outRemaining);
 
             // External calls last
-            IERC20(streamTokens.inSupplyToken).safeTransfer(feeCollector, feeAmount);
+            TransferLib.pushFunds(streamTokens.inSupplyToken, feeCollector, feeAmount);
 
             if (poolOutSupplyAmount > 0) {
                 createPoolAndAddLiquidity(
@@ -503,11 +563,11 @@ contract Stream is IStreamErrors, IStreamEvents {
                     creatorRevenue
                 );
             } else {
-                IERC20(streamTokens.inSupplyToken).safeTransfer(creator, creatorRevenue);
+                TransferLib.pushFunds(streamTokens.inSupplyToken, creator, creatorRevenue);
             }
 
             if (outRemaining > 0) {
-                IERC20(streamTokens.outSupplyToken).safeTransfer(creator, outRemaining);
+                TransferLib.pushFunds(streamTokens.outSupplyToken, creator, outRemaining);
             }
         } else {
             // Update status
@@ -519,7 +579,7 @@ contract Stream is IStreamErrors, IStreamEvents {
             emit FinalizedRefunded(address(this), creator, outSupply);
 
             // External call last
-            IERC20(streamTokens.outSupplyToken).safeTransfer(creator, outSupply);
+            TransferLib.pushFunds(streamTokens.outSupplyToken, creator, outSupply);
         }
     }
 
@@ -546,8 +606,7 @@ contract Stream is IStreamErrors, IStreamEvents {
         saveStreamStatus(status);
 
         emit StreamCancelled(address(this), creator, amountToTransfer, uint8(status));
-
-        IERC20(streamTokens.outSupplyToken).safeTransfer(creator, amountToTransfer);
+        TransferLib.pushFunds(streamTokens.outSupplyToken, creator, amountToTransfer);
     }
 
     /**
@@ -579,7 +638,16 @@ contract Stream is IStreamErrors, IStreamEvents {
         emit StreamCancelled(address(this), creator, amountToTransfer, uint8(status));
 
         // External call last
-        IERC20(streamTokens.outSupplyToken).safeTransfer(creator, amountToTransfer);
+        TransferLib.pushFunds(streamTokens.outSupplyToken, creator, amountToTransfer);
+    }
+
+    /**
+     * @dev Allows the creator to update the stream metadata
+     * @notice Only the creator can call this function
+     */
+    function updateStreamMetadata(string memory metadataIpfsHash) external onlyCreator {
+        streamMetadata.ipfsHash = metadataIpfsHash;
+        emit StreamMetadataUpdated(address(this), metadataIpfsHash);
     }
 
     // ============ External Sync Functions ============
@@ -831,8 +899,8 @@ contract Stream is IStreamErrors, IStreamEvents {
         IPoolWrapper poolWrapper = IPoolWrapper(poolWrapperAddress);
 
         // Transfer pool tokens to the pool wrapper contract first
-        IERC20(tokenA).safeTransfer(poolWrapperAddress, amountADesired);
-        IERC20(tokenB).safeTransfer(poolWrapperAddress, amountBDesired);
+        TransferLib.pushFunds(tokenA, poolWrapperAddress, amountADesired);
+        TransferLib.pushFunds(tokenB, poolWrapperAddress, amountBDesired);
 
         PoolWrapperTypes.CreatePoolMsg memory createPoolMsg = PoolWrapperTypes.CreatePoolMsg({
             token0: tokenA,

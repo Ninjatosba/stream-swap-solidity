@@ -9,6 +9,7 @@ interface IStreamEvents {
         address streamOutToken,
         address streamInToken,
         address streamAddress,
+        address creator,
         address positionStorageAddress,
         uint256 streamOutAmount,
         uint256 bootstrappingStartTime,
@@ -81,7 +82,8 @@ interface IStreamEvents {
     event ExitRefunded(
         address indexed streamAddress,
         address indexed subscriber,
-        uint256 refundedAmount,
+        uint256 inBalance,
+        uint256 spentIn,
         uint256 exitTimestamp
     );
     event ExitStreamed(
@@ -89,6 +91,8 @@ interface IStreamEvents {
         address indexed subscriber,
         uint256 purchased,
         uint256 spentIn,
+        uint256 index,
+        uint256 inBalance,
         uint256 exitTimestamp
     );
 
@@ -142,4 +146,6 @@ interface IStreamEvents {
     event VestingContractDeployed(address indexed factoryAddress, address vestingContract);
 
     event PoolWrapperUpdated(address indexed factoryAddress, address poolWrapper);
+
+    event StreamMetadataUpdated(address indexed streamAddress, string metadataIpfsHash);
 }

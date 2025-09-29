@@ -197,7 +197,9 @@ const config: HardhatUserConfig = {
     },
     baseSepolia: {
       url: "https://sepolia.base.org",
-      accounts: deployerPrivateKey ? [deployerPrivateKey] : [],
+      accounts: deployerPrivateKey ? [deployerPrivateKey, creatorPrivateKey, subscriber1PrivateKey, subscriber2PrivateKey].filter(
+        (account): account is string => !!account,
+      ) : [],
       verify: {
         etherscan: {
           apiUrl: "https://api-sepolia.basescan.org",
@@ -229,7 +231,7 @@ const config: HardhatUserConfig = {
       url: "https://alfajores-forno.celo-testnet.org",
       accounts: deployerPrivateKey ? [deployerPrivateKey] : [],
     },
-    hyperliquidTestnet: {
+    hyperEvmTestnet: {
       url: "https://rpc.hyperliquid-testnet.xyz/evm",
       accounts: [deployerPrivateKey, creatorPrivateKey, subscriber1PrivateKey, subscriber2PrivateKey].filter(
         (account): account is string => !!account,
@@ -240,11 +242,11 @@ const config: HardhatUserConfig = {
       allowUnlimitedContractSize: true,
     },
     cosmosEvmDevnet: {
-      url: "https://cevm-01-evmrpc.dev.skip.build",
+      url: "https://devnet-1-evmrpc.ib.skip.build",
       accounts: [deployerPrivateKey, creatorPrivateKey, subscriber1PrivateKey, subscriber2PrivateKey].filter(
         (account): account is string => !!account,
       ),
-      chainId: 262144,
+      chainId: 4231,
     },
   },
   etherscan: {
