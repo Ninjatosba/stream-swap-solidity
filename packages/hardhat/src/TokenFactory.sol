@@ -10,7 +10,6 @@ import { StandardERC20 } from "./tokens/StandardERC20.sol";
  * @notice Creates standard ERC20 tokens
  */
 contract TokenFactory is ITokenFactory {
-    event TokenCreated(address indexed token, string name, string symbol, uint8 decimals, uint256 totalSupply);
 
     function createToken(
         StreamTypes.TokenCreationInfo calldata tokenInfo,
@@ -28,8 +27,6 @@ contract TokenFactory is ITokenFactory {
             bytes32(0)
         );
         tokenAddress = address(token);
-        
-        emit TokenCreated(tokenAddress, tokenInfo.name, tokenInfo.symbol, tokenInfo.decimals, tokenInfo.totalSupply);
     }
 }
 

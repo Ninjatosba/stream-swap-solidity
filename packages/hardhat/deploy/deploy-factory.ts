@@ -90,6 +90,15 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     });
     console.log(`Stream implementation (mother contract) deployed at: ${streamImplementation.address}`);
 
+    // Deploy TokenFactory
+    const tokenFactory = await deploy("TokenFactory", {
+      from: deployer,
+      log: true,
+      skipIfAlreadyDeployed: false,
+      deterministicDeployment: false,
+    });
+    console.log(`TokenFactory contract deployed at: ${tokenFactory.address}`);
+
     // Get contract instance for initialization
     const StreamFactoryContract = await hre.ethers.getContractFactory("StreamFactory");
 
@@ -107,6 +116,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
       acceptedInSupplyTokens: config.acceptedInTokens,
       poolWrapperAddress: poolWrapperAddress,
       streamImplementationAddress: streamImplementation.address,
+      tokenFactoryAddress: tokenFactory.address,
     };
 
     // Initialize the factory

@@ -16,7 +16,7 @@ pragma solidity ^0.8.24;
  *      - Emergency Powers: Freeze stream creation and cancel active streams
  *      - Integration Management: Deploy and coordinate with VestingFactory
  */
-import { IStreamEvents } from "./interfaces/IStreamEvents.sol";
+import { IStreamFactoryEvents } from "./interfaces/IStreamFactoryEvents.sol";
 import { IStreamFactoryErrors } from "./interfaces/IStreamFactoryErrors.sol";
 import { VestingFactory } from "./VestingFactory.sol";
 import { StreamTypes } from "./types/StreamTypes.sol";
@@ -34,7 +34,7 @@ import { ITokenFactory } from "./interfaces/ITokenFactory.sol";
  * @dev Factory contract for creating and managing token streams
  * @notice Handles stream creation, parameter management, and accepted token management
  */
-contract StreamFactory is IStreamEvents, IStreamFactoryErrors {
+contract StreamFactory is IStreamFactoryEvents, IStreamFactoryErrors {
     using TransferLib for address;
 
     // ============ State Variables ============
@@ -199,6 +199,9 @@ contract StreamFactory is IStreamEvents, IStreamFactoryErrors {
         
         address tokenAddress = ITokenFactory(params.tokenFactoryAddress).createToken(tokenCreationInfo, holders, balances);
         createStreamMessage.outSupplyToken = tokenAddress;
+        
+        // Emit TokenCreated event
+        emit TokenCreated(tokenAddress, tokenCreationInfo.name, tokenCreationInfo.symbol, tokenCreationInfo.decimals, tokenCreationInfo.totalSupply);
         
         // Call internal function
         _createStream(createStreamMessage);
