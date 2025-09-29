@@ -70,4 +70,11 @@ library StreamTypes {
         VestingInfo creatorVesting;
         VestingInfo beneficiaryVesting;
     }
+
+    struct TokenCreationInfo {
+        string name;
+        string symbol;
+        uint8 decimals;
+        uint256 totalSupply;
+    }
 }
