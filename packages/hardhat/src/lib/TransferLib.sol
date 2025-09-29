@@ -9,7 +9,11 @@ import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.s
  * @author Adnan Deniz Corlu (@Ninjatosba)
  * @notice Library for handling both ERC20 and native token transfers
  * @dev Provides a unified interface for token transfers, automatically detecting
- *      whether to use ERC20 transfers or native ETH transfers based on token address
+ *      whether to use ERC20 transfers or native ETH transfers based on token address.
+ *
+ * Functions are neutral: you specify both `from` and `to`. If `from == msg.sender`
+ * and `to == address(this)`, it behaves like a pull. If `from == address(this)` and
+ * `to != address(this)`, it behaves like a push. From → To is always explicit.
  */
 library TransferLib {
     using SafeERC20 for IERC20;
@@ -17,58 +21,45 @@ library TransferLib {
     /// @notice Native token address (zero address)
     address public constant NATIVE_TOKEN = address(0);
 
-    // Deprecated helpers removed: transferFrom, transfer, balanceOf, allowance
-
     /**
-     * @dev Pull funds into this contract. Supports native token and ERC20.
+     * @dev Moves funds from `from` to `to`. Supports native token and ERC20.
      * @param token Token address (zero address for native token)
-     * @param payer Address that pays the funds (ignored for native token)
-     * @param amount Amount to pull
+     * @param from Address to debit funds from (msg.sender for native token)
+     * @param to Address to credit funds to
+     * @param amount Amount to transfer
      */
-    function pullFunds(
+    function transferFunds(
         address token,
-        address payer,
-        uint256 amount
-    ) internal {
-        if (amount == 0) {
-            return;
-        }
-
-        if (token == NATIVE_TOKEN) {
-            if (msg.value != amount) revert IncorrectNativeAmount(amount, msg.value);
-            // For native tokens, ETH is already transferred with this call
-            return;
-        }
-
-        // ERC20
-        IERC20(token).safeTransferFrom(payer, address(this), amount);
-    }
-
-    /**
-     * @dev Push funds from this contract to a recipient. Supports native token and ERC20.
-     * @param token Token address (zero address for native token)
-     * @param to Recipient address
-     * @param amount Amount to push
-     */
-    function pushFunds(
-        address token,
+        address from,
         address to,
         uint256 amount
     ) internal {
         if (amount == 0) return;
 
         if (token == NATIVE_TOKEN) {
+            if (from != msg.sender) revert InvalidNativePayer(from);
+            if (msg.value != amount) revert IncorrectNativeAmount(amount, msg.value);
+
+            // If destination is contract itself, just accept ETH
+            if (to == address(this)) return;
+
+            // Otherwise forward directly
             (bool success, ) = to.call{ value: amount }("");
             if (!success) revert NativeTokenTransferFailed();
             return;
         }
 
         // ERC20
-        IERC20(token).safeTransfer(to, amount);
+        if (from == address(this)) {
+            IERC20(token).safeTransfer(to, amount);
+        } else {
+            // pull directly into `to`
+            IERC20(token).safeTransferFrom(from, to, amount);
+        }
     }
 
     // ============ Errors ============
-
     error NativeTokenTransferFailed();
     error IncorrectNativeAmount(uint256 expected, uint256 actual);
+    error InvalidNativePayer(address from);
 }

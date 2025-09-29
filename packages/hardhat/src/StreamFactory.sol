@@ -161,6 +161,28 @@ contract StreamFactory is IStreamEvents, IStreamFactoryErrors {
      * @notice Anyone can create a stream if they provide the required tokens and fees
      */
     function createStream(StreamTypes.CreateStreamMessage memory createStreamMessage) external payable {
+        // Handle creation fee (can be native or ERC20) BEFORE any cloning/deployment
+        TransferLib.pullFunds(
+            params.streamCreationFeeToken,
+            msg.sender,
+            params.streamCreationFee
+        );
+        TransferLib.pushFunds(
+            params.streamCreationFeeToken,
+            params.feeCollector,
+            params.streamCreationFee
+        );
+
+        // Call internal function
+        _createStream(createStreamMessage);
+    }
+
+    /**
+     * @dev Internal function to create a new stream
+     * @param createStreamMessage Stream creation parameters
+     * @notice This function handles the core stream creation logic
+     */
+    function _createStream(StreamTypes.CreateStreamMessage memory createStreamMessage) internal {
         // Check if contract is accepting new streams (not frozen)
         if (frozen) revert ContractFrozen();
 
@@ -190,19 +212,6 @@ contract StreamFactory is IStreamEvents, IStreamFactoryErrors {
             keccak256(abi.encodePacked(params.tosVersion))
         ) revert InvalidToSVersion();
 
-        // Handle creation fee (can be native or ERC20) BEFORE any cloning/deployment
-        // Pull the fee into the factory. msg.value must be handled by callee via checks.
-        TransferLib.pullFunds(
-            params.streamCreationFeeToken,
-            msg.sender,
-            params.streamCreationFee
-        );
-        TransferLib.pushFunds(
-            params.streamCreationFeeToken,
-            params.feeCollector,
-            params.streamCreationFee
-        );
-
         // Clone stream contract
         address clone = Clones.clone(params.streamImplementationAddress);
         IStream stream = IStream(clone);
@@ -216,7 +225,6 @@ contract StreamFactory is IStreamEvents, IStreamFactoryErrors {
 
         // Transfer output tokens to stream (output tokens cannot be native)
         uint256 totalOut = createStreamMessage.streamOutAmount + createStreamMessage.poolInfo.poolOutSupplyAmount;
-        TransferLib.pullFunds(createStreamMessage.outSupplyToken, msg.sender, totalOut);
         TransferLib.pushFunds(createStreamMessage.outSupplyToken, address(stream), totalOut);
 
         // Initialize the cloned stream

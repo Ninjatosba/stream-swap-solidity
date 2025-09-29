@@ -33,4 +33,8 @@ interface IStreamFactoryErrors {
     error InvalidCreator();
     error InvalidVestingDuration();
     error SameInputAndOutputToken();
+    error InvalidTokenName();
+    error InvalidTokenSymbol();
+    error InvalidTokenDecimals();
+    error InvalidTokenSupply();
 }
