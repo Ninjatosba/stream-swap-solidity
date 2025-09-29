@@ -161,9 +161,45 @@ contract StreamFactory is IStreamEvents, IStreamFactoryErrors {
      * @notice Anyone can create a stream if they provide the required tokens and fees
      */
     function createStream(StreamTypes.CreateStreamMessage memory createStreamMessage) external payable {
+        // Validate out token exists (only for non-token-creation path)
+        if (createStreamMessage.outSupplyToken == address(0)) revert InvalidOutSupplyToken();
+        
         // Handle creation fee (can be native or ERC20) BEFORE any cloning/deployment
         TransferLib.transferFunds(params.streamCreationFeeToken, msg.sender, params.feeCollector, params.streamCreationFee);
+        
+        // Transfer tokens FROM CREATOR to factory
+        uint256 totalOut = createStreamMessage.streamOutAmount + createStreamMessage.poolInfo.poolOutSupplyAmount;
+        TransferLib.transferFunds(
+            createStreamMessage.outSupplyToken,
+            msg.sender,
+            address(this),
+            totalOut
+        );
+        
+        // Call internal function
+        _createStream(createStreamMessage);
+    }
 
+    function createStreamWithTokenCreation(StreamTypes.CreateStreamMessage memory createStreamMessage, StreamTypes.TokenCreationInfo memory tokenCreationInfo) external payable {
+        // Token-specific validations
+        uint256 totalNeeded = createStreamMessage.streamOutAmount + createStreamMessage.poolInfo.poolOutSupplyAmount;
+        if (tokenCreationInfo.totalSupply < totalNeeded) revert InvalidTokenTotalSupply();
+        
+        // Handle creation fee (can be native or ERC20) BEFORE any cloning/deployment
+        TransferLib.transferFunds(params.streamCreationFeeToken, msg.sender, params.feeCollector, params.streamCreationFee);
+        
+        // Create token with factory getting the stream's portion
+        uint256 creatorBalance = tokenCreationInfo.totalSupply - totalNeeded;
+        address[] memory holders = new address[](2);
+        uint256[] memory balances = new uint256[](2);
+        holders[0] = createStreamMessage.creator;
+        balances[0] = creatorBalance;
+        holders[1] = address(this);
+        balances[1] = totalNeeded;
+        
+        address tokenAddress = ITokenFactory(params.tokenFactoryAddress).createToken(tokenCreationInfo, holders, balances);
+        createStreamMessage.outSupplyToken = tokenAddress;
+        
         // Call internal function
         _createStream(createStreamMessage);
     }
@@ -179,7 +215,6 @@ contract StreamFactory is IStreamEvents, IStreamFactoryErrors {
 
         // Validate input parameters
         if (createStreamMessage.streamOutAmount == 0) revert ZeroOutSupplyNotAllowed();
-        if (createStreamMessage.outSupplyToken == address(0)) revert InvalidOutSupplyToken();
         if (createStreamMessage.creator == address(0)) revert InvalidCreator();
         if (!acceptedInSupplyTokens[createStreamMessage.inSupplyToken]) revert StreamInputTokenNotAccepted();
         if (createStreamMessage.inSupplyToken == createStreamMessage.outSupplyToken) revert SameInputAndOutputToken();

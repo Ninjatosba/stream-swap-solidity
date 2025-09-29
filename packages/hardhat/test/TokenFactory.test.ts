@@ -30,22 +30,8 @@ describe("TokenFactory", function () {
             const recipients = [owner.address];
             const amounts = [ethers.parseUnits("1000000", 6)];
 
-            const tx = await tokenFactory.createToken(tokenInfo, recipients, amounts);
-            const receipt = await tx.wait();
-
-            // Get the token address from the event
-            const event = receipt?.logs.find(log => {
-                try {
-                    const parsed = tokenFactory.interface.parseLog(log);
-                    return parsed?.name === "TokenCreated";
-                } catch {
-                    return false;
-                }
-            });
-
-            expect(event).to.not.be.undefined;
-            const parsedEvent = tokenFactory.interface.parseLog(event!);
-            const tokenAddress = parsedEvent?.args.token;
+            const tokenAddress = await tokenFactory.createToken.staticCall(tokenInfo, recipients, amounts);
+            await tokenFactory.createToken(tokenInfo, recipients, amounts);
 
             // Verify token properties
             const token = await ethers.getContractAt("StandardERC20", tokenAddress);
@@ -70,20 +56,8 @@ describe("TokenFactory", function () {
             const recipients = [owner.address];
             const amounts = [ethers.parseEther("1000000")];
 
-            const tx = await tokenFactory.createToken(tokenInfo, recipients, amounts);
-            const receipt = await tx.wait();
-
-            const event = receipt?.logs.find(log => {
-                try {
-                    const parsed = tokenFactory.interface.parseLog(log);
-                    return parsed?.name === "TokenCreated";
-                } catch {
-                    return false;
-                }
-            });
-
-            const parsedEvent = tokenFactory.interface.parseLog(event!);
-            const tokenAddress = parsedEvent?.args.token;
+            const tokenAddress = await tokenFactory.createToken.staticCall(tokenInfo, recipients, amounts);
+            await tokenFactory.createToken(tokenInfo, recipients, amounts);
 
             const token = await ethers.getContractAt("StandardERC20", tokenAddress);
             expect(await token.decimals()).to.equal(18);
@@ -108,20 +82,8 @@ describe("TokenFactory", function () {
         const recipients = [user1.address, owner.address];
         const amounts = [fundAmount, remainderAmount];
 
-        const tx = await tokenFactory.createToken(tokenInfo, recipients, amounts);
-        const receipt = await tx.wait();
-
-        const event = receipt?.logs.find(log => {
-            try {
-                const parsed = tokenFactory.interface.parseLog(log);
-                return parsed?.name === "TokenCreated";
-            } catch {
-                return false;
-            }
-        });
-
-        const parsedEvent = tokenFactory.interface.parseLog(event!);
-        const tokenAddress = parsedEvent?.args.token;
+        const tokenAddress = await tokenFactory.createToken.staticCall(tokenInfo, recipients, amounts);
+        await tokenFactory.createToken(tokenInfo, recipients, amounts);
 
         const token = await ethers.getContractAt("StandardERC20", tokenAddress);
         expect(await token.balanceOf(user1.address)).to.equal(fundAmount);
