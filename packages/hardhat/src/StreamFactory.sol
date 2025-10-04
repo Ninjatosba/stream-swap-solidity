@@ -16,7 +16,7 @@ pragma solidity ^0.8.24;
  *      - Emergency Powers: Freeze stream creation and cancel active streams
  *      - Integration Management: Deploy and coordinate with VestingFactory
  */
-import { IStreamEvents } from "./interfaces/IStreamEvents.sol";
+import { IStreamFactoryEvents } from "./interfaces/IStreamFactoryEvents.sol";
 import { IStreamFactoryErrors } from "./interfaces/IStreamFactoryErrors.sol";
 import { VestingFactory } from "./VestingFactory.sol";
 import { StreamTypes } from "./types/StreamTypes.sol";
@@ -27,13 +27,14 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { TransferLib } from "./lib/TransferLib.sol";
 import { PositionStorage } from "./storage/PositionStorage.sol";
 import { DecimalMath, Decimal } from "./lib/math/DecimalMath.sol";
+import { ITokenFactory } from "./interfaces/ITokenFactory.sol";
 
 /**
  * @title StreamFactory
  * @dev Factory contract for creating and managing token streams
  * @notice Handles stream creation, parameter management, and accepted token management
  */
-contract StreamFactory is IStreamEvents, IStreamFactoryErrors {
+contract StreamFactory is IStreamFactoryEvents, IStreamFactoryErrors {
     using TransferLib for address;
 
     // ============ State Variables ============
@@ -125,7 +126,8 @@ contract StreamFactory is IStreamEvents, IStreamFactoryErrors {
         params.vestingFactoryAddress = address(vestingFactory);
         params.poolWrapperAddress = initializeStreamMessage.poolWrapperAddress;
         params.streamImplementationAddress = initializeStreamMessage.streamImplementationAddress;
-
+        params.tokenFactoryAddress = initializeStreamMessage.tokenFactoryAddress;
+        
         // Set accepted tokens (including zero address for native token)
         for (uint256 i = 0; i < initializeStreamMessage.acceptedInSupplyTokens.length; i++) {
             // Allow zero address for native token support
@@ -159,12 +161,63 @@ contract StreamFactory is IStreamEvents, IStreamFactoryErrors {
      * @notice Anyone can create a stream if they provide the required tokens and fees
      */
     function createStream(StreamTypes.CreateStreamMessage memory createStreamMessage) external payable {
+        // Validate out token exists (only for non-token-creation path)
+        if (createStreamMessage.outSupplyToken == address(0)) revert InvalidOutSupplyToken();
+        
+        // Handle creation fee (can be native or ERC20) BEFORE any cloning/deployment
+        TransferLib.transferFunds(params.streamCreationFeeToken, msg.sender, params.feeCollector, params.streamCreationFee);
+        
+        // Transfer tokens FROM CREATOR to factory
+        uint256 totalOut = createStreamMessage.streamOutAmount + createStreamMessage.poolInfo.poolOutSupplyAmount;
+        TransferLib.transferFunds(
+            createStreamMessage.outSupplyToken,
+            msg.sender,
+            address(this),
+            totalOut
+        );
+        
+        // Call internal function
+        _createStream(createStreamMessage);
+    }
+
+    function createStreamWithTokenCreation(StreamTypes.CreateStreamMessage memory createStreamMessage, StreamTypes.TokenCreationInfo memory tokenCreationInfo) external payable {
+        // Token-specific validations
+        uint256 totalNeeded = createStreamMessage.streamOutAmount + createStreamMessage.poolInfo.poolOutSupplyAmount;
+        if (tokenCreationInfo.totalSupply < totalNeeded) revert InvalidTokenTotalSupply();
+        
+        // Handle creation fee (can be native or ERC20) BEFORE any cloning/deployment
+        TransferLib.transferFunds(params.streamCreationFeeToken, msg.sender, params.feeCollector, params.streamCreationFee);
+        
+        // Create token with factory getting the stream's portion
+        uint256 creatorBalance = tokenCreationInfo.totalSupply - totalNeeded;
+        address[] memory holders = new address[](2);
+        uint256[] memory balances = new uint256[](2);
+        holders[0] = createStreamMessage.creator;
+        balances[0] = creatorBalance;
+        holders[1] = address(this);
+        balances[1] = totalNeeded;
+        
+        address tokenAddress = ITokenFactory(params.tokenFactoryAddress).createToken(tokenCreationInfo, holders, balances);
+        createStreamMessage.outSupplyToken = tokenAddress;
+        
+        // Emit TokenCreated event
+        emit TokenCreated(tokenAddress, tokenCreationInfo.name, tokenCreationInfo.symbol, tokenCreationInfo.decimals, tokenCreationInfo.totalSupply);
+        
+        // Call internal function
+        _createStream(createStreamMessage);
+    }
+
+    /**
+     * @dev Internal function to create a new stream
+     * @param createStreamMessage Stream creation parameters
+     * @notice This function handles the core stream creation logic
+     */
+    function _createStream(StreamTypes.CreateStreamMessage memory createStreamMessage) internal {
         // Check if contract is accepting new streams (not frozen)
         if (frozen) revert ContractFrozen();
 
         // Validate input parameters
         if (createStreamMessage.streamOutAmount == 0) revert ZeroOutSupplyNotAllowed();
-        if (createStreamMessage.outSupplyToken == address(0)) revert InvalidOutSupplyToken();
         if (createStreamMessage.creator == address(0)) revert InvalidCreator();
         if (!acceptedInSupplyTokens[createStreamMessage.inSupplyToken]) revert StreamInputTokenNotAccepted();
         if (createStreamMessage.inSupplyToken == createStreamMessage.outSupplyToken) revert SameInputAndOutputToken();
@@ -188,19 +241,6 @@ contract StreamFactory is IStreamEvents, IStreamFactoryErrors {
             keccak256(abi.encodePacked(params.tosVersion))
         ) revert InvalidToSVersion();
 
-        // Handle creation fee (can be native or ERC20) BEFORE any cloning/deployment
-        // Pull the fee into the factory. msg.value must be handled by callee via checks.
-        TransferLib.pullFunds(
-            params.streamCreationFeeToken,
-            msg.sender,
-            params.streamCreationFee
-        );
-        TransferLib.pushFunds(
-            params.streamCreationFeeToken,
-            params.feeCollector,
-            params.streamCreationFee
-        );
-
         // Clone stream contract
         address clone = Clones.clone(params.streamImplementationAddress);
         IStream stream = IStream(clone);
@@ -214,8 +254,7 @@ contract StreamFactory is IStreamEvents, IStreamFactoryErrors {
 
         // Transfer output tokens to stream (output tokens cannot be native)
         uint256 totalOut = createStreamMessage.streamOutAmount + createStreamMessage.poolInfo.poolOutSupplyAmount;
-        TransferLib.pullFunds(createStreamMessage.outSupplyToken, msg.sender, totalOut);
-        TransferLib.pushFunds(createStreamMessage.outSupplyToken, address(stream), totalOut);
+        TransferLib.transferFunds(createStreamMessage.outSupplyToken, address(this), address(stream), totalOut);
 
         // Initialize the cloned stream
         stream.initialize(createStreamMessage, address(positionStorage));

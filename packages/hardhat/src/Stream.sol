@@ -274,14 +274,14 @@ contract Stream is IStreamErrors, IStreamEvents {
     function subscribe(uint256 amountIn) external {
         if (streamTokens.inSupplyToken == address(0)) revert InvalidInputToken();
         // Pull funds (ERC20)
-        TransferLib.pullFunds(streamTokens.inSupplyToken, msg.sender, amountIn);
+        TransferLib.transferFunds(streamTokens.inSupplyToken, msg.sender, address(this), amountIn);
         _subscribeCore(amountIn);
     }
 
     function subscribeWithNativeToken(uint256 amountIn) external payable {
         if (streamTokens.inSupplyToken != address(0)) revert InvalidInputToken();
         // Pull funds (native)
-        TransferLib.pullFunds(address(0), msg.sender, amountIn);
+        TransferLib.transferFunds(address(0), msg.sender, address(this), amountIn);
         _subscribeCore(amountIn);
     }
 
@@ -392,7 +392,7 @@ contract Stream is IStreamErrors, IStreamEvents {
         );
 
         // Transfer tokens
-        TransferLib.pushFunds(streamTokens.inSupplyToken, msg.sender, withdrawAmount);
+        TransferLib.transferFunds(streamTokens.inSupplyToken, address(this), msg.sender, withdrawAmount);
     }
 
     /**
@@ -437,7 +437,7 @@ contract Stream is IStreamErrors, IStreamEvents {
             // Case 1: Successful exit - return unused input tokens and deliver output
             // This case is highly unlikely to happen because the stream is designed to spend all input tokens if stream is ended
             if (inBalance > 0) {
-                TransferLib.pushFunds(streamTokens.inSupplyToken, msg.sender, inBalance);
+                TransferLib.transferFunds(streamTokens.inSupplyToken, address(this), msg.sender, inBalance);
             }
 
             if (postStreamActions.beneficiaryVesting.isVestingEnabled) {
@@ -454,7 +454,7 @@ contract Stream is IStreamErrors, IStreamEvents {
                     purchased
                 );
             } else {
-                TransferLib.pushFunds(streamTokens.outSupplyToken, msg.sender, purchased);
+                TransferLib.transferFunds(streamTokens.outSupplyToken, address(this), msg.sender, purchased);
             }
 
             emit ExitStreamed(address(this), msg.sender, purchased, spentIn, position.index.value, inBalance, block.timestamp);
@@ -465,7 +465,7 @@ contract Stream is IStreamErrors, IStreamEvents {
             position.spentIn = 0;
             position.inBalance = totalRefund;
             savePosition(msg.sender, position);
-            TransferLib.pushFunds(streamTokens.inSupplyToken, msg.sender, totalRefund);
+            TransferLib.transferFunds(streamTokens.inSupplyToken, address(this), msg.sender, totalRefund);
             emit ExitRefunded(address(this), msg.sender, position.inBalance, position.spentIn, block.timestamp);
         } else {
             // Case 3: No exit allowed
@@ -541,7 +541,7 @@ contract Stream is IStreamErrors, IStreamEvents {
             emit FinalizedStreamed(address(this), creator, creatorRevenue, feeAmount, outRemaining);
 
             // External calls last
-            TransferLib.pushFunds(streamTokens.inSupplyToken, feeCollector, feeAmount);
+            TransferLib.transferFunds(streamTokens.inSupplyToken, address(this), feeCollector, feeAmount);
 
             if (poolOutSupplyAmount > 0) {
                 createPoolAndAddLiquidity(
@@ -563,11 +563,11 @@ contract Stream is IStreamErrors, IStreamEvents {
                     creatorRevenue
                 );
             } else {
-                TransferLib.pushFunds(streamTokens.inSupplyToken, creator, creatorRevenue);
+                TransferLib.transferFunds(streamTokens.inSupplyToken, address(this), creator, creatorRevenue);
             }
 
             if (outRemaining > 0) {
-                TransferLib.pushFunds(streamTokens.outSupplyToken, creator, outRemaining);
+                TransferLib.transferFunds(streamTokens.outSupplyToken, address(this), creator, outRemaining);
             }
         } else {
             // Update status
@@ -579,7 +579,7 @@ contract Stream is IStreamErrors, IStreamEvents {
             emit FinalizedRefunded(address(this), creator, outSupply);
 
             // External call last
-            TransferLib.pushFunds(streamTokens.outSupplyToken, creator, outSupply);
+            TransferLib.transferFunds(streamTokens.outSupplyToken, address(this), creator, outSupply);
         }
     }
 
@@ -606,7 +606,7 @@ contract Stream is IStreamErrors, IStreamEvents {
         saveStreamStatus(status);
 
         emit StreamCancelled(address(this), creator, amountToTransfer, uint8(status));
-        TransferLib.pushFunds(streamTokens.outSupplyToken, creator, amountToTransfer);
+        TransferLib.transferFunds(streamTokens.outSupplyToken, address(this), creator, amountToTransfer);
     }
 
     /**
@@ -638,7 +638,7 @@ contract Stream is IStreamErrors, IStreamEvents {
         emit StreamCancelled(address(this), creator, amountToTransfer, uint8(status));
 
         // External call last
-        TransferLib.pushFunds(streamTokens.outSupplyToken, creator, amountToTransfer);
+        TransferLib.transferFunds(streamTokens.outSupplyToken, address(this), creator, amountToTransfer);
     }
 
     /**
@@ -899,8 +899,8 @@ contract Stream is IStreamErrors, IStreamEvents {
         IPoolWrapper poolWrapper = IPoolWrapper(poolWrapperAddress);
 
         // Transfer pool tokens to the pool wrapper contract first
-        TransferLib.pushFunds(tokenA, poolWrapperAddress, amountADesired);
-        TransferLib.pushFunds(tokenB, poolWrapperAddress, amountBDesired);
+        TransferLib.transferFunds(tokenA, address(this), poolWrapperAddress, amountADesired);
+        TransferLib.transferFunds(tokenB, address(this), poolWrapperAddress, amountBDesired);
 
         PoolWrapperTypes.CreatePoolMsg memory createPoolMsg = PoolWrapperTypes.CreatePoolMsg({
             token0: tokenA,

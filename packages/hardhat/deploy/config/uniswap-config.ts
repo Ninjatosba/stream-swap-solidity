@@ -58,6 +58,9 @@ export const DEX_CONFIG = {
 
 export function getDexConfig(network: string) {
     const config = DEX_CONFIG[network as keyof typeof DEX_CONFIG];
+    if (network === "default") {
+        return DEX_CONFIG.hardhat;
+    }
     if (!config) {
         throw new Error(`DEX configuration not found for network: ${network}`);
     }

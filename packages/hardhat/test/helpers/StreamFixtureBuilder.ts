@@ -250,6 +250,11 @@ export class StreamFixtureBuilder {
         const streamImplementation = await StreamImplementationFactory.deploy(streamFactoryAddress);
         const streamImplementationAddress = await streamImplementation.getAddress();
 
+        // Deploy TokenFactory
+        const TokenFactoryFactory = await ethers.getContractFactory("TokenFactory");
+        const tokenFactory = await TokenFactoryFactory.deploy();
+        const tokenFactoryAddress = await tokenFactory.getAddress();
+
         // Initialize Stream Factory
         const streamFactoryMessage: StreamFactoryTypes.InitializeStreamMessageStruct = {
           streamCreationFee: self.factoryConfig.streamCreationFee,
@@ -264,6 +269,7 @@ export class StreamFixtureBuilder {
           acceptedInSupplyTokens: [inSupplyTokenAddress, ethers.ZeroAddress],
           poolWrapperAddress: poolWrapperAddress,
           streamImplementationAddress: streamImplementationAddress,
+          tokenFactoryAddress: tokenFactoryAddress,
         };
 
         await streamFactory.connect(protocolAdmin).initialize(streamFactoryMessage);

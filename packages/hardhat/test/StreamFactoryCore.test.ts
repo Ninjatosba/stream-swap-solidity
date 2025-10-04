@@ -28,6 +28,7 @@ describe("StreamFactoryCore", function () {
         let mockToken: any;
         let streamImplementation: any;
         let poolWrapper: any;
+        let tokenFactory: any;
 
         beforeEach(async function () {
             const signers = await ethers.getSigners();
@@ -62,6 +63,11 @@ describe("StreamFactoryCore", function () {
             streamImplementation = await Stream.deploy(await streamFactory.getAddress());
             await streamImplementation.waitForDeployment();
 
+            // Deploy TokenFactory
+            const TokenFactory = await ethers.getContractFactory("TokenFactory");
+            tokenFactory = await TokenFactory.deploy();
+            await tokenFactory.waitForDeployment();
+
             // Valid init message template
             validInitMessage = {
                 streamCreationFee: 100,
@@ -76,6 +82,7 @@ describe("StreamFactoryCore", function () {
                 acceptedInSupplyTokens: [await mockToken.getAddress()],
                 streamImplementationAddress: await streamImplementation.getAddress(),
                 poolWrapperAddress: await poolWrapper.getAddress(),
+                tokenFactoryAddress: await tokenFactory.getAddress(),
             };
         });
 

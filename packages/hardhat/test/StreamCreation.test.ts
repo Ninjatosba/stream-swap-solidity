@@ -135,6 +135,11 @@ describe("StreamCreation", function () {
                 tosVersion: "1.0",
             };
 
+            // Approve tokens for the factory
+            await fixture.contracts.outSupplyToken
+                .connect(fixture.accounts.creator)
+                .approve(await fixture.contracts.streamFactory.getAddress(), ethers.parseEther("1100"));
+
             // Attempt to create stream should fail with ContractFrozen error
             await expect(
                 fixture.contracts.streamFactory.connect(fixture.accounts.creator).createStream(createStreamMessage)
@@ -176,6 +181,11 @@ describe("StreamCreation", function () {
                 tosVersion: "1.0",
             };
 
+            // Approve tokens for the factory
+            await fixture.contracts.outSupplyToken
+                .connect(fixture.accounts.creator)
+                .approve(await fixture.contracts.streamFactory.getAddress(), ethers.parseEther("1100"));
+
             await expect(
                 fixture.contracts.streamFactory.connect(fixture.accounts.creator).createStream(createStreamMessage)
             ).to.be.revertedWithCustomError(fixture.contracts.streamFactory, "StreamInputTokenNotAccepted");
@@ -210,6 +220,11 @@ describe("StreamCreation", function () {
                 },
                 tosVersion: "1.0",
             };
+
+            // Approve tokens for the factory
+            await fixture.contracts.outSupplyToken
+                .connect(fixture.accounts.creator)
+                .approve(await fixture.contracts.streamFactory.getAddress(), ethers.parseEther("1100"));
 
             await expect(
                 fixture.contracts.streamFactory.connect(fixture.accounts.creator).createStream(createStreamMessage)
@@ -246,6 +261,11 @@ describe("StreamCreation", function () {
                 tosVersion: "1.0",
             };
 
+            // Approve tokens for the factory
+            await fixture.contracts.outSupplyToken
+                .connect(fixture.accounts.creator)
+                .approve(await fixture.contracts.streamFactory.getAddress(), ethers.parseEther("1100"));
+
             await expect(
                 fixture.contracts.streamFactory.connect(fixture.accounts.creator).createStream(createStreamMessage)
             ).to.be.revertedWithCustomError(fixture.contracts.streamFactory, "InvalidBootstrappingStartTime");
@@ -281,6 +301,11 @@ describe("StreamCreation", function () {
                 tosVersion: "1.0",
             };
 
+            // Approve tokens for the factory
+            await fixture.contracts.outSupplyToken
+                .connect(fixture.accounts.creator)
+                .approve(await fixture.contracts.streamFactory.getAddress(), ethers.parseEther("1100"));
+
             await expect(
                 fixture.contracts.streamFactory.connect(fixture.accounts.creator).createStream(createStreamMessage)
             ).to.be.revertedWithCustomError(fixture.contracts.streamFactory, "InvalidStreamEndTime");
@@ -315,6 +340,11 @@ describe("StreamCreation", function () {
                 },
                 tosVersion: "", // Empty TOS version
             };
+
+            // Approve tokens for the factory
+            await fixture.contracts.outSupplyToken
+                .connect(fixture.accounts.creator)
+                .approve(await fixture.contracts.streamFactory.getAddress(), ethers.parseEther("1100"));
 
             await expect(
                 fixture.contracts.streamFactory.connect(fixture.accounts.creator).createStream(createStreamMessage)
@@ -503,6 +533,11 @@ describe("StreamCreation", function () {
                 tosVersion: "1.0",
             };
 
+            // Approve tokens for the factory
+            await fixture.contracts.outSupplyToken
+                .connect(fixture.accounts.creator)
+                .approve(await fixture.contracts.streamFactory.getAddress(), ethers.parseEther("1100"));
+
             await expect(
                 fixture.contracts.streamFactory.connect(fixture.accounts.creator).createStream(createStreamMessage)
             ).to.be.revertedWithCustomError(fixture.contracts.streamFactory, "InvalidCreator");
@@ -573,6 +608,11 @@ describe("StreamCreation", function () {
                 tosVersion: "1.0",
             };
 
+            // Approve tokens for the factory
+            await fixture.contracts.inSupplyToken
+                .connect(fixture.accounts.creator)
+                .approve(await fixture.contracts.streamFactory.getAddress(), ethers.parseEther("1100"));
+
             await expect(
                 fixture.contracts.streamFactory.connect(fixture.accounts.creator).createStream(createStreamMessage)
             ).to.be.revertedWithCustomError(fixture.contracts.streamFactory, "SameInputAndOutputToken");
@@ -608,6 +648,11 @@ describe("StreamCreation", function () {
                 tosVersion: "1.0",
             };
 
+            // Approve tokens for the factory
+            await fixture.contracts.outSupplyToken
+                .connect(fixture.accounts.creator)
+                .approve(await fixture.contracts.streamFactory.getAddress(), ethers.parseEther("1100"));
+
             await expect(
                 fixture.contracts.streamFactory.connect(fixture.accounts.creator).createStream(createStreamMessage)
             ).to.be.revertedWithCustomError(fixture.contracts.streamFactory, "InvalidVestingDuration");
@@ -642,6 +687,11 @@ describe("StreamCreation", function () {
                 },
                 tosVersion: "1.0",
             };
+
+            // Approve tokens for the factory
+            await fixture.contracts.outSupplyToken
+                .connect(fixture.accounts.creator)
+                .approve(await fixture.contracts.streamFactory.getAddress(), ethers.parseEther("1100"));
 
             await expect(
                 fixture.contracts.streamFactory.connect(fixture.accounts.creator).createStream(createStreamMessage)
