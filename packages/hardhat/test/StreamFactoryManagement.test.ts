@@ -4,10 +4,11 @@ import { ethers } from "hardhat";
 import { streamFactory } from "./helpers/StreamFactoryFixtureBuilder";
 
 describe("StreamFactoryManagement", function () {
+    const defaultFixture = streamFactory().build();
     describe("Individual Parameter Updates", function () {
         describe("updateStreamCreationFee", function () {
             it("should allow admin to update stream creation fee", async function () {
-                const fixture = await loadFixture(streamFactory().build());
+                const fixture = await loadFixture(defaultFixture);
                 const newFee = 500;
 
                 await expect(
@@ -19,7 +20,7 @@ describe("StreamFactoryManagement", function () {
             });
 
             it("should not allow non-admin to update stream creation fee", async function () {
-                const fixture = await loadFixture(streamFactory().build());
+                const fixture = await loadFixture(defaultFixture);
                 const newFee = 500;
 
                 await expect(
@@ -30,7 +31,7 @@ describe("StreamFactoryManagement", function () {
 
         describe("updateStreamCreationFeeToken", function () {
             it("should allow admin to update stream creation fee token", async function () {
-                const fixture = await loadFixture(streamFactory().build());
+                const fixture = await loadFixture(defaultFixture);
                 const newToken = ethers.Wallet.createRandom().address;
 
                 await expect(
@@ -44,7 +45,7 @@ describe("StreamFactoryManagement", function () {
             });
 
             it("should allow zero address as fee token for native token support", async function () {
-                const fixture = await loadFixture(streamFactory().build());
+                const fixture = await loadFixture(defaultFixture);
 
                 await expect(
                     fixture.contracts.streamFactory
@@ -54,7 +55,7 @@ describe("StreamFactoryManagement", function () {
             });
 
             it("should not allow non-admin to update fee token", async function () {
-                const fixture = await loadFixture(streamFactory().build());
+                const fixture = await loadFixture(defaultFixture);
                 const newToken = ethers.Wallet.createRandom().address;
 
                 await expect(
@@ -65,7 +66,7 @@ describe("StreamFactoryManagement", function () {
 
         describe("updateExitFeeRatio", function () {
             it("should allow admin to update exit fee ratio", async function () {
-                const fixture = await loadFixture(streamFactory().build());
+                const fixture = await loadFixture(defaultFixture);
                 const newRatio = { value: 200000n }; // 20%
 
                 await expect(
@@ -77,7 +78,7 @@ describe("StreamFactoryManagement", function () {
             });
 
             it("should not allow exit fee ratio greater than 100%", async function () {
-                const fixture = await loadFixture(streamFactory().build());
+                const fixture = await loadFixture(defaultFixture);
                 const invalidRatio = { value: 1500000n }; // 150%
 
                 await expect(
@@ -86,7 +87,7 @@ describe("StreamFactoryManagement", function () {
             });
 
             it("should not allow non-admin to update exit fee ratio", async function () {
-                const fixture = await loadFixture(streamFactory().build());
+                const fixture = await loadFixture(defaultFixture);
                 const newRatio = { value: 200000n };
 
                 await expect(
@@ -97,7 +98,7 @@ describe("StreamFactoryManagement", function () {
 
         describe("updateMinWaitingDuration", function () {
             it("should allow admin to update min waiting duration", async function () {
-                const fixture = await loadFixture(streamFactory().build());
+                const fixture = await loadFixture(defaultFixture);
                 const newDuration = 7200; // 2 hours
 
                 await expect(
@@ -109,7 +110,7 @@ describe("StreamFactoryManagement", function () {
             });
 
             it("should not allow non-admin to update min waiting duration", async function () {
-                const fixture = await loadFixture(streamFactory().build());
+                const fixture = await loadFixture(defaultFixture);
                 const newDuration = 7200;
 
                 await expect(
@@ -120,7 +121,7 @@ describe("StreamFactoryManagement", function () {
 
         describe("updateMinBootstrappingDuration", function () {
             it("should allow admin to update min bootstrapping duration", async function () {
-                const fixture = await loadFixture(streamFactory().build());
+                const fixture = await loadFixture(defaultFixture);
                 const newDuration = 10800; // 3 hours
 
                 await expect(
@@ -134,7 +135,7 @@ describe("StreamFactoryManagement", function () {
             });
 
             it("should not allow non-admin to update min bootstrapping duration", async function () {
-                const fixture = await loadFixture(streamFactory().build());
+                const fixture = await loadFixture(defaultFixture);
                 const newDuration = 10800;
 
                 await expect(
@@ -145,7 +146,7 @@ describe("StreamFactoryManagement", function () {
 
         describe("updateMinStreamDuration", function () {
             it("should allow admin to update min stream duration", async function () {
-                const fixture = await loadFixture(streamFactory().build());
+                const fixture = await loadFixture(defaultFixture);
                 const newDuration = 14400; // 4 hours
 
                 await expect(
@@ -157,7 +158,7 @@ describe("StreamFactoryManagement", function () {
             });
 
             it("should not allow non-admin to update min stream duration", async function () {
-                const fixture = await loadFixture(streamFactory().build());
+                const fixture = await loadFixture(defaultFixture);
                 const newDuration = 14400;
 
                 await expect(
@@ -168,7 +169,7 @@ describe("StreamFactoryManagement", function () {
 
         describe("updateTosVersion", function () {
             it("should allow admin to update TOS version", async function () {
-                const fixture = await loadFixture(streamFactory().build());
+                const fixture = await loadFixture(defaultFixture);
                 const newVersion = "2.0";
 
                 await expect(
@@ -180,7 +181,7 @@ describe("StreamFactoryManagement", function () {
             });
 
             it("should not allow non-admin to update TOS version", async function () {
-                const fixture = await loadFixture(streamFactory().build());
+                const fixture = await loadFixture(defaultFixture);
                 const newVersion = "2.0";
 
                 await expect(
@@ -191,7 +192,7 @@ describe("StreamFactoryManagement", function () {
 
         describe("updateFeeCollector", function () {
             it("should allow admin to update fee collector", async function () {
-                const fixture = await loadFixture(streamFactory().build());
+                const fixture = await loadFixture(defaultFixture);
                 const newFeeCollector = ethers.Wallet.createRandom().address;
 
                 await expect(
@@ -205,7 +206,7 @@ describe("StreamFactoryManagement", function () {
             });
 
             it("should not allow zero address as fee collector", async function () {
-                const fixture = await loadFixture(streamFactory().build());
+                const fixture = await loadFixture(defaultFixture);
 
                 await expect(
                     fixture.contracts.streamFactory
@@ -215,7 +216,7 @@ describe("StreamFactoryManagement", function () {
             });
 
             it("should not allow non-admin to update fee collector", async function () {
-                const fixture = await loadFixture(streamFactory().build());
+                const fixture = await loadFixture(defaultFixture);
                 const newFeeCollector = ethers.Wallet.createRandom().address;
 
                 await expect(
@@ -226,7 +227,7 @@ describe("StreamFactoryManagement", function () {
 
         describe("updateProtocolAdmin", function () {
             it("should allow admin to update protocol admin", async function () {
-                const fixture = await loadFixture(streamFactory().build());
+                const fixture = await loadFixture(defaultFixture);
                 const newAdmin = ethers.Wallet.createRandom().address;
 
                 await expect(
@@ -240,7 +241,7 @@ describe("StreamFactoryManagement", function () {
             });
 
             it("should not allow zero address as protocol admin", async function () {
-                const fixture = await loadFixture(streamFactory().build());
+                const fixture = await loadFixture(defaultFixture);
 
                 await expect(
                     fixture.contracts.streamFactory
@@ -261,33 +262,36 @@ describe("StreamFactoryManagement", function () {
 
         describe("updatePoolWrapper", function () {
             it("should allow admin to update pool wrapper", async function () {
-                const fixture = await loadFixture(streamFactory().build());
-                const newPoolWrapper = ethers.Wallet.createRandom().address;
+                const fixture = await loadFixture(defaultFixture);
+                const v2PoolWrapper = ethers.Wallet.createRandom().address;
+                const v3PoolWrapper = ethers.Wallet.createRandom().address;
 
                 await expect(
-                    fixture.contracts.streamFactory.connect(fixture.accounts.protocolAdmin).updatePoolWrapper(newPoolWrapper),
+                    fixture.contracts.streamFactory.connect(fixture.accounts.protocolAdmin).updatePoolWrapper(v2PoolWrapper, v3PoolWrapper),
                 )
                     .to.emit(fixture.contracts.streamFactory, "PoolWrapperUpdated")
-                    .withArgs(await fixture.contracts.streamFactory.getAddress(), newPoolWrapper);
+                    .withArgs(await fixture.contracts.streamFactory.getAddress(), v2PoolWrapper, v3PoolWrapper);
 
                 const params = await fixture.contracts.streamFactory.getParams();
-                expect(params.poolWrapperAddress).to.equal(newPoolWrapper);
+                expect(params.V2PoolWrapperAddress).to.equal(v2PoolWrapper);
+                expect(params.V3PoolWrapperAddress).to.equal(v3PoolWrapper);
             });
 
             it("should not allow zero address as pool wrapper", async function () {
-                const fixture = await loadFixture(streamFactory().build());
+                const fixture = await loadFixture(defaultFixture);
 
                 await expect(
-                    fixture.contracts.streamFactory.connect(fixture.accounts.protocolAdmin).updatePoolWrapper(ethers.ZeroAddress),
-                ).to.be.revertedWithCustomError(fixture.contracts.streamFactory, "InvalidPoolWrapper");
+                    fixture.contracts.streamFactory.connect(fixture.accounts.protocolAdmin).updatePoolWrapper(ethers.ZeroAddress, ethers.ZeroAddress),
+                ).to.not.be.reverted; // zero addresses are allowed
             });
 
             it("should not allow non-admin to update pool wrapper", async function () {
-                const fixture = await loadFixture(streamFactory().build());
-                const newPoolWrapper = ethers.Wallet.createRandom().address;
+                const fixture = await loadFixture(defaultFixture);
+                const v2PoolWrapper = ethers.Wallet.createRandom().address;
+                const v3PoolWrapper = ethers.Wallet.createRandom().address;
 
                 await expect(
-                    fixture.contracts.streamFactory.connect(fixture.accounts.creator).updatePoolWrapper(newPoolWrapper),
+                    fixture.contracts.streamFactory.connect(fixture.accounts.creator).updatePoolWrapper(v2PoolWrapper, v3PoolWrapper),
                 ).to.be.revertedWithCustomError(fixture.contracts.streamFactory, "NotAdmin");
             });
         });
