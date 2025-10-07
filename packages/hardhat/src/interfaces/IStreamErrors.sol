@@ -17,6 +17,7 @@ interface IStreamErrors {
     error InvalidVestingDuration();
     error InvalidVestingCliffDuration();
     error InvalidPoolOutSupplyAmount();
+    error InvalidPoolType();
     error InvalidAmount();
     error StreamFactoryAddressAlreadySet();
     error InvalidStreamFactoryAddress();

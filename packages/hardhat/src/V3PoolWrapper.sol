@@ -7,10 +7,10 @@ import { IUniswapV3Factory, INonfungiblePositionManager } from "./interfaces/IUn
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /**
- * @title UniswapV3PoolWrapper
+ * @title V3PoolWrapper
  * @notice Wrapper for creating v3 pools and adding full-range liquidity
  */
-contract UniswapV3PoolWrapper is PoolWrapper {
+contract V3PoolWrapper is PoolWrapper {
     address public immutable UNISWAP_V3_FACTORY;
     address public immutable NONFUNGIBLE_POSITION_MANAGER;
     uint24 public immutable FEE_TIER;

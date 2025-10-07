@@ -40,9 +40,10 @@ import { StreamMathLib } from "./lib/math/StreamMathLib.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { IPoolWrapper } from "./interfaces/IPoolWrapper.sol";
 import { IVestingFactory } from "./interfaces/IVestingFactory.sol";
-import { PoolWrapperTypes } from "./types/PoolWrapperTypes.sol";
 import { IPermit2 } from "./interfaces/IPermit2.sol";
 import { TransferLib } from "./lib/TransferLib.sol";
+
+import { PoolWrapperTypes } from "./types/PoolWrapperTypes.sol";
 
     
 /**
@@ -164,6 +165,10 @@ contract Stream is IStreamErrors, IStreamEvents {
             // Validate pool amount is less than or equal to out amount
             if (createStreamMessage.poolInfo.poolOutSupplyAmount > createStreamMessage.streamOutAmount) {
                 revert InvalidPoolOutSupplyAmount();
+            }
+            // Validate pool type
+            if (createStreamMessage.poolInfo.dexType != StreamTypes.DexType.V2 && createStreamMessage.poolInfo.dexType != StreamTypes.DexType.V3) {
+                revert InvalidPoolType();
             }
             postStreamActions.poolInfo = createStreamMessage.poolInfo;
         }
@@ -548,7 +553,8 @@ contract Stream is IStreamErrors, IStreamEvents {
                     streamTokens.inSupplyToken,
                     streamTokens.outSupplyToken,
                     poolInSupplyAmount,
-                    poolOutSupplyAmount
+                    poolOutSupplyAmount,
+                    postStreamActions.poolInfo.dexType
                 );
             }
 
@@ -890,12 +896,13 @@ contract Stream is IStreamErrors, IStreamEvents {
         address tokenA,
         address tokenB,
         uint256 amountADesired,
-        uint256 amountBDesired
+        uint256 amountBDesired,
+        StreamTypes.DexType dexType
     ) internal {
         StreamFactory factoryContract = StreamFactory(STREAM_FACTORY_ADDRESS);
         StreamFactoryTypes.Params memory params = factoryContract.getParams();
 
-        address poolWrapperAddress = params.poolWrapperAddress;
+        address poolWrapperAddress = dexType == StreamTypes.DexType.V2 ? params.V2PoolWrapperAddress : params.V3PoolWrapperAddress;
         IPoolWrapper poolWrapper = IPoolWrapper(poolWrapperAddress);
 
         // Transfer pool tokens to the pool wrapper contract first
