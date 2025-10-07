@@ -221,6 +221,7 @@ describe("Stream Finalize", function () {
           .poolOutSupply(ethers.parseEther("25"))
           .streamOut(ethers.parseEther("100"))
           .setThreshold(ethers.parseEther("100"))
+          .enablePoolCreation(true)
           .build()
       );
       // poolOutRatio = 1 / 4
@@ -297,10 +298,13 @@ describe("Stream Finalize", function () {
         "event PoolCreated(address indexed stream, address indexed pool, address indexed poolWrapper, address token0, address token1, uint256 token0Amount, uint256 token1Amount)"
       ]);
 
-      // Get logs from PoolWrapper contract
+      // Get logs from PoolWrapper contract (pick the active wrapper)
       const poolEventTopic = ethers.id("PoolCreated(address,address,address,address,address,uint256,uint256)");
+      const activeWrapperAddress = contracts.v2PoolWrapper
+        ? await contracts.v2PoolWrapper.getAddress()
+        : await contracts.v3PoolWrapper!.getAddress();
       const poolLogs = await ethers.provider.getLogs({
-        address: await contracts.poolWrapper.getAddress(),
+        address: activeWrapperAddress,
         fromBlock: receipt?.blockNumber,
         toBlock: receipt?.blockNumber,
         topics: [poolEventTopic]
@@ -312,7 +316,7 @@ describe("Stream Finalize", function () {
       // Parse the pool event
       const poolEvent = poolWrapperInterface.parseLog(poolLogs[0]);
       expect(poolEvent?.args?.stream).to.equal(await contracts.stream.getAddress());
-      expect(poolEvent?.args?.poolWrapper).to.equal(await contracts.poolWrapper.getAddress());
+      expect(poolEvent?.args?.poolWrapper).to.equal(activeWrapperAddress);
       expect(poolEvent?.args?.token0).to.equal(await contracts.inSupplyToken.getAddress());
       expect(poolEvent?.args?.token1).to.equal(await contracts.outSupplyToken.getAddress());
 

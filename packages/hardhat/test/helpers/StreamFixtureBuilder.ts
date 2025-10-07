@@ -212,6 +212,10 @@ export class StreamFixtureBuilder {
         } else {
           await ethers.provider.send("hardhat_reset", []);
         }
+        // Stabilize base fee to avoid EIP-1559 underpricing during deployments
+        try {
+          await ethers.provider.send("hardhat_setNextBlockBaseFeePerGas", ["0x0"]);
+        } catch { }
 
         // Get signers
         const [deployer, creator, subscriber1, subscriber2, subscriber3, subscriber4, protocolAdmin, feeCollector] =

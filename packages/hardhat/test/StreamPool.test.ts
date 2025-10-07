@@ -11,7 +11,7 @@ describe("Stream Pool Creation", function () {
     poolOutSupplyAmount = ethers.parseEther("1000");
     streamOutAmount = ethers.parseEther("10000");
     const { contracts, timeParams, accounts } = await loadFixture(
-      stream().streamOut(streamOutAmount).poolOutSupply(poolOutSupplyAmount).build(),
+      stream().streamOut(streamOutAmount).poolOutSupply(poolOutSupplyAmount).enablePoolCreation(true).build(),
     );
 
     const streamContract = contracts.stream;
@@ -22,7 +22,12 @@ describe("Stream Pool Creation", function () {
 
   it("should create pool and transfer tokens when stream is finalized", async function () {
     const { contracts, timeParams, accounts, config } = await loadFixture(
-      stream().streamOut(streamOutAmount).poolOutSupply(poolOutSupplyAmount).setThreshold(ethers.parseEther("100")).build(),
+      stream()
+        .streamOut(streamOutAmount)
+        .poolOutSupply(poolOutSupplyAmount)
+        .setThreshold(ethers.parseEther("100"))
+        .enablePoolCreation(true)
+        .build(),
     );
 
     // Fast forward time to started phase
@@ -44,13 +49,15 @@ describe("Stream Pool Creation", function () {
 
     // Get pool creation event
     const receipt = await tx.wait();
-    const poolCreatedEvent = receipt?.logs.find(
-      (log: any) => log.topics[0] === contracts.poolWrapper.interface.getEvent("PoolCreated").topicHash,
-    );
+    const poolWrapperIface = new ethers.Interface([
+      "event PoolCreated(address indexed stream, address indexed pool, address indexed poolWrapper, address token0, address token1, uint256 token0Amount, uint256 token1Amount)",
+    ]);
+    const poolCreatedTopic = ethers.id("PoolCreated(address,address,address,address,address,uint256,uint256)");
+    const poolCreatedEvent = receipt?.logs.find((log: any) => log.topics[0] === poolCreatedTopic);
     expect(poolCreatedEvent).to.not.be.undefined;
 
     // Parse the event
-    const parsedEvent = contracts.poolWrapper.interface.parseLog({
+    const parsedEvent = poolWrapperIface.parseLog({
       topics: poolCreatedEvent!.topics,
       data: poolCreatedEvent!.data,
     });
@@ -60,8 +67,10 @@ describe("Stream Pool Creation", function () {
     expect(parsedEvent?.args.token1).to.equal(await contracts.outSupplyToken.getAddress());
 
     // Check pool contracts in token balances
-    const inSupplyTokenBalance = await contracts.inSupplyToken.balanceOf(parsedEvent?.args.poolWrapper);
-    const outSupplyTokenBalance = await contracts.outSupplyToken.balanceOf(parsedEvent?.args.poolWrapper);
+    // Token balances are held by the pool address, not the wrapper
+    const poolAddress = parsedEvent?.args.pool;
+    const inSupplyTokenBalance = await contracts.inSupplyToken.balanceOf(poolAddress);
+    const outSupplyTokenBalance = await contracts.outSupplyToken.balanceOf(poolAddress);
     expect(inSupplyTokenBalance).to.equal(parsedEvent?.args.token0Amount);
     expect(outSupplyTokenBalance).to.equal(parsedEvent?.args.token1Amount);
   });
