@@ -270,6 +270,8 @@ contract StreamFactory is IStreamFactoryEvents, IStreamFactoryErrors {
             createStreamMessage.creator,
             address(positionStorage),
             createStreamMessage.streamOutAmount,
+            createStreamMessage.poolInfo.poolOutSupplyAmount,
+            createStreamMessage.poolInfo.dexType == StreamTypes.DexType.V2 ? "V2" : "V3",
             createStreamMessage.bootstrappingStartTime,
             createStreamMessage.streamStartTime,
             createStreamMessage.streamEndTime,

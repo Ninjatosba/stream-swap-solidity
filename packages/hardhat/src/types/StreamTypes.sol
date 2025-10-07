@@ -14,6 +14,11 @@ library StreamTypes {
         Cancelled
     }
 
+    enum DexType {
+            V2,
+            V3
+    }
+
     struct CreateStreamMessage {
         address creator;
         address inSupplyToken;
@@ -63,8 +68,10 @@ library StreamTypes {
 
     struct PoolInfo {
         uint256 poolOutSupplyAmount;
+        DexType dexType;
     }
 
+ 
     struct PostStreamActions {
         PoolInfo poolInfo;
         VestingInfo creatorVesting;

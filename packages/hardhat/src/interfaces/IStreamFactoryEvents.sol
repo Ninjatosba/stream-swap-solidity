@@ -10,6 +10,8 @@ interface IStreamFactoryEvents {
         address creator,
         address positionStorageAddress,
         uint256 streamOutAmount,
+        uint256 poolOutSupplyAmount,
+        string dexType,
         uint256 bootstrappingStartTime,
         uint256 streamStartTime,
         uint256 streamEndTime,
