@@ -2,6 +2,7 @@ import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { expect } from "chai";
 import { ethers } from "hardhat";
 import { streamFactory } from "./helpers/StreamFactoryFixtureBuilder";
+import { StreamTypes } from "../typechain-types/src/Stream";
 
 describe("StreamCreation", function () {
     describe("createStream", function () {
@@ -10,7 +11,7 @@ describe("StreamCreation", function () {
 
             // Create a valid stream creation message
             const now = Math.floor(Date.now() / 1000);
-            const createStreamMessage = {
+            const createStreamMessage: StreamTypes.CreateStreamMessageStruct = {
                 creator: fixture.accounts.creator.address,
                 streamOutAmount: ethers.parseEther("1000"),
                 inSupplyToken: await fixture.contracts.inSupplyToken.getAddress(),
@@ -31,7 +32,7 @@ describe("StreamCreation", function () {
                     vestingDuration: 0,
                 },
                 poolInfo: {
-                    poolOutSupplyAmount: ethers.parseEther("100"),
+                    poolOutSupplyAmount: 0,
                     dexType: 0,
                 },
                 tosVersion: "1.0",
@@ -63,7 +64,7 @@ describe("StreamCreation", function () {
 
             // Create a valid stream creation message
             const now = Math.floor(Date.now() / 1000);
-            const createStreamMessage = {
+            const createStreamMessage: StreamTypes.CreateStreamMessageStruct = {
                 creator: fixture.accounts.creator.address,
                 streamOutAmount: ethers.parseEther("1000"),
                 inSupplyToken: await fixture.contracts.inSupplyToken.getAddress(),
@@ -111,7 +112,7 @@ describe("StreamCreation", function () {
 
             // Create a valid stream creation message
             const now = Math.floor(Date.now() / 1000);
-            const createStreamMessage = {
+            const createStreamMessage: StreamTypes.CreateStreamMessageStruct = {
                 creator: fixture.accounts.creator.address,
                 streamOutAmount: ethers.parseEther("1000"),
                 inSupplyToken: await fixture.contracts.inSupplyToken.getAddress(),
@@ -158,7 +159,7 @@ describe("StreamCreation", function () {
             await unacceptedToken.waitForDeployment();
 
             const now = Math.floor(Date.now() / 1000);
-            const createStreamMessage = {
+            const createStreamMessage: StreamTypes.CreateStreamMessageStruct = {
                 creator: fixture.accounts.creator.address,
                 streamOutAmount: ethers.parseEther("1000"),
                 inSupplyToken: await unacceptedToken.getAddress(), // Use unaccepted token
@@ -199,7 +200,7 @@ describe("StreamCreation", function () {
             const fixture = await loadFixture(streamFactory().build());
 
             const now = Math.floor(Date.now() / 1000);
-            const createStreamMessage = {
+            const createStreamMessage: StreamTypes.CreateStreamMessageStruct = {
                 creator: fixture.accounts.creator.address,
                 streamOutAmount: 0, // Zero amount
                 inSupplyToken: await fixture.contracts.inSupplyToken.getAddress(),
@@ -221,6 +222,7 @@ describe("StreamCreation", function () {
                 },
                 poolInfo: {
                     poolOutSupplyAmount: ethers.parseEther("100"),
+                    dexType: 0,
                 },
                 tosVersion: "1.0",
             };
@@ -239,7 +241,7 @@ describe("StreamCreation", function () {
             const fixture = await loadFixture(streamFactory().build());
 
             const now = Math.floor(Date.now() / 1000);
-            const createStreamMessage = {
+            const createStreamMessage: StreamTypes.CreateStreamMessageStruct = {
                 creator: fixture.accounts.creator.address,
                 streamOutAmount: ethers.parseEther("1000"),
                 inSupplyToken: await fixture.contracts.inSupplyToken.getAddress(),
@@ -261,6 +263,7 @@ describe("StreamCreation", function () {
                 },
                 poolInfo: {
                     poolOutSupplyAmount: ethers.parseEther("100"),
+                    dexType: 0,
                 },
                 tosVersion: "1.0",
             };
@@ -279,7 +282,7 @@ describe("StreamCreation", function () {
             const fixture = await loadFixture(streamFactory().build());
 
             const now = Math.floor(Date.now() / 1000);
-            const createStreamMessage = {
+            const createStreamMessage: StreamTypes.CreateStreamMessageStruct = {
                 creator: fixture.accounts.creator.address,
                 streamOutAmount: ethers.parseEther("1000"),
                 inSupplyToken: await fixture.contracts.inSupplyToken.getAddress(),
@@ -301,6 +304,7 @@ describe("StreamCreation", function () {
                 },
                 poolInfo: {
                     poolOutSupplyAmount: ethers.parseEther("100"),
+                    dexType: 0,
                 },
                 tosVersion: "1.0",
             };
@@ -319,7 +323,7 @@ describe("StreamCreation", function () {
             const fixture = await loadFixture(streamFactory().build());
 
             const now = Math.floor(Date.now() / 1000);
-            const createStreamMessage = {
+            const createStreamMessage: StreamTypes.CreateStreamMessageStruct = {
                 creator: fixture.accounts.creator.address,
                 streamOutAmount: ethers.parseEther("1000"),
                 inSupplyToken: await fixture.contracts.inSupplyToken.getAddress(),
@@ -341,6 +345,7 @@ describe("StreamCreation", function () {
                 },
                 poolInfo: {
                     poolOutSupplyAmount: ethers.parseEther("100"),
+                    dexType: 0,
                 },
                 tosVersion: "", // Empty TOS version
             };
@@ -358,7 +363,7 @@ describe("StreamCreation", function () {
             const fixture = await loadFixture(streamFactory().build());
 
             const now = Math.floor(Date.now() / 1000);
-            const createStreamMessage = {
+            const createStreamMessage: StreamTypes.CreateStreamMessageStruct = {
                 creator: fixture.accounts.creator.address,
                 streamOutAmount: ethers.parseEther("1000"),
                 inSupplyToken: await fixture.contracts.inSupplyToken.getAddress(),
@@ -380,6 +385,7 @@ describe("StreamCreation", function () {
                 },
                 poolInfo: {
                     poolOutSupplyAmount: ethers.parseEther("100"),
+                    dexType: 0,
                 },
                 tosVersion: "1.0",
             };
@@ -397,7 +403,7 @@ describe("StreamCreation", function () {
                 .approve(await fixture.contracts.streamFactory.getAddress(), ethers.parseEther("1000"));
 
             const now = Math.floor(Date.now() / 1000);
-            const createStreamMessage = {
+            const createStreamMessage: StreamTypes.CreateStreamMessageStruct = {
                 creator: fixture.accounts.creator.address,
                 streamOutAmount: ethers.parseEther("1000"),
                 inSupplyToken: await fixture.contracts.inSupplyToken.getAddress(),
@@ -419,6 +425,7 @@ describe("StreamCreation", function () {
                 },
                 poolInfo: {
                     poolOutSupplyAmount: ethers.parseEther("0"),
+                    dexType: 0,
                 },
                 tosVersion: "1.0",
             };
@@ -426,92 +433,13 @@ describe("StreamCreation", function () {
             await expect(
                 fixture.contracts.streamFactory.connect(fixture.accounts.creator).createStream(createStreamMessage)
             ).to.be.reverted; // ERC20InsufficientAllowance error from OpenZeppelin
-        });
-        it("should revert if pool out supply amount is not approved", async function () {
-            const fixture = await loadFixture(streamFactory().build());
-
-            const now = Math.floor(Date.now() / 1000);
-            const createStreamMessage = {
-                creator: fixture.accounts.creator.address,
-                streamOutAmount: ethers.parseEther("1000"),
-                inSupplyToken: await fixture.contracts.inSupplyToken.getAddress(),
-                outSupplyToken: await fixture.contracts.outSupplyToken.getAddress(),
-                bootstrappingStartTime: now + 3600,
-                streamStartTime: now + 7200,
-                streamEndTime: now + 10800,
-                threshold: ethers.parseEther("500"),
-                metadata: {
-                    ipfsHash: "QmTest123",
-                },
-                creatorVesting: {
-                    isVestingEnabled: false,
-                    vestingDuration: 0,
-                },
-                beneficiaryVesting: {
-                    isVestingEnabled: false,
-                    vestingDuration: 0,
-                },
-                poolInfo: {
-                    poolOutSupplyAmount: ethers.parseEther("100"),
-                },
-                tosVersion: "1.0",
-            };
-
-            // Approve only stream out amount
-            await fixture.contracts.outSupplyToken
-                .connect(fixture.accounts.creator)
-                .approve(await fixture.contracts.streamFactory.getAddress(), createStreamMessage.streamOutAmount);
-
-            await expect(
-                fixture.contracts.streamFactory.connect(fixture.accounts.creator).createStream(createStreamMessage)
-            ).to.be.reverted; // ERC20InsufficientAllowance error from OpenZeppelin
-        });
-
-        it("should revert if pool out supply amount is greater than stream out amount", async function () {
-            const fixture = await loadFixture(streamFactory().build());
-
-            const now = Math.floor(Date.now() / 1000);
-            const createStreamMessage = {
-                creator: fixture.accounts.creator.address,
-                streamOutAmount: ethers.parseEther("1000"),
-                inSupplyToken: await fixture.contracts.inSupplyToken.getAddress(),
-                outSupplyToken: await fixture.contracts.outSupplyToken.getAddress(),
-                bootstrappingStartTime: now + 3600,
-                streamStartTime: now + 7200,
-                streamEndTime: now + 10800,
-                threshold: ethers.parseEther("500"),
-                metadata: {
-                    ipfsHash: "QmTest123",
-                },
-                creatorVesting: {
-                    isVestingEnabled: false,
-                    vestingDuration: 0,
-                },
-                beneficiaryVesting: {
-                    isVestingEnabled: false,
-                    vestingDuration: 0,
-                },
-                poolInfo: {
-                    poolOutSupplyAmount: ethers.parseEther("1001"),
-                },
-                tosVersion: "1.0",
-            };
-
-            // Approve out supply token for the factory
-            await fixture.contracts.outSupplyToken
-                .connect(fixture.accounts.creator)
-                .approve(await fixture.contracts.streamFactory.getAddress(), createStreamMessage.streamOutAmount + createStreamMessage.poolInfo.poolOutSupplyAmount);
-
-            await expect(
-                fixture.contracts.streamFactory.connect(fixture.accounts.creator).createStream(createStreamMessage)
-            ).to.be.revertedWithCustomError(fixture.contracts.streamImplementation, "InvalidPoolOutSupplyAmount");
         });
 
         it("should revert if creator is zero address", async function () {
             const fixture = await loadFixture(streamFactory().build());
 
             const now = Math.floor(Date.now() / 1000);
-            const createStreamMessage = {
+            const createStreamMessage: StreamTypes.CreateStreamMessageStruct = {
                 creator: ethers.ZeroAddress, // Zero address
                 streamOutAmount: ethers.parseEther("1000"),
                 inSupplyToken: await fixture.contracts.inSupplyToken.getAddress(),
@@ -533,6 +461,7 @@ describe("StreamCreation", function () {
                 },
                 poolInfo: {
                     poolOutSupplyAmount: ethers.parseEther("100"),
+                    dexType: 0,
                 },
                 tosVersion: "1.0",
             };
@@ -551,7 +480,7 @@ describe("StreamCreation", function () {
             const fixture = await loadFixture(streamFactory().build());
 
             const now = Math.floor(Date.now() / 1000);
-            const createStreamMessage = {
+            const createStreamMessage: StreamTypes.CreateStreamMessageStruct = {
                 creator: fixture.accounts.creator.address,
                 streamOutAmount: ethers.parseEther("1000"),
                 inSupplyToken: await fixture.contracts.inSupplyToken.getAddress(),
@@ -573,6 +502,7 @@ describe("StreamCreation", function () {
                 },
                 poolInfo: {
                     poolOutSupplyAmount: ethers.parseEther("100"),
+                    dexType: 0,
                 },
                 tosVersion: "1.0",
             };
@@ -586,7 +516,7 @@ describe("StreamCreation", function () {
             const fixture = await loadFixture(streamFactory().build());
 
             const now = Math.floor(Date.now() / 1000);
-            const createStreamMessage = {
+            const createStreamMessage: StreamTypes.CreateStreamMessageStruct = {
                 creator: fixture.accounts.creator.address,
                 streamOutAmount: ethers.parseEther("1000"),
                 inSupplyToken: await fixture.contracts.inSupplyToken.getAddress(),
@@ -608,6 +538,7 @@ describe("StreamCreation", function () {
                 },
                 poolInfo: {
                     poolOutSupplyAmount: ethers.parseEther("100"),
+                    dexType: 0,
                 },
                 tosVersion: "1.0",
             };
@@ -626,7 +557,7 @@ describe("StreamCreation", function () {
             const fixture = await loadFixture(streamFactory().build());
 
             const now = Math.floor(Date.now() / 1000);
-            const createStreamMessage = {
+            const createStreamMessage: StreamTypes.CreateStreamMessageStruct = {
                 creator: fixture.accounts.creator.address,
                 streamOutAmount: ethers.parseEther("1000"),
                 inSupplyToken: await fixture.contracts.inSupplyToken.getAddress(),
@@ -648,6 +579,7 @@ describe("StreamCreation", function () {
                 },
                 poolInfo: {
                     poolOutSupplyAmount: ethers.parseEther("100"),
+                    dexType: 0,
                 },
                 tosVersion: "1.0",
             };
@@ -666,7 +598,7 @@ describe("StreamCreation", function () {
             const fixture = await loadFixture(streamFactory().build());
 
             const now = Math.floor(Date.now() / 1000);
-            const createStreamMessage = {
+            const createStreamMessage: StreamTypes.CreateStreamMessageStruct = {
                 creator: fixture.accounts.creator.address,
                 streamOutAmount: ethers.parseEther("1000"),
                 inSupplyToken: await fixture.contracts.inSupplyToken.getAddress(),
@@ -688,6 +620,7 @@ describe("StreamCreation", function () {
                 },
                 poolInfo: {
                     poolOutSupplyAmount: ethers.parseEther("100"),
+                    dexType: 0,
                 },
                 tosVersion: "1.0",
             };
@@ -711,7 +644,7 @@ describe("StreamCreation", function () {
                 .approve(await fixture.contracts.streamFactory.getAddress(), ethers.parseEther("1000"));
 
             const now = Math.floor(Date.now() / 1000);
-            const createStreamMessage = {
+            const createStreamMessage: StreamTypes.CreateStreamMessageStruct = {
                 creator: fixture.accounts.creator.address,
                 streamOutAmount: ethers.parseEther("1000"),
                 inSupplyToken: await fixture.contracts.inSupplyToken.getAddress(),
@@ -733,6 +666,7 @@ describe("StreamCreation", function () {
                 },
                 poolInfo: {
                     poolOutSupplyAmount: ethers.parseEther("0"),
+                    dexType: 0,
                 },
                 tosVersion: "1.0",
             };
@@ -751,7 +685,7 @@ describe("StreamCreation", function () {
                 .approve(await fixture.contracts.streamFactory.getAddress(), ethers.parseEther("1100"));
 
             const now = Math.floor(Date.now() / 1000);
-            const createStreamMessage = {
+            const createStreamMessage: StreamTypes.CreateStreamMessageStruct = {
                 creator: fixture.accounts.creator.address,
                 streamOutAmount: ethers.parseEther("1000"),
                 inSupplyToken: await fixture.contracts.inSupplyToken.getAddress(),
@@ -772,7 +706,8 @@ describe("StreamCreation", function () {
                     vestingDuration: 0,
                 },
                 poolInfo: {
-                    poolOutSupplyAmount: ethers.parseEther("100"),
+                    poolOutSupplyAmount: 0,
+                    dexType: 0,
                 },
                 tosVersion: "1.0",
             };
@@ -806,13 +741,15 @@ describe("StreamCreation", function () {
             expect(parsedEvent!.args[4]).to.equal(fixture.accounts.creator.address); // creator
             expect(parsedEvent!.args[5]).to.not.equal(ethers.ZeroAddress); // positionStorage address
             expect(parsedEvent!.args[6]).to.equal(createStreamMessage.streamOutAmount); // streamOutAmount
-            expect(parsedEvent!.args[7]).to.equal(createStreamMessage.bootstrappingStartTime); // bootstrappingStartTime
-            expect(parsedEvent!.args[8]).to.equal(createStreamMessage.streamStartTime); // streamStartTime
-            expect(parsedEvent!.args[9]).to.equal(createStreamMessage.streamEndTime); // streamEndTime
-            expect(parsedEvent!.args[10]).to.equal(createStreamMessage.threshold); // threshold
-            expect(parsedEvent!.args[11]).to.equal(createStreamMessage.metadata.ipfsHash); // ipfsHash
-            expect(parsedEvent!.args[12]).to.equal(createStreamMessage.tosVersion); // tosVersion
-            expect(parsedEvent!.args[13]).to.equal(currentStreamId); // streamId
+            expect(parsedEvent!.args[7]).to.equal(createStreamMessage.poolInfo.poolOutSupplyAmount); // poolOutSupplyAmount
+            expect(parsedEvent!.args[8]).to.equal("V2"); // dexType string for 0
+            expect(parsedEvent!.args[9]).to.equal(createStreamMessage.bootstrappingStartTime); // bootstrappingStartTime
+            expect(parsedEvent!.args[10]).to.equal(createStreamMessage.streamStartTime); // streamStartTime
+            expect(parsedEvent!.args[11]).to.equal(createStreamMessage.streamEndTime); // streamEndTime
+            expect(parsedEvent!.args[12]).to.equal(createStreamMessage.threshold); // threshold
+            expect(parsedEvent!.args[13]).to.equal(createStreamMessage.metadata.ipfsHash); // ipfsHash
+            expect(parsedEvent!.args[14]).to.equal(createStreamMessage.tosVersion); // tosVersion
+            expect(parsedEvent!.args[15]).to.equal(currentStreamId); // streamId
         });
 
         it("should increment stream ID correctly", async function () {
@@ -824,7 +761,7 @@ describe("StreamCreation", function () {
                 .approve(await fixture.contracts.streamFactory.getAddress(), ethers.parseEther("2000"));
 
             const now = Math.floor(Date.now() / 1000);
-            const createStreamMessage = {
+            const createStreamMessage: StreamTypes.CreateStreamMessageStruct = {
                 creator: fixture.accounts.creator.address,
                 streamOutAmount: ethers.parseEther("1000"),
                 inSupplyToken: await fixture.contracts.inSupplyToken.getAddress(),
@@ -846,6 +783,7 @@ describe("StreamCreation", function () {
                 },
                 poolInfo: {
                     poolOutSupplyAmount: ethers.parseEther("0"),
+                    dexType: 0,
                 },
                 tosVersion: "1.0",
             };
@@ -881,7 +819,7 @@ describe("StreamCreation", function () {
                 .approve(await fixture.contracts.streamFactory.getAddress(), veryLargeAmount);
 
             const now = Math.floor(Date.now() / 1000);
-            const createStreamMessage = {
+            const createStreamMessage: StreamTypes.CreateStreamMessageStruct = {
                 creator: fixture.accounts.creator.address,
                 streamOutAmount: veryLargeAmount,
                 inSupplyToken: await fixture.contracts.inSupplyToken.getAddress(),
@@ -903,6 +841,7 @@ describe("StreamCreation", function () {
                 },
                 poolInfo: {
                     poolOutSupplyAmount: ethers.parseEther("0"),
+                    dexType: 0,
                 },
                 tosVersion: "1.0",
             };
@@ -925,7 +864,7 @@ describe("StreamCreation", function () {
             const now = Math.floor(Date.now() / 1000);
 
             // 1. Waiting duration below minimum (others valid)
-            let createStreamMessage = {
+            let createStreamMessage: StreamTypes.CreateStreamMessageStruct = {
                 creator: fixture.accounts.creator.address,
                 streamOutAmount: ethers.parseEther("1000"),
                 inSupplyToken: await fixture.contracts.inSupplyToken.getAddress(),
@@ -937,7 +876,7 @@ describe("StreamCreation", function () {
                 metadata: { ipfsHash: "QmTest123" },
                 creatorVesting: { isVestingEnabled: false, vestingDuration: 0 },
                 beneficiaryVesting: { isVestingEnabled: false, vestingDuration: 0 },
-                poolInfo: { poolOutSupplyAmount: ethers.parseEther("0") },
+                poolInfo: { poolOutSupplyAmount: ethers.parseEther("0"), dexType: 0 },
                 tosVersion: "1.0",
             };
             await expect(
@@ -979,7 +918,7 @@ describe("StreamCreation", function () {
             const feeCollectorBalanceBefore = await ethers.provider.getBalance(fixture.accounts.feeCollector.address);
 
             const now = Math.floor(Date.now() / 1000);
-            const createStreamMessage = {
+            const createStreamMessage: StreamTypes.CreateStreamMessageStruct = {
                 creator: fixture.accounts.creator.address,
                 streamOutAmount: ethers.parseEther("1000"),
                 inSupplyToken: await fixture.contracts.inSupplyToken.getAddress(),
@@ -1000,7 +939,8 @@ describe("StreamCreation", function () {
                     vestingDuration: 0,
                 },
                 poolInfo: {
-                    poolOutSupplyAmount: ethers.parseEther("100"),
+                    poolOutSupplyAmount: 0,
+                    dexType: 0,
                 },
                 tosVersion: "1.0",
             };
@@ -1027,7 +967,7 @@ describe("StreamCreation", function () {
                 .approve(await fixture.contracts.streamFactory.getAddress(), ethers.parseEther("1100"));
 
             const now = Math.floor(Date.now() / 1000);
-            const createStreamMessage = {
+            const createStreamMessage: StreamTypes.CreateStreamMessageStruct = {
                 creator: fixture.accounts.creator.address,
                 streamOutAmount: ethers.parseEther("1000"),
                 inSupplyToken: await fixture.contracts.inSupplyToken.getAddress(),
@@ -1048,7 +988,8 @@ describe("StreamCreation", function () {
                     vestingDuration: 0,
                 },
                 poolInfo: {
-                    poolOutSupplyAmount: ethers.parseEther("100"),
+                    poolOutSupplyAmount: 0,
+                    dexType: 0,
                 },
                 tosVersion: "1.0",
             };
@@ -1071,7 +1012,7 @@ describe("StreamCreation", function () {
                 .approve(await fixture.contracts.streamFactory.getAddress(), ethers.parseEther("1100"));
 
             const now = Math.floor(Date.now() / 1000);
-            const createStreamMessage = {
+            const createStreamMessage: StreamTypes.CreateStreamMessageStruct = {
                 creator: fixture.accounts.creator.address,
                 streamOutAmount: ethers.parseEther("1000"),
                 inSupplyToken: await fixture.contracts.inSupplyToken.getAddress(),
@@ -1092,7 +1033,8 @@ describe("StreamCreation", function () {
                     vestingDuration: 0,
                 },
                 poolInfo: {
-                    poolOutSupplyAmount: ethers.parseEther("100"),
+                    poolOutSupplyAmount: 0,
+                    dexType: 0,
                 },
                 tosVersion: "1.0",
             };
@@ -1115,7 +1057,7 @@ describe("StreamCreation", function () {
                 .approve(await fixture.contracts.streamFactory.getAddress(), ethers.parseEther("1100"));
 
             const now = Math.floor(Date.now() / 1000);
-            const createStreamMessage = {
+            const createStreamMessage: StreamTypes.CreateStreamMessageStruct = {
                 creator: fixture.accounts.creator.address,
                 streamOutAmount: ethers.parseEther("1000"),
                 inSupplyToken: ethers.ZeroAddress, // Native token as input supply
@@ -1136,7 +1078,8 @@ describe("StreamCreation", function () {
                     vestingDuration: 0,
                 },
                 poolInfo: {
-                    poolOutSupplyAmount: ethers.parseEther("100"),
+                    poolOutSupplyAmount: 0,
+                    dexType: 0,
                 },
                 tosVersion: "1.0",
             };
@@ -1147,6 +1090,166 @@ describe("StreamCreation", function () {
                     value: ethers.parseEther("0.1"), // Native token fee
                 })
             ).to.emit(fixture.contracts.streamFactory, "StreamCreated");
+        });
+    });
+    describe("createStreamWithPool", function () {
+        it("should revert with PoolWrapperNotSet for V2 when wrappers are unset", async function () {
+            const fixture = await loadFixture(streamFactory().build());
+
+            const now = Math.floor(Date.now() / 1000);
+            const createStreamMessage: StreamTypes.CreateStreamMessageStruct = {
+                creator: fixture.accounts.creator.address,
+                streamOutAmount: ethers.parseEther("1000"),
+                inSupplyToken: await fixture.contracts.inSupplyToken.getAddress(),
+                outSupplyToken: await fixture.contracts.outSupplyToken.getAddress(),
+                bootstrappingStartTime: now + 3600,
+                streamStartTime: now + 7200,
+                streamEndTime: now + 10800,
+                threshold: ethers.parseEther("500"),
+                metadata: { ipfsHash: "QmTest123" },
+                creatorVesting: { isVestingEnabled: false, vestingDuration: 0 },
+                beneficiaryVesting: { isVestingEnabled: false, vestingDuration: 0 },
+                poolInfo: {
+                    poolOutSupplyAmount: ethers.parseEther("100"),
+                    dexType: 0,
+                },
+                tosVersion: "1.0",
+            };
+
+            // Approve out supply + pool amount just to avoid allowance-related reverts
+            await fixture.contracts.outSupplyToken
+                .connect(fixture.accounts.creator)
+                .approve(
+                    await fixture.contracts.streamFactory.getAddress(),
+                    ethers.toBigInt(createStreamMessage.streamOutAmount) +
+                    ethers.toBigInt(createStreamMessage.poolInfo.poolOutSupplyAmount),
+                );
+
+            await expect(
+                fixture.contracts.streamFactory.connect(fixture.accounts.creator).createStream(createStreamMessage)
+            ).to.be.revertedWithCustomError(fixture.contracts.streamFactory, "PoolWrapperNotSet");
+        });
+
+        it("should revert with PoolWrapperNotSet for V3 when wrappers are unset", async function () {
+            const fixture = await loadFixture(streamFactory().build());
+
+            const now = Math.floor(Date.now() / 1000);
+            const createStreamMessage: StreamTypes.CreateStreamMessageStruct = {
+                creator: fixture.accounts.creator.address,
+                streamOutAmount: ethers.parseEther("1000"),
+                inSupplyToken: await fixture.contracts.inSupplyToken.getAddress(),
+                outSupplyToken: await fixture.contracts.outSupplyToken.getAddress(),
+                bootstrappingStartTime: now + 3600,
+                streamStartTime: now + 7200,
+                streamEndTime: now + 10800,
+                threshold: ethers.parseEther("500"),
+                metadata: { ipfsHash: "QmTest123" },
+                creatorVesting: { isVestingEnabled: false, vestingDuration: 0 },
+                beneficiaryVesting: { isVestingEnabled: false, vestingDuration: 0 },
+                poolInfo: {
+                    poolOutSupplyAmount: ethers.parseEther("100"),
+                    dexType: 1,
+                },
+                tosVersion: "1.0",
+            };
+
+            // Approve out supply + pool amount just to avoid allowance-related reverts
+            await fixture.contracts.outSupplyToken
+                .connect(fixture.accounts.creator)
+                .approve(
+                    await fixture.contracts.streamFactory.getAddress(),
+                    ethers.toBigInt(createStreamMessage.streamOutAmount) +
+                    ethers.toBigInt(createStreamMessage.poolInfo.poolOutSupplyAmount),
+                );
+
+            await expect(
+                fixture.contracts.streamFactory.connect(fixture.accounts.creator).createStream(createStreamMessage)
+            ).to.be.revertedWithCustomError(fixture.contracts.streamFactory, "PoolWrapperNotSet");
+        });
+        it("should revert if pool out supply amount is not approved", async function () {
+            const fixture = await loadFixture(streamFactory().enablePoolCreation(true).build());
+
+            const now = Math.floor(Date.now() / 1000);
+            const createStreamMessage: StreamTypes.CreateStreamMessageStruct = {
+                creator: fixture.accounts.creator.address,
+                streamOutAmount: ethers.parseEther("1000"),
+                inSupplyToken: await fixture.contracts.inSupplyToken.getAddress(),
+                outSupplyToken: await fixture.contracts.outSupplyToken.getAddress(),
+                bootstrappingStartTime: now + 3600,
+                streamStartTime: now + 7200,
+                streamEndTime: now + 10800,
+                threshold: ethers.parseEther("500"),
+                metadata: {
+                    ipfsHash: "QmTest123",
+                },
+                creatorVesting: {
+                    isVestingEnabled: false,
+                    vestingDuration: 0,
+                },
+                beneficiaryVesting: {
+                    isVestingEnabled: false,
+                    vestingDuration: 0,
+                },
+                poolInfo: {
+                    poolOutSupplyAmount: ethers.parseEther("100"),
+                    dexType: 0,
+                },
+                tosVersion: "1.0",
+            };
+
+            // Approve only stream out amount
+            await fixture.contracts.outSupplyToken
+                .connect(fixture.accounts.creator)
+                .approve(await fixture.contracts.streamFactory.getAddress(), createStreamMessage.streamOutAmount);
+
+            await expect(
+                fixture.contracts.streamFactory.connect(fixture.accounts.creator).createStream(createStreamMessage)
+            ).to.be.reverted; // ERC20InsufficientAllowance error from OpenZeppelin
+        });
+
+        it("should revert if pool out supply amount is greater than stream out amount", async function () {
+            const fixture = await loadFixture(streamFactory().enablePoolCreation(true).build());
+
+            const now = Math.floor(Date.now() / 1000);
+            const createStreamMessage: StreamTypes.CreateStreamMessageStruct = {
+                creator: fixture.accounts.creator.address,
+                streamOutAmount: ethers.parseEther("1000"),
+                inSupplyToken: await fixture.contracts.inSupplyToken.getAddress(),
+                outSupplyToken: await fixture.contracts.outSupplyToken.getAddress(),
+                bootstrappingStartTime: now + 3600,
+                streamStartTime: now + 7200,
+                streamEndTime: now + 10800,
+                threshold: ethers.parseEther("500"),
+                metadata: {
+                    ipfsHash: "QmTest123",
+                },
+                creatorVesting: {
+                    isVestingEnabled: false,
+                    vestingDuration: 0,
+                },
+                beneficiaryVesting: {
+                    isVestingEnabled: false,
+                    vestingDuration: 0,
+                },
+                poolInfo: {
+                    poolOutSupplyAmount: ethers.parseEther("1001"),
+                    dexType: 0,
+                },
+                tosVersion: "1.0",
+            };
+
+            // Approve out supply token for the factory
+            await fixture.contracts.outSupplyToken
+                .connect(fixture.accounts.creator)
+                .approve(
+                    await fixture.contracts.streamFactory.getAddress(),
+                    ethers.toBigInt(createStreamMessage.streamOutAmount) +
+                    ethers.toBigInt(createStreamMessage.poolInfo.poolOutSupplyAmount),
+                );
+
+            await expect(
+                fixture.contracts.streamFactory.connect(fixture.accounts.creator).createStream(createStreamMessage)
+            ).to.be.revertedWithCustomError(fixture.contracts.streamImplementation, "InvalidPoolOutSupplyAmount");
         });
     });
 });

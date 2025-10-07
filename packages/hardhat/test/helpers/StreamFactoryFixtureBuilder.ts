@@ -14,8 +14,8 @@ export interface StreamFactoryFixture {
     inSupplyToken: ERC20Mock;
     outSupplyToken: ERC20Mock;
     feeToken: ERC20Mock;
-    v2PoolWrapper: PoolWrapper;
-    v3PoolWrapper: PoolWrapper;
+    v2PoolWrapper?: PoolWrapper;
+    v3PoolWrapper?: PoolWrapper;
   };
   accounts: {
     creator: HardhatEthersSigner;
@@ -44,6 +44,8 @@ export class StreamFactoryFixtureBuilder {
   private initialTokenSupply: bigint = ethers.parseEther("100000");
   private useNativeTokenFee: boolean = false;
   private useNativeInputToken: boolean = false;
+  private enablePoolCreationFlag: boolean = false;
+  private forkBlock?: number;
 
   // Method to set stream creation fee
   public fee(amount: bigint): StreamFactoryFixtureBuilder {
@@ -98,6 +100,18 @@ export class StreamFactoryFixtureBuilder {
     return this;
   }
 
+  // Enable pool creation on fork (deploy real wrappers)
+  public enablePoolCreation(enabled: boolean): StreamFactoryFixtureBuilder {
+    this.enablePoolCreationFlag = enabled;
+    return this;
+  }
+
+  // Optionally pin fork block
+  public forkAt(blockNumber?: number): StreamFactoryFixtureBuilder {
+    this.forkBlock = blockNumber;
+    return this;
+  }
+
   // Build method that returns the fixture function
   public build(): () => Promise<StreamFactoryFixture> {
     // Store the current configuration in variables that will be captured in the closure
@@ -114,14 +128,21 @@ export class StreamFactoryFixtureBuilder {
     const useNativeInputToken = this.useNativeInputToken;
 
     const initialSupply = this.initialTokenSupply;
+    const self = this;
 
     // Return the fixture function
     return async function deployFactoryFixture(): Promise<StreamFactoryFixture> {
       const [creator, feeCollector, protocolAdmin] = await ethers.getSigners();
 
       try {
-        // Enable mainnet fork (pool wrappers require real Uniswap contracts)
-        await enableMainnetFork();
+        // Only enable fork if pool creation is requested
+        if (self.enablePoolCreationFlag) {
+          await enableMainnetFork(self.forkBlock);
+        }
+        // Stabilize base fee to avoid EIP-1559 underpricing during deployments
+        try {
+          await ethers.provider.send("hardhat_setNextBlockBaseFeePerGas", ["0x0"]);
+        } catch { }
 
         // Deploy token contracts
         const InSupplyToken = await ethers.getContractFactory("ERC20Mock");
@@ -141,11 +162,19 @@ export class StreamFactoryFixtureBuilder {
         await outSupplyToken.mint(creator.address, initialSupply);
         await feeToken.mint(creator.address, ethers.parseEther("1000000000"));
 
-        // Deploy pool wrappers on fork (no mocks)
-        const { wrapperAddress: v2WrapperAddress } = await deployV2PoolWrapperFork();
-        const { wrapperAddress: v3WrapperAddress } = await deployV3PoolWrapperFork(3000);
-        const v2PoolWrapper = await ethers.getContractAt("PoolWrapper", v2WrapperAddress) as unknown as PoolWrapper;
-        const v3PoolWrapper = await ethers.getContractAt("PoolWrapper", v3WrapperAddress) as unknown as PoolWrapper;
+        // Optionally deploy pool wrappers on fork (no mocks)
+        let v2WrapperAddress = ethers.ZeroAddress;
+        let v3WrapperAddress = ethers.ZeroAddress;
+        let v2PoolWrapper: PoolWrapper | undefined = undefined;
+        let v3PoolWrapper: PoolWrapper | undefined = undefined;
+        if (self.enablePoolCreationFlag) {
+          const v2 = await deployV2PoolWrapperFork();
+          const v3 = await deployV3PoolWrapperFork(3000);
+          v2WrapperAddress = v2.wrapperAddress;
+          v3WrapperAddress = v3.wrapperAddress;
+          v2PoolWrapper = await ethers.getContractAt("PoolWrapper", v2WrapperAddress) as unknown as PoolWrapper;
+          v3PoolWrapper = await ethers.getContractAt("PoolWrapper", v3WrapperAddress) as unknown as PoolWrapper;
+        }
 
         // Deploy StreamFactory
         const StreamFactoryFactory = await ethers.getContractFactory("StreamFactory");
@@ -176,8 +205,8 @@ export class StreamFactoryFixtureBuilder {
           acceptedInSupplyTokens: useNativeInputToken ? [ethers.ZeroAddress] : [await inSupplyToken.getAddress()],
           streamImplementationAddress: await streamImplementation.getAddress(),
           tokenFactoryAddress: await tokenFactory.getAddress(),
-          V2PoolWrapperAddress: await v2PoolWrapper.getAddress(),
-          V3PoolWrapperAddress: await v3PoolWrapper.getAddress(),
+          V2PoolWrapperAddress: v2WrapperAddress,
+          V3PoolWrapperAddress: v3WrapperAddress,
         };
 
         // Initialize with proper error handling

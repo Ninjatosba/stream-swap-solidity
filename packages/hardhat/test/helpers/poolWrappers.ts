@@ -20,8 +20,9 @@ export interface V3WrapperFixtureResult {
 }
 
 export async function deployV2PoolWrapperFork(): Promise<V2WrapperFixtureResult> {
+    const gasOverrides = { maxFeePerGas: ethers.parseUnits("100", "gwei"), maxPriorityFeePerGas: ethers.parseUnits("1", "gwei") } as any;
     const Wrapper = await ethers.getContractFactory("V2PoolWrapper");
-    const wrapper = await Wrapper.deploy(V2_FACTORY, V2_ROUTER);
+    const wrapper = await Wrapper.deploy(V2_FACTORY, V2_ROUTER, gasOverrides);
     await wrapper.waitForDeployment();
 
     return {
@@ -32,8 +33,9 @@ export async function deployV2PoolWrapperFork(): Promise<V2WrapperFixtureResult>
 }
 
 export async function deployV3PoolWrapperFork(feeTier: number = 3000): Promise<V3WrapperFixtureResult> {
+    const gasOverrides = { maxFeePerGas: ethers.parseUnits("100", "gwei"), maxPriorityFeePerGas: ethers.parseUnits("1", "gwei") } as any;
     const Wrapper = await ethers.getContractFactory("V3PoolWrapper");
-    const wrapper = await Wrapper.deploy(V3_FACTORY, V3_POSITION_MANAGER, feeTier);
+    const wrapper = await Wrapper.deploy(V3_FACTORY, V3_POSITION_MANAGER, feeTier, gasOverrides);
     await wrapper.waitForDeployment();
 
     return {
