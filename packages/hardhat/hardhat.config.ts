@@ -17,12 +17,9 @@ import "./tasks/finalize-stream";
 import "./tasks/exit-stream";
 import "./tasks/withdraw";
 import "./tasks/get-stream-status";
-// If not set, it uses ours Alchemy's default API key.
-// You can get your own at https://dashboard.alchemyapi.io
-const providerApiKey = process.env.ALCHEMY_API_KEY;
-if (!providerApiKey) {
-  throw new Error("ALCHEMY_API_KEY environment variable is not set.");
-}
+
+// Optional Alchemy API key. Tests or networks that need it will check at runtime.
+const providerApiKey = process.env.ALCHEMY_API_KEY || "";
 
 // If not set, it uses the hardhat account 0 private key.
 // You can generate a random account with `yarn generate` or `yarn account:import` to import your existing PK
@@ -79,9 +76,10 @@ const config: HardhatUserConfig = {
     // View the networks that are pre-configured.
     // If the network you are looking for is not here you can add new network settings
     hardhat: {
+      // Forking is disabled by default; tests can enable via hardhat_reset
       forking: {
         url: `https://eth-mainnet.alchemyapi.io/v2/${providerApiKey}`,
-        enabled: process.env.MAINNET_FORKING_ENABLED === "true",
+        enabled: false,
         blockNumber: 19525330,
       },
       mining: {

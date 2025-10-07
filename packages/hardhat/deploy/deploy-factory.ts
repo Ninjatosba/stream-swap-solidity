@@ -105,7 +105,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     const StreamFactoryContract = await hre.ethers.getContractFactory("StreamFactory");
 
     // Prepare initialization message
-    const initMessage: StreamFactoryTypes.InitializeStreamMessageStruct = {
+    const initMessage: StreamFactoryTypes.InitializeStreamFactoryMessageStruct = {
       streamCreationFee: config.streamCreationFee,
       streamCreationFeeToken: config.streamCreationFeeToken,
       exitFeeRatio: config.ExitFeeRatio,
@@ -116,7 +116,8 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
       protocolAdmin: config.protocolAdmin,
       tosVersion: config.tosVersion,
       acceptedInSupplyTokens: config.acceptedInTokens,
-      poolWrapperAddress: poolWrapperAddress,
+      V2PoolWrapperAddress: poolWrapperAddress,
+      V3PoolWrapperAddress: poolWrapperAddress,
       streamImplementationAddress: streamImplementation.address,
       tokenFactoryAddress: tokenFactory.address,
     };

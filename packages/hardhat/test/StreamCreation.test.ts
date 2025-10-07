@@ -32,6 +32,7 @@ describe("StreamCreation", function () {
                 },
                 poolInfo: {
                     poolOutSupplyAmount: ethers.parseEther("100"),
+                    dexType: 0,
                 },
                 tosVersion: "1.0",
             };
@@ -84,6 +85,7 @@ describe("StreamCreation", function () {
                 },
                 poolInfo: {
                     poolOutSupplyAmount: 0,
+                    dexType: 0,
                 },
                 tosVersion: "1.0",
             };
@@ -131,6 +133,7 @@ describe("StreamCreation", function () {
                 },
                 poolInfo: {
                     poolOutSupplyAmount: ethers.parseEther("100"),
+                    dexType: 0,
                 },
                 tosVersion: "1.0",
             };
@@ -177,6 +180,7 @@ describe("StreamCreation", function () {
                 },
                 poolInfo: {
                     poolOutSupplyAmount: ethers.parseEther("100"),
+                    dexType: 0,
                 },
                 tosVersion: "1.0",
             };

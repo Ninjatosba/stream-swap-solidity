@@ -108,9 +108,6 @@ contract StreamFactory is IStreamFactoryEvents, IStreamFactoryErrors {
         if (initializeStreamFactoryMessage.streamImplementationAddress == address(0))
             revert InvalidStreamImplementationAddress();
 
-        if (initializeStreamFactoryMessage.V2PoolWrapperAddress == address(0)) revert InvalidPoolWrapper();
-        if (initializeStreamFactoryMessage.V3PoolWrapperAddress == address(0)) revert InvalidPoolWrapper();
-
         // Deploy vesting factory
         VestingFactory vestingFactory = new VestingFactory();
         emit VestingContractDeployed(address(this), address(vestingFactory));
@@ -254,6 +251,15 @@ contract StreamFactory is IStreamFactoryEvents, IStreamFactoryErrors {
         uint16 streamId = currentStreamId;
         currentStreamId++;
         streamAddresses[streamId] = address(stream);
+
+        // if pool out supply amount is greater than 0, check if the pool wrapper is valid
+        if (createStreamMessage.poolInfo.poolOutSupplyAmount > 0) {
+            if (createStreamMessage.poolInfo.dexType == StreamTypes.DexType.V2) {
+                if (params.V2PoolWrapperAddress == address(0)) revert PoolWrapperNotSet();
+            } else {
+                if (params.V3PoolWrapperAddress == address(0)) revert PoolWrapperNotSet();
+            }
+        }
 
         // Transfer output tokens to stream (output tokens cannot be native)
         uint256 totalOut = createStreamMessage.streamOutAmount + createStreamMessage.poolInfo.poolOutSupplyAmount;
