@@ -1,10 +1,7 @@
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { DeployFunction } from "hardhat-deploy/types";
-import {
-  createFactoryConfig,
-  createProductionFactoryConfig,
-} from "./config/factory-config";
-import { getDexConfig } from "./config/uniswap-config";
+import { createFactoryConfig, createProductionFactoryConfig } from "./config/factory-config";
+import { getDexConfig, DexConfigV2, DexConfigV3 } from "./config/uniswap-config";
 import { StreamFactoryTypes } from "../typechain-types/src/StreamFactory";
 import { StreamFactory } from "../typechain-types/src/StreamFactory";
 
@@ -40,22 +37,27 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const dexConfig = getDexConfig(environment);
   console.log(`Using DEX Type: ${dexConfig.type}`);
   console.log(`Using Factory: ${dexConfig.factory}`);
-  console.log(`Using Router: ${dexConfig.router}`);
+  if ((dexConfig as DexConfigV2).router) {
+    console.log(`Using Router: ${(dexConfig as DexConfigV2).router}`);
+  }
 
   // Deploy the appropriate PoolWrapper based on DEX type
   let poolWrapper;
-  if (dexConfig.type === "uniswap-v2") {
-    poolWrapper = await deploy("UniswapV2PoolWrapper", {
+  if (dexConfig.type === "uniswap-v3") {
+    const v3 = dexConfig as DexConfigV3;
+    poolWrapper = await deploy("UniswapV3PoolWrapper", {
       from: deployer,
-      args: [dexConfig.factory, dexConfig.router],
+      args: [v3.factory, v3.positionManager, v3.defaultFee],
       log: true,
       skipIfAlreadyDeployed: false,
       deterministicDeployment: false,
     });
-  } else if (dexConfig.type === "pancake") {
-    poolWrapper = await deploy("PancakePoolWrapper", {
+  } else if (dexConfig.type === "uniswap-v2" || dexConfig.type === "pancake") {
+    const v2 = dexConfig as DexConfigV2;
+    // Use unified V2-like wrapper for both UniswapV2 and Pancake
+    poolWrapper = await deploy("V2PoolWrapper", {
       from: deployer,
-      args: [dexConfig.factory, dexConfig.router],
+      args: [v2.factory, v2.router],
       log: true,
       skipIfAlreadyDeployed: false,
       deterministicDeployment: false,

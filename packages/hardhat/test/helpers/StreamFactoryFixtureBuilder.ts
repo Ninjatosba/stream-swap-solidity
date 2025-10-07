@@ -1,16 +1,7 @@
 // packages/hardhat/test/helpers/StreamFactoryFixtureBuilder.ts
 import { ethers } from "hardhat";
-import {
-  StreamFactory,
-  ERC20Mock,
-  Stream,
-  PoolWrapper,
-  IUniswapV2Factory,
-  IUniswapV2Router02,
-  MockUniswapV2Factory,
-  MockUniswapV2Router02,
-} from "../../typechain-types";
-import { DecimalStruct, } from "../../typechain-types/src/Stream";
+import { StreamFactory, ERC20Mock, Stream, PoolWrapper, MockUniswapV2Factory, MockUniswapV2Router02 } from "../../typechain-types";
+import { DecimalStruct } from "../../typechain-types/src/Stream";
 import { StreamFactoryTypes } from "../../typechain-types/src/StreamFactory";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 
@@ -157,8 +148,8 @@ export class StreamFactoryFixtureBuilder {
         );
         await uniswapV2Router.waitForDeployment();
 
-        // Deploy pool wrapper contract
-        const PoolWrapperFactory = await ethers.getContractFactory("UniswapV2PoolWrapper");
+        // Deploy pool wrapper contract (unified V2 wrapper)
+        const PoolWrapperFactory = await ethers.getContractFactory("V2PoolWrapper");
         const poolWrapper = await PoolWrapperFactory.deploy(
           await uniswapV2Factory.getAddress(),
           await uniswapV2Router.getAddress(),

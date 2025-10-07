@@ -1,6 +1,8 @@
 import { ethers } from "hardhat";
 import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
 import { Contract, TransactionRequest } from "ethers";
+import fs from "fs";
+import path from "path";
 import { DecimalStruct, StreamTypes } from "../../typechain-types/src/Stream";
 import { StreamFactoryTypes } from "../../typechain-types/src/StreamFactory";
 import { MockUniswapV2Factory, MockUniswapV2Router02 } from "../../typechain-types";
@@ -218,8 +220,6 @@ export class StreamFixtureBuilder {
         const PERMIT2_ADDRESS = "0x000000000022D473030F116dDEE9F6B43aC78BA3";
 
         // Read Permit2 bytecode from file
-        const fs = require("fs");
-        const path = require("path");
         const permit2BytecodePath = path.join(__dirname, "../../../../permit2_bytecode.txt");
         const permit2Bytecode = fs.readFileSync(permit2BytecodePath, "utf8").trim();
 
@@ -235,8 +235,8 @@ export class StreamFixtureBuilder {
         const uniswapV2Router = (await UniswapV2RouterFactory.deploy(uniswapV2FactoryAddress)) as unknown as MockUniswapV2Router02;
         const uniswapV2RouterAddress = await uniswapV2Router.getAddress();
 
-        // Deploy pool wrapper contract
-        const PoolWrapperFactory = await ethers.getContractFactory("UniswapV2PoolWrapper");
+        // Deploy pool wrapper contract (unified V2 wrapper)
+        const PoolWrapperFactory = await ethers.getContractFactory("V2PoolWrapper");
         const poolWrapper = await PoolWrapperFactory.deploy(uniswapV2FactoryAddress, uniswapV2RouterAddress);
         const poolWrapperAddress = await poolWrapper.getAddress();
 

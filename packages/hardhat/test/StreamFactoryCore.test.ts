@@ -49,7 +49,7 @@ describe("StreamFactoryCore", function () {
             const mockUniswapV2Router = await MockUniswapV2Router.deploy(await mockUniswapV2Factory.getAddress());
             await mockUniswapV2Router.waitForDeployment();
 
-            const PoolWrapper = await ethers.getContractFactory("UniswapV2PoolWrapper");
+            const PoolWrapper = await ethers.getContractFactory("V2PoolWrapper");
             poolWrapper = await PoolWrapper.deploy(await mockUniswapV2Factory.getAddress(), await mockUniswapV2Router.getAddress());
             await poolWrapper.waitForDeployment();
 
