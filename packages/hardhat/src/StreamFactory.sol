@@ -91,64 +91,67 @@ contract StreamFactory is IStreamFactoryEvents, IStreamFactoryErrors {
 
     /**
      * @dev Initializes the factory with the provided configuration
-     * @param initializeStreamMessage Factory initialization parameters
+     * @param initializeStreamFactoryMessage Factory initialization parameters
      * @notice This function can only be called once by the admin
      */
     function initialize(
-        StreamFactoryTypes.InitializeStreamMessage memory initializeStreamMessage
+        StreamFactoryTypes.InitializeStreamFactoryMessage memory initializeStreamFactoryMessage
     ) external onlyAdmin onlyOnce {
-        if (DecimalMath.gt(initializeStreamMessage.exitFeeRatio, DecimalMath.fromNumber(1)))
+        if (DecimalMath.gt(initializeStreamFactoryMessage.exitFeeRatio, DecimalMath.fromNumber(1)))
             revert InvalidExitFeeRatio();
 
-        if (initializeStreamMessage.acceptedInSupplyTokens.length == 0) revert InvalidAcceptedInSupplyTokens();
+        if (initializeStreamFactoryMessage.acceptedInSupplyTokens.length == 0) revert InvalidAcceptedInSupplyTokens();
 
         // Allow zero address for native token support
         // if (initializeStreamMessage.streamCreationFeeToken == address(0)) revert InvalidStreamCreationFeeToken();
 
-        if (initializeStreamMessage.streamImplementationAddress == address(0))
+        if (initializeStreamFactoryMessage.streamImplementationAddress == address(0))
             revert InvalidStreamImplementationAddress();
 
-        if (initializeStreamMessage.poolWrapperAddress == address(0)) revert InvalidPoolWrapper();
+        if (initializeStreamFactoryMessage.V2PoolWrapperAddress == address(0)) revert InvalidPoolWrapper();
+        if (initializeStreamFactoryMessage.V3PoolWrapperAddress == address(0)) revert InvalidPoolWrapper();
 
         // Deploy vesting factory
         VestingFactory vestingFactory = new VestingFactory();
         emit VestingContractDeployed(address(this), address(vestingFactory));
 
         // Set factory parameters
-        params.streamCreationFee = initializeStreamMessage.streamCreationFee;
-        params.streamCreationFeeToken = initializeStreamMessage.streamCreationFeeToken;
-        params.exitFeeRatio = initializeStreamMessage.exitFeeRatio;
-        params.minWaitingDuration = initializeStreamMessage.minWaitingDuration;
-        params.minBootstrappingDuration = initializeStreamMessage.minBootstrappingDuration;
-        params.minStreamDuration = initializeStreamMessage.minStreamDuration;
-        params.feeCollector = initializeStreamMessage.feeCollector;
-        params.tosVersion = initializeStreamMessage.tosVersion;
+        params.streamCreationFee = initializeStreamFactoryMessage.streamCreationFee;
+        params.streamCreationFeeToken = initializeStreamFactoryMessage.streamCreationFeeToken;
+        params.exitFeeRatio = initializeStreamFactoryMessage.exitFeeRatio;
+        params.minWaitingDuration = initializeStreamFactoryMessage.minWaitingDuration;
+        params.minBootstrappingDuration = initializeStreamFactoryMessage.minBootstrappingDuration;
+        params.minStreamDuration = initializeStreamFactoryMessage.minStreamDuration;
+        params.feeCollector = initializeStreamFactoryMessage.feeCollector;
+        params.tosVersion = initializeStreamFactoryMessage.tosVersion;
         params.vestingFactoryAddress = address(vestingFactory);
-        params.poolWrapperAddress = initializeStreamMessage.poolWrapperAddress;
-        params.streamImplementationAddress = initializeStreamMessage.streamImplementationAddress;
-        params.tokenFactoryAddress = initializeStreamMessage.tokenFactoryAddress;
+        params.V2PoolWrapperAddress = initializeStreamFactoryMessage.V2PoolWrapperAddress;
+        params.V3PoolWrapperAddress = initializeStreamFactoryMessage.V3PoolWrapperAddress;
+        params.streamImplementationAddress = initializeStreamFactoryMessage.streamImplementationAddress;
+        params.tokenFactoryAddress = initializeStreamFactoryMessage.tokenFactoryAddress;
         
         // Set accepted tokens (including zero address for native token)
-        for (uint256 i = 0; i < initializeStreamMessage.acceptedInSupplyTokens.length; i++) {
+        for (uint256 i = 0; i < initializeStreamFactoryMessage.acceptedInSupplyTokens.length; i++) {
             // Allow zero address for native token support
             // if (initializeStreamMessage.acceptedInSupplyTokens[i] == address(0)) revert InvalidAcceptedInSupplyTokens();
-            acceptedInSupplyTokens[initializeStreamMessage.acceptedInSupplyTokens[i]] = true;
+            acceptedInSupplyTokens[initializeStreamFactoryMessage.acceptedInSupplyTokens[i]] = true;
         }
 
         emit FactoryInitialized(
             address(this),
-            initializeStreamMessage.streamImplementationAddress,
-            initializeStreamMessage.poolWrapperAddress,
-            initializeStreamMessage.feeCollector,
-            initializeStreamMessage.protocolAdmin,
-            initializeStreamMessage.streamCreationFeeToken,
-            initializeStreamMessage.acceptedInSupplyTokens,
-            initializeStreamMessage.streamCreationFee,
-            initializeStreamMessage.exitFeeRatio.value,
-            initializeStreamMessage.minWaitingDuration,
-            initializeStreamMessage.minBootstrappingDuration,
-            initializeStreamMessage.minStreamDuration,
-            initializeStreamMessage.tosVersion,
+            initializeStreamFactoryMessage.streamImplementationAddress,
+            initializeStreamFactoryMessage.V2PoolWrapperAddress,
+            initializeStreamFactoryMessage.V3PoolWrapperAddress,
+            initializeStreamFactoryMessage.feeCollector,
+            initializeStreamFactoryMessage.protocolAdmin,
+            initializeStreamFactoryMessage.streamCreationFeeToken,
+            initializeStreamFactoryMessage.acceptedInSupplyTokens,
+            initializeStreamFactoryMessage.streamCreationFee,
+            initializeStreamFactoryMessage.exitFeeRatio.value,
+            initializeStreamFactoryMessage.minWaitingDuration,
+            initializeStreamFactoryMessage.minBootstrappingDuration,
+            initializeStreamFactoryMessage.minStreamDuration,
+            initializeStreamFactoryMessage.tosVersion,
             address(vestingFactory)
         );
     }
@@ -423,12 +426,13 @@ contract StreamFactory is IStreamFactoryEvents, IStreamFactoryErrors {
 
     /**
      * @dev Updates the pool wrapper address
-     * @param poolWrapper New pool wrapper address
+     * @param V2PoolWrapperAddress New V2 pool wrapper address
+     * @param V3PoolWrapperAddress New V3 pool wrapper address
      */
-    function updatePoolWrapper(address poolWrapper) external onlyAdmin {
-        if (poolWrapper == address(0)) revert InvalidPoolWrapper();
-        params.poolWrapperAddress = poolWrapper;
-        emit PoolWrapperUpdated(address(this), poolWrapper);
+    function updatePoolWrapper(address V2PoolWrapperAddress, address V3PoolWrapperAddress) external onlyAdmin {
+        params.V2PoolWrapperAddress = V2PoolWrapperAddress;
+        params.V3PoolWrapperAddress = V3PoolWrapperAddress;
+        emit PoolWrapperUpdated(address(this), V2PoolWrapperAddress, V3PoolWrapperAddress);
     }
 
     /**
