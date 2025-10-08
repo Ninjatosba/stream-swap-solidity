@@ -219,20 +219,14 @@ describe("Stream Finalize", function () {
         .withArgs(contracts.stream.getAddress(), accounts.creator.address, expectedCreatorRevenue, fee, 0n);
     });
 
-    it("Should handle finalize with both vesting and pool creation", async function () {
-      const { contracts, timeParams, accounts, config } = await loadFixture(
+    it("Should handle finalize with creator vesting", async function () {
+      const { contracts, timeParams, accounts } = await loadFixture(
         stream()
           .creatorVesting(3600)
-          .poolOutSupply(ethers.parseEther("25"))
           .streamOut(ethers.parseEther("100"))
           .setThreshold(ethers.parseEther("100"))
-          .enablePoolCreation(true)
           .build()
       );
-      // poolOutRatio = 1 / 4
-      // This means generated 1/4 of generated revenue from the stream will be used to create the pool
-      let poolOutRatio = 1 / 4;
-      let exitFeeRatio = await contracts.streamFactory.getParams().then(params => params.exitFeeRatio);
 
       // Fast forward time to stream start
       await ethers.provider.send("evm_setNextBlockTimestamp", [timeParams.streamStartTime + 1]);
@@ -257,7 +251,7 @@ describe("Stream Finalize", function () {
       const tx2 = await contracts.stream.syncStreamExternal();
       await tx2.wait();
 
-      // Finalize with both vesting and pool creation
+      // Finalize with vesting
       const finalizeTx = await contracts.stream.connect(accounts.creator).finalizeStream();
       const receipt = await finalizeTx.wait();
 
@@ -298,18 +292,63 @@ describe("Stream Finalize", function () {
       const vestingWalletBalance = await contracts.inSupplyToken.balanceOf(vestingWalletAddress);
       expect(vestingWalletBalance).to.be.gt(0);
 
+      // Verify finalization was successful
+      const status = await contracts.stream.getStreamStatus();
+      expect(status).to.equal(5); // FinalizedStreamed
+    });
+
+    it("Should handle finalize with Pool V2 creation", async function () {
+      const { contracts, timeParams, accounts } = await loadFixture(
+        stream()
+          .poolOutSupply(ethers.parseEther("25"))
+          .streamOut(ethers.parseEther("100"))
+          .setThreshold(ethers.parseEther("100"))
+          .enablePoolCreation(true)
+          .dex("v2")
+          .build()
+      );
+      // poolOutRatio = 1 / 4
+      // This means 1/4 of generated revenue from the stream will be used to create the pool
+      let poolOutRatio = 1 / 4;
+      let exitFeeRatio = await contracts.streamFactory.getParams().then((params: any) => params.exitFeeRatio);
+
+      // Fast forward time to stream start
+      await ethers.provider.send("evm_setNextBlockTimestamp", [timeParams.streamStartTime + 1]);
+      await ethers.provider.send("evm_mine", []);
+
+      // Sync the stream
+      const tx = await contracts.stream.syncStreamExternal();
+      await tx.wait();
+
+      // Subscribe to reach threshold
+      const subscriptionAmount = ethers.parseEther("100");
+      await contracts.inSupplyToken
+        .connect(accounts.subscriber1)
+        .approve(contracts.stream.getAddress(), subscriptionAmount);
+      await contracts.stream.connect(accounts.subscriber1).subscribe(subscriptionAmount);
+
+      // Fast forward time to stream end
+      await ethers.provider.send("evm_setNextBlockTimestamp", [timeParams.streamEndTime + 1]);
+      await ethers.provider.send("evm_mine", []);
+
+      // Sync the stream
+      const tx2 = await contracts.stream.syncStreamExternal();
+      await tx2.wait();
+
+      // Finalize with pool creation
+      const finalizeTx = await contracts.stream.connect(accounts.creator).finalizeStream();
+      const receipt = await finalizeTx.wait();
+
       // Query logs from PoolWrapper contract for PoolCreated event
       const poolWrapperInterface = new ethers.Interface([
         "event PoolCreated(address indexed stream, address indexed pool, address indexed poolWrapper, address token0, address token1, uint256 token0Amount, uint256 token1Amount)"
       ]);
 
-      // Get logs from PoolWrapper contract (pick the active wrapper)
+      // Get logs from V2 PoolWrapper contract
       const poolEventTopic = ethers.id("PoolCreated(address,address,address,address,address,uint256,uint256)");
-      const activeWrapperAddress = contracts.v2PoolWrapper
-        ? await contracts.v2PoolWrapper.getAddress()
-        : await contracts.v3PoolWrapper!.getAddress();
+      const v2WrapperAddress = await contracts.v2PoolWrapper!.getAddress();
       const poolLogs = await ethers.provider.getLogs({
-        address: activeWrapperAddress,
+        address: v2WrapperAddress,
         fromBlock: receipt?.blockNumber,
         toBlock: receipt?.blockNumber,
         topics: [poolEventTopic]
@@ -321,7 +360,7 @@ describe("Stream Finalize", function () {
       // Parse the pool event
       const poolEvent = poolWrapperInterface.parseLog(poolLogs[0]);
       expect(poolEvent?.args?.stream).to.equal(await contracts.stream.getAddress());
-      expect(poolEvent?.args?.poolWrapper).to.equal(activeWrapperAddress);
+      expect(poolEvent?.args?.poolWrapper).to.equal(v2WrapperAddress);
       expect(poolEvent?.args?.token0).to.equal(await contracts.inSupplyToken.getAddress());
       expect(poolEvent?.args?.token1).to.equal(await contracts.outSupplyToken.getAddress());
 
@@ -331,6 +370,94 @@ describe("Stream Finalize", function () {
 
       expect(poolEvent?.args?.token0Amount).to.equal(expectedPoolInAmount);
       expect(poolEvent?.args?.token1Amount).to.equal(ethers.parseEther("25")); // poolOutSupplyAmount
+
+      // Get pool address
+      const poolAddress = poolEvent?.args?.pool;
+      expect(poolAddress).to.not.be.equal(ethers.ZeroAddress);
+
+      // Verify finalization was successful
+      const status = await contracts.stream.getStreamStatus();
+      expect(status).to.equal(5); // FinalizedStreamed
+    });
+
+    it("Should handle finalize with Pool V3 creation", async function () {
+      const { contracts, timeParams, accounts } = await loadFixture(
+        stream()
+          .poolOutSupply(ethers.parseEther("25"))
+          .streamOut(ethers.parseEther("100"))
+          .setThreshold(ethers.parseEther("100"))
+          .enablePoolCreation(true)
+          .dex("v3")
+          .build()
+      );
+      // poolOutRatio = 1 / 4
+      // This means 1/4 of generated revenue from the stream will be used to create the pool
+      let poolOutRatio = 1 / 4;
+      let exitFeeRatio = await contracts.streamFactory.getParams().then((params: any) => params.exitFeeRatio);
+
+      // Fast forward time to stream start
+      await ethers.provider.send("evm_setNextBlockTimestamp", [timeParams.streamStartTime + 1]);
+      await ethers.provider.send("evm_mine", []);
+
+      // Sync the stream
+      const tx = await contracts.stream.syncStreamExternal();
+      await tx.wait();
+
+      // Subscribe to reach threshold
+      const subscriptionAmount = ethers.parseEther("100");
+      await contracts.inSupplyToken
+        .connect(accounts.subscriber1)
+        .approve(contracts.stream.getAddress(), subscriptionAmount);
+      await contracts.stream.connect(accounts.subscriber1).subscribe(subscriptionAmount);
+
+      // Fast forward time to stream end
+      await ethers.provider.send("evm_setNextBlockTimestamp", [timeParams.streamEndTime + 1]);
+      await ethers.provider.send("evm_mine", []);
+
+      // Sync the stream
+      const tx2 = await contracts.stream.syncStreamExternal();
+      await tx2.wait();
+
+      // Finalize with pool creation
+      const finalizeTx = await contracts.stream.connect(accounts.creator).finalizeStream();
+      const receipt = await finalizeTx.wait();
+
+      // Query logs from PoolWrapper contract for PoolCreated event
+      const poolWrapperInterface = new ethers.Interface([
+        "event PoolCreated(address indexed stream, address indexed pool, address indexed poolWrapper, address token0, address token1, uint256 token0Amount, uint256 token1Amount)"
+      ]);
+
+      // Get logs from V3 PoolWrapper contract
+      const poolEventTopic = ethers.id("PoolCreated(address,address,address,address,address,uint256,uint256)");
+      const v3WrapperAddress = await contracts.v3PoolWrapper!.getAddress();
+      const poolLogs = await ethers.provider.getLogs({
+        address: v3WrapperAddress,
+        fromBlock: receipt?.blockNumber,
+        toBlock: receipt?.blockNumber,
+        topics: [poolEventTopic]
+      });
+
+      // Should have one PoolCreated event
+      expect(poolLogs.length).to.equal(1);
+
+      // Parse the pool event
+      const poolEvent = poolWrapperInterface.parseLog(poolLogs[0]);
+      expect(poolEvent?.args?.stream).to.equal(await contracts.stream.getAddress());
+      expect(poolEvent?.args?.poolWrapper).to.equal(v3WrapperAddress);
+      expect(poolEvent?.args?.token0).to.equal(await contracts.inSupplyToken.getAddress());
+      expect(poolEvent?.args?.token1).to.equal(await contracts.outSupplyToken.getAddress());
+
+      // Calculate expected values
+      const revenue = subscriptionAmount - (subscriptionAmount * exitFeeRatio.value / BigInt(1e6));
+      const expectedPoolInAmount = revenue * BigInt(Math.floor(poolOutRatio * 1e6)) / BigInt(1e6);
+
+      expect(poolEvent?.args?.token0Amount).to.equal(expectedPoolInAmount);
+      // V3 pools may not use the full desired amount due to price precision
+      // Verify it's close to the expected amount (within 20%)
+      const actualToken1Amount = poolEvent?.args?.token1Amount;
+      const expectedToken1Amount = ethers.parseEther("25");
+      expect(actualToken1Amount).to.be.gt(ethers.parseEther("20")); // At least 80% used
+      expect(actualToken1Amount).to.be.lte(expectedToken1Amount); // Not more than desired
 
       // Get pool address
       const poolAddress = poolEvent?.args?.pool;
