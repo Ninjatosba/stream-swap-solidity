@@ -148,7 +148,7 @@ describe("TokenCreationWithStream", function () {
         });
 
         it("Should emit TokenCreated event with correct parameters", async function () {
-            const fixture = await loadFixture(streamFactory().enablePoolCreation(true).build());
+            const fixture = await loadFixture(streamFactory().build());
 
             const now = Math.floor(Date.now() / 1000);
             const totalSupply = ethers.parseEther("5000000");
@@ -165,7 +165,7 @@ describe("TokenCreationWithStream", function () {
                 metadata: { ipfsHash: "QmTest123" },
                 creatorVesting: { isVestingEnabled: false, vestingDuration: 0 },
                 beneficiaryVesting: { isVestingEnabled: false, vestingDuration: 0 },
-                poolInfo: { poolOutSupplyAmount: ethers.parseEther("100000"), dexType: 0 },
+                poolInfo: { poolOutSupplyAmount: ethers.parseEther("0"), dexType: 0 },
                 tosVersion: "1.0",
             };
 

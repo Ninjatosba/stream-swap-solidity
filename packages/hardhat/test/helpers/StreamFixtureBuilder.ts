@@ -5,7 +5,7 @@ import fs from "fs";
 import path from "path";
 import { DecimalStruct, StreamTypes } from "../../typechain-types/src/Stream";
 import { StreamFactoryTypes } from "../../typechain-types/src/StreamFactory";
-import { enableMainnetFork } from "./fork";
+import { disableFork, enableMainnetFork } from "./fork";
 import { deployV2PoolWrapperFork, deployV3PoolWrapperFork } from "./poolWrappers";
 
 // Configuration interfaces
@@ -210,7 +210,7 @@ export class StreamFixtureBuilder {
         if (self.enablePoolCreationFlag) {
           await enableMainnetFork(self.forkBlock);
         } else {
-          await ethers.provider.send("hardhat_reset", []);
+          await disableFork();
         }
         // Stabilize base fee to avoid EIP-1559 underpricing during deployments
         try {

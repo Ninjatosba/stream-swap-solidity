@@ -14,4 +14,9 @@ export async function enableMainnetFork(blockNumber?: number) {
     ]);
 }
 
+export async function disableFork() {
+    await ethers.provider.send("hardhat_reset", [{}]);
+}
+
+
 

@@ -861,7 +861,9 @@ describe("StreamCreation", function () {
                 .connect(fixture.accounts.creator)
                 .approve(await fixture.contracts.streamFactory.getAddress(), ethers.parseEther("1000"));
 
-            const now = Math.floor(Date.now() / 1000);
+            const currentBlock = await ethers.provider.getBlock("latest");
+            if (!currentBlock) throw new Error("Failed to get current block");
+            const now = currentBlock.timestamp;
 
             // 1. Waiting duration below minimum (others valid)
             let createStreamMessage: StreamTypes.CreateStreamMessageStruct = {
@@ -1093,6 +1095,8 @@ describe("StreamCreation", function () {
         });
     });
     describe("createStreamWithPool", function () {
+
+
         it("should revert with PoolWrapperNotSet for V2 when wrappers are unset", async function () {
             const fixture = await loadFixture(streamFactory().build());
 

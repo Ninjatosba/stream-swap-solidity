@@ -4,7 +4,7 @@ import { StreamFactory, ERC20Mock, Stream, PoolWrapper } from "../../typechain-t
 import { DecimalStruct } from "../../typechain-types/src/Stream";
 import { StreamFactoryTypes } from "../../typechain-types/src/StreamFactory";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
-import { enableMainnetFork } from "./fork";
+import { disableFork, enableMainnetFork } from "./fork";
 import { deployV2PoolWrapperFork, deployV3PoolWrapperFork } from "./poolWrappers";
 
 export interface StreamFactoryFixture {
@@ -139,6 +139,9 @@ export class StreamFactoryFixtureBuilder {
         if (self.enablePoolCreationFlag) {
           await enableMainnetFork(self.forkBlock);
         }
+        else {
+          await disableFork();
+        }
         // Stabilize base fee to avoid EIP-1559 underpricing during deployments
         try {
           await ethers.provider.send("hardhat_setNextBlockBaseFeePerGas", ["0x0"]);
@@ -175,6 +178,7 @@ export class StreamFactoryFixtureBuilder {
           v2PoolWrapper = await ethers.getContractAt("PoolWrapper", v2WrapperAddress) as unknown as PoolWrapper;
           v3PoolWrapper = await ethers.getContractAt("PoolWrapper", v3WrapperAddress) as unknown as PoolWrapper;
         }
+
 
         // Deploy StreamFactory
         const StreamFactoryFactory = await ethers.getContractFactory("StreamFactory");

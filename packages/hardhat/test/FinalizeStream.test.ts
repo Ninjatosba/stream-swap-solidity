@@ -14,6 +14,11 @@ enum Status {
 }
 
 describe("Stream Finalize", function () {
+  after(async function () {
+    // Reset network back to local (non-fork) mode
+    await ethers.provider.send("hardhat_reset", [{}]);
+  });
+
   describe("Finalize with Threshold Reached", function () {
     it("Should finalize stream and collect fees when threshold is reached", async function () {
       const exitFeeRatio = 20000;

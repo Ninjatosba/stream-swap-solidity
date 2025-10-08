@@ -12,6 +12,7 @@ describe("PositionStorage", function () {
     let streamContract: any;
 
     beforeEach(async function () {
+        await ethers.provider.send("hardhat_reset", [{}]);
         [owner, user1, user2, streamContract] = await ethers.getSigners();
 
         // Deploy DecimalMath first
@@ -21,6 +22,8 @@ describe("PositionStorage", function () {
         // Deploy PositionStorage with stream contract address
         const PositionStorageFactory = await ethers.getContractFactory("PositionStorage");
         positionStorage = await PositionStorageFactory.deploy(streamContract.address);
+
+        // reset hardhat
     });
 
     describe("Constructor", function () {

@@ -1,277 +1,169 @@
-// import { expect } from "chai";
-// import { ethers } from "hardhat";
-// import {
-//     PoolWrapper,
-//     ERC20Mock,
-//     MockUniswapV2Factory,
-//     MockUniswapV2Router02
-// } from "../typechain-types";
-// import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
+import { expect } from "chai";
+import { ethers } from "hardhat";
+import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
+import { enableMainnetFork } from "./helpers/fork";
+import { deployV2PoolWrapperFork, deployV3PoolWrapperFork } from "./helpers/poolWrappers";
 
-// describe("PoolWrapper", function () {
-//     let owner: SignerWithAddress;
-//     let other: SignerWithAddress;
-//     let token0: ERC20Mock;
-//     let token1: ERC20Mock;
-//     let uniswapFactory: MockUniswapV2Factory;
-//     let uniswapRouter: MockUniswapV2Router02;
-//     let poolWrapper: PoolWrapper;
+describe("PoolWrapper (fork)", function () {
+    async function poolFixture() {
+        // Enable fork and stabilize base fee
+        await enableMainnetFork();
 
-//     beforeEach(async function () {
-//         [owner, other] = await ethers.getSigners();
-//         // Deploy mock tokens
-//         const ERC20MockFactory = await ethers.getContractFactory("ERC20Mock");
-//         token0 = await ERC20MockFactory.deploy("Token0", "TK0") as ERC20Mock;
-//         token1 = await ERC20MockFactory.deploy("Token1", "TK1") as ERC20Mock;
-//         await token0.waitForDeployment();
-//         await token1.waitForDeployment();
-//         // Deploy mock Uniswap contracts
-//         const FactoryFactory = await ethers.getContractFactory("MockUniswapV2Factory");
-//         uniswapFactory = await FactoryFactory.deploy() as MockUniswapV2Factory;
-//         await uniswapFactory.waitForDeployment();
-//         const RouterFactory = await ethers.getContractFactory("MockUniswapV2Router02");
-//         uniswapRouter = await RouterFactory.deploy(await uniswapFactory.getAddress()) as MockUniswapV2Router02;
-//         await uniswapRouter.waitForDeployment();
-//         // Deploy PoolWrapper
-//         const PoolWrapperFactory = await ethers.getContractFactory("UniswapV2PoolWrapper");
-//         poolWrapper = await PoolWrapperFactory.deploy(
-//             await uniswapFactory.getAddress(),
-//             await uniswapRouter.getAddress()
-//         ) as PoolWrapper;
-//         await poolWrapper.waitForDeployment();
-//     });
+        const [deployer, liquidityProvider, other] = await ethers.getSigners();
 
-//     describe("constructor", function () {
-//         it("should revert if factory is zero address", async function () {
-//             const PoolWrapperFactory = await ethers.getContractFactory("UniswapV2PoolWrapper");
-//             await expect(PoolWrapperFactory.deploy(ethers.ZeroAddress, await uniswapRouter.getAddress())).to.be.revertedWithCustomError(
-//                 poolWrapper,
-//                 "InvalidAddress"
-//             );
-//         });
-//         it("should revert if router is zero address", async function () {
-//             const PoolWrapperFactory = await ethers.getContractFactory("UniswapV2PoolWrapper");
-//             await expect(PoolWrapperFactory.deploy(await uniswapFactory.getAddress(), ethers.ZeroAddress)).to.be.revertedWithCustomError(
-//                 poolWrapper,
-//                 "InvalidAddress"
-//             );
-//         });
-//         it("should deploy with valid addresses", async function () {
-//             const PoolWrapperFactory = await ethers.getContractFactory("UniswapV2PoolWrapper");
-//             const wrapper = await PoolWrapperFactory.deploy(await uniswapFactory.getAddress(), await uniswapRouter.getAddress());
-//             await wrapper.waitForDeployment();
-//             expect(await wrapper.UNISWAP_V2_FACTORY()).to.equal(await uniswapFactory.getAddress());
-//             expect(await wrapper.UNISWAP_V2_ROUTER()).to.equal(await uniswapRouter.getAddress());
-//         });
-//     });
+        // Deploy two local ERC20 mocks to act as tokens
+        const ERC20Mock = await ethers.getContractFactory("ERC20Mock");
+        const tokenA = await ERC20Mock.deploy("TokenA", "TKA");
+        const tokenB = await ERC20Mock.deploy("TokenB", "TKB");
+        await tokenA.waitForDeployment();
+        await tokenB.waitForDeployment();
 
-//     describe("createPool", function () {
-//         const amount0 = ethers.parseEther("1000");
-//         const amount1 = ethers.parseEther("1000");
+        // Deploy wrappers pointing to canonical mainnet contracts
+        const v2 = await deployV2PoolWrapperFork();
+        const v3 = await deployV3PoolWrapperFork(3000);
 
-//         beforeEach(async function () {
-//             // Mint tokens to PoolWrapper
-//             await token0.mint(await poolWrapper.getAddress(), amount0);
-//             await token1.mint(await poolWrapper.getAddress(), amount1);
-//         });
+        const v2Wrapper = await ethers.getContractAt("V2PoolWrapper", v2.wrapperAddress);
+        const v3Wrapper = await ethers.getContractAt("V3PoolWrapper", v3.wrapperAddress);
 
-//         it("should revert if token0 is zero address", async function () {
-//             const createPoolMsg = {
-//                 token0: ethers.ZeroAddress,
-//                 token1: await token1.getAddress(),
-//                 amount0,
-//                 amount1
-//             };
+        // Pre-fund wrappers with tokens so tests don't mint each time
+        const baseAmount = ethers.parseEther("1000");
+        await tokenA.mint(await v2Wrapper.getAddress(), baseAmount);
+        await tokenB.mint(await v2Wrapper.getAddress(), baseAmount);
+        await tokenA.mint(await v3Wrapper.getAddress(), baseAmount);
+        await tokenB.mint(await v3Wrapper.getAddress(), baseAmount);
 
-//             await expect(
-//                 poolWrapper.createPool(createPoolMsg)
-//             ).to.be.revertedWithCustomError(poolWrapper, "InvalidAddress");
-//         });
-//         it("should revert if token1 is zero address", async function () {
-//             const createPoolMsg = {
-//                 token0: await token0.getAddress(),
-//                 token1: ethers.ZeroAddress,
-//                 amount0,
-//                 amount1
-//             };
+        return {
+            accounts: { deployer, liquidityProvider, other },
+            tokens: { tokenA, tokenB },
+            v2: { wrapper: v2Wrapper, factory: v2.factoryAddress, router: v2.routerAddress },
+            v3: { wrapper: v3Wrapper, factory: v3.factoryAddress, positionManager: v3.positionManagerAddress, fee: v3.feeTier },
+            balances: { baseAmount },
+        };
+    }
 
-//             await expect(
-//                 poolWrapper.createPool(createPoolMsg)
-//             ).to.be.revertedWithCustomError(poolWrapper, "InvalidAddress");
-//         });
-//         it("should revert if token0 == token1", async function () {
-//             const createPoolMsg = {
-//                 token0: await token0.getAddress(),
-//                 token1: await token0.getAddress(),
-//                 amount0,
-//                 amount1
-//             };
+    describe("V2", function () {
+        it("creates a new pool and adds liquidity", async function () {
+            const { tokens, v2, accounts } = await loadFixture(poolFixture);
 
-//             await expect(
-//                 poolWrapper.createPool(createPoolMsg)
-//             ).to.be.revertedWithCustomError(poolWrapper, "DifferentTokensRequired");
-//         });
-//         it("should revert if amount0 is zero", async function () {
-//             const createPoolMsg = {
-//                 token0: await token0.getAddress(),
-//                 token1: await token1.getAddress(),
-//                 amount0: 0n,
-//                 amount1
-//             };
+            const amount0 = ethers.parseEther("10");
+            const amount1 = ethers.parseEther("10");
 
-//             await expect(
-//                 poolWrapper.createPool(createPoolMsg)
-//             ).to.be.revertedWithCustomError(poolWrapper, "InvalidAmount");
-//         });
-//         it("should revert if amount1 is zero", async function () {
-//             const createPoolMsg = {
-//                 token0: await token0.getAddress(),
-//                 token1: await token1.getAddress(),
-//                 amount0,
-//                 amount1: 0n
-//             };
+            const createPoolMsg = {
+                token0: await tokens.tokenA.getAddress(),
+                token1: await tokens.tokenB.getAddress(),
+                amount0,
+                amount1,
+            };
 
-//             await expect(
-//                 poolWrapper.createPool(createPoolMsg)
-//             ).to.be.revertedWithCustomError(poolWrapper, "InvalidAmount");
-//         });
-//         it("should revert if contract has insufficient token0 balance", async function () {
-//             const createPoolMsg = {
-//                 token0: await token0.getAddress(),
-//                 token1: await token1.getAddress(),
-//                 amount0: amount0 + 1n,
-//                 amount1
-//             };
+            const tx = await v2.wrapper.connect(accounts.liquidityProvider).createPool(createPoolMsg);
+            const receipt = await tx.wait();
 
-//             await expect(
-//                 poolWrapper.createPool(createPoolMsg)
-//             ).to.be.revertedWithCustomError(poolWrapper, "InsufficientBalance");
-//         });
-//         it("should revert if contract has insufficient token1 balance", async function () {
-//             const createPoolMsg = {
-//                 token0: await token0.getAddress(),
-//                 token1: await token1.getAddress(),
-//                 amount0,
-//                 amount1: amount1 + 1n
-//             };
+            // Read PoolCreated event generically
+            const iface = new ethers.Interface([
+                "event PoolCreated(address indexed stream, address indexed pool, address indexed poolWrapper, address token0, address token1, uint256 token0Amount, uint256 token1Amount)",
+            ]);
+            const topic = ethers.id("PoolCreated(address,address,address,address,address,uint256,uint256)");
+            const ev = receipt?.logs.find((l: any) => l.topics[0] === topic);
+            expect(ev).to.not.be.undefined;
+            const parsed = iface.parseLog(ev!);
 
-//             await expect(
-//                 poolWrapper.createPool(createPoolMsg)
-//             ).to.be.revertedWithCustomError(poolWrapper, "InsufficientBalance");
-//         });
-//         it("should create pool and emit event", async function () {
-//             const createPoolMsg = {
-//                 token0: await token0.getAddress(),
-//                 token1: await token1.getAddress(),
-//                 amount0,
-//                 amount1
-//             };
+            const poolAddress = parsed!.args.pool as string;
+            expect(poolAddress).to.not.equal(ethers.ZeroAddress);
 
-//             // Execute the transaction first
-//             const tx = await poolWrapper.createPool(createPoolMsg);
+            // Verify tokens actually moved into the pair contract
+            const balA = await tokens.tokenA.balanceOf(poolAddress);
+            const balB = await tokens.tokenB.balanceOf(poolAddress);
+            expect(balA).to.be.gt(0);
+            expect(balB).to.be.gt(0);
+        });
 
-//             // Get the pool address after the transaction is executed
-//             const poolAddress = await uniswapFactory.getPair(await token0.getAddress(), await token1.getAddress());
+        it("reuses existing pool on subsequent calls", async function () {
+            const { tokens, v2, accounts } = await loadFixture(poolFixture);
 
-//             // Check the event from the transaction receipt
-//             await expect(tx)
-//                 .to.emit(poolWrapper, "PoolCreated")
-//                 .withArgs(
-//                     owner.address,
-//                     poolAddress,
-//                     await poolWrapper.getAddress(),
-//                     await token0.getAddress(),
-//                     await token1.getAddress(),
-//                     amount0,
-//                     amount1
-//                 );
+            const amount0 = ethers.parseEther("5");
+            const amount1 = ethers.parseEther("5");
 
-//             const poolInfo = await poolWrapper.getPoolInfo(owner.address);
+            const tokenAAddr = await tokens.tokenA.getAddress();
+            const tokenBAddr = await tokens.tokenB.getAddress();
 
-//             expect(poolInfo.poolAddress).to.equal(poolAddress);
-//             expect(poolInfo.token0).to.equal(await token0.getAddress());
-//             expect(poolInfo.token1).to.equal(await token1.getAddress());
-//         });
-//         it("should return correct pool info for unknown stream", async function () {
-//             const info = await poolWrapper.getPoolInfo(other.address);
-//             expect(info.poolAddress).to.equal(ethers.ZeroAddress);
-//             expect(info.token0).to.equal(ethers.ZeroAddress);
-//             expect(info.token1).to.equal(ethers.ZeroAddress);
-//         });
-//         it("should use existing pool if already created", async function () {
-//             const createPoolMsg = {
-//                 token0: await token0.getAddress(),
-//                 token1: await token1.getAddress(),
-//                 amount0,
-//                 amount1
-//             };
+            // Minimal ABI to read getPair
+            const v2Factory = new ethers.Contract(
+                v2.factory,
+                ["function getPair(address,address) view returns (address)"],
+                ethers.provider
+            );
 
-//             // Create pool first time
-//             await poolWrapper.createPool(createPoolMsg);
-//             const firstPoolAddress = await uniswapFactory.getPair(await token0.getAddress(), await token1.getAddress());
+            // First create (wrapper already pre-funded by fixture)
+            const msg1 = { token0: tokenAAddr, token1: tokenBAddr, amount0, amount1 };
+            await (await v2.wrapper.createPool(msg1)).wait();
+            const pool1 = await v2Factory.getPair(tokenAAddr, tokenBAddr);
 
-//             // Mint more tokens for second creation
-//             await token0.mint(await poolWrapper.getAddress(), amount0);
-//             await token1.mint(await poolWrapper.getAddress(), amount1);
+            // Second create (should use same pool)
+            await (await v2.wrapper.connect(accounts.other).createPool(msg1)).wait();
+            const pool2 = await v2Factory.getPair(tokenAAddr, tokenBAddr);
 
-//             // Create pool second time (should use existing pool)
-//             await poolWrapper.connect(other).createPool(createPoolMsg);
-//             const secondPoolAddress = await uniswapFactory.getPair(await token0.getAddress(), await token1.getAddress());
+            expect(pool1).to.equal(pool2);
+        });
 
-//             expect(firstPoolAddress).to.equal(secondPoolAddress);
-//         });
-//     });
+        it("reverts on insufficient wrapper balance", async function () {
+            const { tokens, v2 } = await loadFixture(poolFixture);
+            const amount0 = ethers.parseEther("1");
+            const amount1 = ethers.parseEther("10000000"); // exceed pre-funded balance
+            await expect(
+                v2.wrapper.createPool({
+                    token0: await tokens.tokenA.getAddress(),
+                    token1: await tokens.tokenB.getAddress(),
+                    amount0,
+                    amount1,
+                })
+            ).to.be.revertedWithCustomError(v2.wrapper, "InsufficientBalance");
+        });
+    });
 
-//     describe("getPoolInfo", function () {
-//         it("should return correct pool info for existing stream", async function () {
-//             const amount0 = ethers.parseEther("1000");
-//             const amount1 = ethers.parseEther("1000");
+    describe("V3", function () {
+        it("creates a new v3 pool and adds full-range liquidity", async function () {
+            const { tokens, v3, accounts } = await loadFixture(poolFixture);
 
-//             // Mint tokens to PoolWrapper
-//             await token0.mint(await poolWrapper.getAddress(), amount0);
-//             await token1.mint(await poolWrapper.getAddress(), amount1);
+            const amount0 = ethers.parseEther("10");
+            const amount1 = ethers.parseEther("10");
 
-//             const createPoolMsg = {
-//                 token0: await token0.getAddress(),
-//                 token1: await token1.getAddress(),
-//                 amount0,
-//                 amount1
-//             };
+            const msg = {
+                token0: await tokens.tokenA.getAddress(),
+                token1: await tokens.tokenB.getAddress(),
+                amount0,
+                amount1,
+            };
 
-//             await poolWrapper.createPool(createPoolMsg);
+            const tx = await v3.wrapper.connect(accounts.liquidityProvider).createPool(msg);
+            const receipt = await tx.wait();
 
-//             const poolInfo = await poolWrapper.getPoolInfo(owner.address);
-//             expect(poolInfo.poolAddress).to.equal(await uniswapFactory.getPair(await token0.getAddress(), await token1.getAddress()));
-//             expect(poolInfo.token0).to.equal(await token0.getAddress());
-//             expect(poolInfo.token1).to.equal(await token1.getAddress());
-//         });
-//     });
+            // Parse PoolCreated
+            const iface = new ethers.Interface([
+                "event PoolCreated(address indexed stream, address indexed pool, address indexed poolWrapper, address token0, address token1, uint256 token0Amount, uint256 token1Amount)",
+            ]);
+            const topic = ethers.id("PoolCreated(address,address,address,address,address,uint256,uint256)");
+            const ev = receipt?.logs.find((l: any) => l.topics[0] === topic);
+            expect(ev).to.not.be.undefined;
+            const parsed = iface.parseLog(ev!);
+            const poolAddress = parsed!.args.pool as string;
+            expect(poolAddress).to.not.equal(ethers.ZeroAddress);
 
-//     describe("Ownable functions", function () {
-//         it("should have correct owner", async function () {
-//             expect(await poolWrapper.owner()).to.equal(owner.address);
-//         });
+            const balA = await tokens.tokenA.balanceOf(poolAddress);
+            const balB = await tokens.tokenB.balanceOf(poolAddress);
+            expect(balA).to.be.gt(0);
+            expect(balB).to.be.gt(0);
+        });
 
-//         it("should allow owner to renounce ownership", async function () {
-//             await poolWrapper.renounceOwnership();
-//             expect(await poolWrapper.owner()).to.equal(ethers.ZeroAddress);
-//         });
-
-//         it("should allow owner to transfer ownership", async function () {
-//             await poolWrapper.transferOwnership(other.address);
-//             expect(await poolWrapper.owner()).to.equal(other.address);
-//         });
-
-//         it("should revert if non-owner tries to renounce ownership", async function () {
-//             await expect(
-//                 poolWrapper.connect(other).renounceOwnership()
-//             ).to.be.reverted;
-//         });
-
-//         it("should revert if non-owner tries to transfer ownership", async function () {
-//             await expect(
-//                 poolWrapper.connect(other).transferOwnership(other.address)
-//             ).to.be.reverted;
-//         });
-//     });
-// }); 
+        it("reverts on zero amounts", async function () {
+            const { tokens, v3 } = await loadFixture(poolFixture);
+            await expect(
+                v3.wrapper.createPool({
+                    token0: await tokens.tokenA.getAddress(),
+                    token1: await tokens.tokenB.getAddress(),
+                    amount0: 0,
+                    amount1: ethers.parseEther("1"),
+                })
+            ).to.be.revertedWithCustomError(v3.wrapper, "InvalidAmount");
+        });
+    });
+});
