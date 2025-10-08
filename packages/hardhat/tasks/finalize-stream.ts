@@ -74,7 +74,7 @@ task("finalize-stream", "Finalizes a stream")
 
       // Get PoolWrapper address from StreamFactory
       const streamFactory = await ethers.getContractAt("StreamFactory", await stream.STREAM_FACTORY_ADDRESS());
-      const poolWrapperAddress = (await streamFactory.getParams()).poolWrapperAddress;
+      const poolWrapperAddress = (await streamFactory.getParams()).V2PoolWrapperAddress;
       console.log(`PoolWrapper address: ${poolWrapperAddress}`);
 
       // Get PoolWrapper contract
