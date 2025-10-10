@@ -458,6 +458,7 @@ contract Stream is IStreamErrors, IStreamEvents {
                     streamTokens.outSupplyToken,
                     purchased
                 );
+                emit BeneficiaryVestingCreated(msg.sender, postStreamActions.beneficiaryVesting.vestingDuration, streamTokens.outSupplyToken, purchased);
             } else {
                 TransferLib.transferFunds(streamTokens.outSupplyToken, address(this), msg.sender, purchased);
             }
@@ -568,6 +569,7 @@ contract Stream is IStreamErrors, IStreamEvents {
                     streamTokens.inSupplyToken,
                     creatorRevenue
                 );
+                emit CreatorVestingCreated(creator, postStreamActions.creatorVesting.vestingDuration, streamTokens.inSupplyToken, creatorRevenue);
             } else {
                 TransferLib.transferFunds(streamTokens.inSupplyToken, address(this), creator, creatorRevenue);
             }
