@@ -6,6 +6,23 @@ interface IUniswapV3Factory {
     function createPool(address tokenA, address tokenB, uint24 fee) external returns (address pool);
 }
 
+interface IUniswapV3Pool {
+    function initialize(uint160 sqrtPriceX96) external;
+
+    function slot0()
+        external
+        view
+        returns (
+            uint160 sqrtPriceX96,
+            int24 tick,
+            uint16 observationIndex,
+            uint16 observationCardinality,
+            uint16 observationCardinalityNext,
+            uint8 feeProtocol,
+            bool unlocked
+        );
+}
+
 interface INonfungiblePositionManager {
     struct MintParams {
         address token0;
@@ -21,15 +38,9 @@ interface INonfungiblePositionManager {
         uint256 deadline;
     }
 
-    function createAndInitializePoolIfNecessary(
-        address token0,
-        address token1,
-        uint24 fee,
-        uint160 sqrtPriceX96
-    ) external returns (address pool);
-
     function mint(MintParams calldata params)
         external
+        payable
         returns (
             uint256 tokenId,
             uint128 liquidity,

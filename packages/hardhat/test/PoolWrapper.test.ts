@@ -53,6 +53,7 @@ describe("PoolWrapper (fork)", function () {
                 token1: await tokens.tokenB.getAddress(),
                 amount0,
                 amount1,
+                creator: accounts.liquidityProvider.address,
             };
 
             const tx = await v2.wrapper.connect(accounts.liquidityProvider).createPool(createPoolMsg);
@@ -94,7 +95,7 @@ describe("PoolWrapper (fork)", function () {
             );
 
             // First create (wrapper already pre-funded by fixture)
-            const msg1 = { token0: tokenAAddr, token1: tokenBAddr, amount0, amount1 };
+            const msg1 = { token0: tokenAAddr, token1: tokenBAddr, amount0, amount1, creator: accounts.deployer.address };
             await (await v2.wrapper.createPool(msg1)).wait();
             const pool1 = await v2Factory.getPair(tokenAAddr, tokenBAddr);
 
@@ -115,6 +116,7 @@ describe("PoolWrapper (fork)", function () {
                     token1: await tokens.tokenB.getAddress(),
                     amount0,
                     amount1,
+                    creator: (await ethers.getSigners())[0].address,
                 })
             ).to.be.revertedWithCustomError(v2.wrapper, "InsufficientBalance");
         });
@@ -132,6 +134,7 @@ describe("PoolWrapper (fork)", function () {
                 token1: await tokens.tokenB.getAddress(),
                 amount0,
                 amount1,
+                creator: accounts.liquidityProvider.address,
             };
 
             const tx = await v3.wrapper.connect(accounts.liquidityProvider).createPool(msg);
@@ -162,6 +165,7 @@ describe("PoolWrapper (fork)", function () {
                     token1: await tokens.tokenB.getAddress(),
                     amount0: 0,
                     amount1: ethers.parseEther("1"),
+                    creator: (await ethers.getSigners())[0].address,
                 })
             ).to.be.revertedWithCustomError(v3.wrapper, "InvalidAmount");
         });

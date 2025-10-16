@@ -47,7 +47,7 @@ contract V2PoolWrapper is PoolWrapper {
             createPoolMsg.amount1,
             0,
             0,
-            address(0),
+            createPoolMsg.creator,
             block.timestamp + 300
         );
     }

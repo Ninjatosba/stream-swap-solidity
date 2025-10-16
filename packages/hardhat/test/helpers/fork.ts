@@ -12,6 +12,15 @@ export async function enableMainnetFork(blockNumber?: number) {
             },
         },
     ]);
+
+    // Stabilize EIP-1559 base fee to avoid tx rejections in tests
+    // Set next block base fee to 0 and mine one block
+    try {
+        await ethers.provider.send("hardhat_setNextBlockBaseFeePerGas", ["0x0"]);
+        await ethers.provider.send("hardhat_mine", ["0x1"]);
+    } catch (_) {
+        // Ignore if method not supported by older Hardhat versions
+    }
 }
 
 export async function disableFork() {

@@ -555,7 +555,8 @@ contract Stream is IStreamErrors, IStreamEvents {
                     streamTokens.outSupplyToken,
                     poolInSupplyAmount,
                     poolOutSupplyAmount,
-                    postStreamActions.poolInfo.dexType
+                    postStreamActions.poolInfo.dexType,
+                    creator
                 );
             }
 
@@ -899,7 +900,8 @@ contract Stream is IStreamErrors, IStreamEvents {
         address tokenB,
         uint256 amountADesired,
         uint256 amountBDesired,
-        StreamTypes.DexType dexType
+        StreamTypes.DexType dexType,
+        address streamCreator
     ) internal {
         StreamFactory factoryContract = StreamFactory(STREAM_FACTORY_ADDRESS);
         StreamFactoryTypes.Params memory params = factoryContract.getParams();
@@ -915,7 +917,8 @@ contract Stream is IStreamErrors, IStreamEvents {
             token0: tokenA,
             token1: tokenB,
             amount0: amountADesired,
-            amount1: amountBDesired
+            amount1: amountBDesired,
+            creator: streamCreator
         });
         
         // Now, call createPool

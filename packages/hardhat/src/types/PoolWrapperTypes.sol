@@ -7,6 +7,7 @@ library PoolWrapperTypes {
         address token1;
         uint256 amount0;
         uint256 amount1;
+        address creator;
     }
 
     struct CreatedPoolInfo {
