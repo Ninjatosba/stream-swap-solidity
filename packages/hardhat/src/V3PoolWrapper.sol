@@ -30,38 +30,35 @@ contract V3PoolWrapper is PoolWrapper {
 
     function _createPoolInternal(
         PoolWrapperTypes.CreatePoolMsg calldata createPoolMsg
-    ) internal virtual override returns (address poolAddress, uint256 amountA, uint256 amountB) {
-        (address token0, address token1, uint256 amount0, uint256 amount1) = _sortTokens(
+    ) internal virtual override returns (address poolAddress, uint256 amount0, uint256 amount1, uint256 refundedAmount0, uint256 refundedAmount1) {
+        (address token0, address token1, uint256 amount0Desired, uint256 amount1Desired) = _sortTokens(
             createPoolMsg.token0,
             createPoolMsg.token1,
-            createPoolMsg.amount0,
-            createPoolMsg.amount1
+            createPoolMsg.amount0Desired,
+            createPoolMsg.amount1Desired
         );
-
-        console.log("[V3] _createPoolInternal called");
-        console.log("[V3] FEE_TIER:", uint256(FEE_TIER));
 
         IUniswapV3Factory factory = IUniswapV3Factory(UNISWAP_V3_FACTORY);
         poolAddress = factory.getPool(token0, token1, FEE_TIER);
 
         if (poolAddress == address(0)) {
-            uint160 sqrtPriceX96 = _getSqrtPriceX96(amount1, amount0);
+            uint160 sqrtPriceX96 = _getSqrtPriceX96(amount1Desired, amount0Desired);
             poolAddress = factory.createPool(token0, token1, FEE_TIER);
             if (poolAddress == address(0)) revert PoolCreationFailed();
             IUniswapV3Pool(poolAddress).initialize(sqrtPriceX96);
-            console.log("[V3] created and initialized pool:", poolAddress);
         }
 
-        IERC20(token0).approve(NONFUNGIBLE_POSITION_MANAGER, amount0);
-        IERC20(token1).approve(NONFUNGIBLE_POSITION_MANAGER, amount1);
+        IERC20(token0).approve(NONFUNGIBLE_POSITION_MANAGER, amount0Desired);
+        IERC20(token1).approve(NONFUNGIBLE_POSITION_MANAGER, amount1Desired);
 
         // Safe tick calculation
         {
             int24 tickSpacing = 60; // assume 0.3% fee tier
-            int24 currentTick = TickMath.getTickAtSqrtRatio(_getSqrtPriceX96(amount1, amount0));
+            int24 currentTick = TickMath.getTickAtSqrtRatio(_getSqrtPriceX96(amount1Desired, amount0Desired));
 
-            int24 tickLower = (currentTick / tickSpacing) * tickSpacing;
-            int24 tickUpper = tickLower + tickSpacing;
+            // Create a wider range around the current price (10 tick spacings on each side)
+            int24 tickLower = ((currentTick - (tickSpacing * 10)) / tickSpacing) * tickSpacing;
+            int24 tickUpper = ((currentTick + (tickSpacing * 10)) / tickSpacing) * tickSpacing;
 
             require(tickLower < tickUpper, "Invalid tick range");
 
@@ -72,19 +69,23 @@ contract V3PoolWrapper is PoolWrapper {
                     fee: FEE_TIER,
                     tickLower: tickLower,
                     tickUpper: tickUpper,
-                    amount0Desired: amount0,
-                    amount1Desired: amount1,
+                    amount0Desired: amount0Desired,
+                    amount1Desired: amount1Desired,
                     amount0Min: 0,
                     amount1Min: 0,
                     recipient: createPoolMsg.creator,
                     deadline: block.timestamp + 300
                 });
 
-            (, , amountA, amountB) = INonfungiblePositionManager(NONFUNGIBLE_POSITION_MANAGER).mint(params);
+            (, , amount0, amount1) = INonfungiblePositionManager(NONFUNGIBLE_POSITION_MANAGER).mint(params);
             if (createPoolMsg.token0 != token0) {
-                (amountA, amountB) = (amountB, amountA);
+                (amount0, amount1) = (amount1, amount0);
             }
+
+            refundedAmount0 = createPoolMsg.amount0Desired - amount0;
+            refundedAmount1 = createPoolMsg.amount1Desired - amount1;
         }
+        return (poolAddress, amount0, amount1, refundedAmount0, refundedAmount1);
     }
 
     function _getFactory() internal view virtual override returns (address) {

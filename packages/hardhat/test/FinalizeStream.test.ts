@@ -335,20 +335,43 @@ describe("Stream Finalize", function () {
       const tx2 = await contracts.stream.syncStreamExternal();
       await tx2.wait();
 
+      const creatorInBalanceBefore = await contracts.inSupplyToken.balanceOf(accounts.creator.address);
+      const creatorOutBalanceBefore = await contracts.outSupplyToken.balanceOf(accounts.creator.address);
+
       // Finalize with pool creation
       const finalizeTx = await contracts.stream.connect(accounts.creator).finalizeStream();
       const receipt = await finalizeTx.wait();
 
-      // Query logs from PoolWrapper contract for PoolCreated event
-      const poolWrapperInterface = new ethers.Interface([
-        "event PoolCreated(address indexed stream, address indexed pool, address indexed poolWrapper, address token0, address token1, uint256 token0Amount, uint256 token1Amount)"
+      // Query logs from Stream contract for PoolCreated event
+      const streamPoolCreatedInterface = new ethers.Interface([
+        "event PoolCreated(address indexed streamAddress, address indexed poolAddress, address token0, address token1, uint256 amount0, uint256 amount1, uint256 refundedAmount0, uint256 refundedAmount1, address indexed creator)"
       ]);
 
-      // Get logs from V2 PoolWrapper contract
-      const poolEventTopic = ethers.id("PoolCreated(address,address,address,address,address,uint256,uint256)");
-      const v2WrapperAddress = await contracts.v2PoolWrapper!.getAddress();
+      const streamFinalizedInterface = new ethers.Interface([
+        "event FinalizedStreamed(address indexed streamAddress, address indexed creator, uint256 creatorRevenue, uint256 exitFeeAmount, uint256 refundedOutAmount)"
+      ]);
+
+      // Get logs from Stream contract for FinalizedStreamed event
+      const streamFinalizedTopic = ethers.id("FinalizedStreamed(address,address,uint256,uint256,uint256)");
+      const streamFinalizedLogs = await ethers.provider.getLogs({
+        address: await contracts.stream.getAddress(),
+        fromBlock: receipt?.blockNumber,
+        toBlock: receipt?.blockNumber,
+        topics: [streamFinalizedTopic]
+      });
+
+      // Should have one FinalizedStreamed event
+      expect(streamFinalizedLogs.length).to.equal(1);
+
+      // Parse the finalized event
+      const finalizedEvent = streamFinalizedInterface.parseLog(streamFinalizedLogs[0]);
+      const creatorRevenue = finalizedEvent?.args?.creatorRevenue;
+
+      // Get logs from Stream contract
+      const poolEventTopic = ethers.id("PoolCreated(address,address,address,address,uint256,uint256,uint256,uint256,address)");
+      const streamAddress = await contracts.stream.getAddress();
       const poolLogs = await ethers.provider.getLogs({
-        address: v2WrapperAddress,
+        address: streamAddress,
         fromBlock: receipt?.blockNumber,
         toBlock: receipt?.blockNumber,
         topics: [poolEventTopic]
@@ -358,26 +381,23 @@ describe("Stream Finalize", function () {
       expect(poolLogs.length).to.equal(1);
 
       // Parse the pool event
-      const poolEvent = poolWrapperInterface.parseLog(poolLogs[0]);
-      expect(poolEvent?.args?.stream).to.equal(await contracts.stream.getAddress());
-      expect(poolEvent?.args?.poolWrapper).to.equal(v2WrapperAddress);
-      expect(poolEvent?.args?.token0).to.equal(await contracts.inSupplyToken.getAddress());
-      expect(poolEvent?.args?.token1).to.equal(await contracts.outSupplyToken.getAddress());
+      const poolEvent = streamPoolCreatedInterface.parseLog(poolLogs[0]);
+      expect(poolEvent?.args?.streamAddress).to.equal(streamAddress);
+      expect(poolEvent?.args?.poolAddress).to.not.be.equal(ethers.ZeroAddress);
 
-      // Calculate expected values
-      const revenue = subscriptionAmount - (subscriptionAmount * exitFeeRatio.value / BigInt(1e6));
-      const expectedPoolInAmount = revenue * BigInt(Math.floor(poolOutRatio * 1e6)) / BigInt(1e6);
+      const creatorInBalanceAfter = await contracts.inSupplyToken.balanceOf(accounts.creator.address);
+      const creatorOutBalanceAfter = await contracts.outSupplyToken.balanceOf(accounts.creator.address);
 
-      expect(poolEvent?.args?.token0Amount).to.equal(expectedPoolInAmount);
-      expect(poolEvent?.args?.token1Amount).to.equal(ethers.parseEther("25")); // poolOutSupplyAmount
+      // Verify balances
+      expect(creatorInBalanceAfter - creatorInBalanceBefore).to.equal(poolEvent?.args?.refundedAmount0 + creatorRevenue);
+      expect(creatorOutBalanceAfter - creatorOutBalanceBefore).to.equal(poolEvent?.args?.refundedAmount1);
 
-      // Get pool address
-      const poolAddress = poolEvent?.args?.pool;
-      expect(poolAddress).to.not.be.equal(ethers.ZeroAddress);
+      // Get price from the V2 pool
+      const pool = await ethers.getContractAt("IUniswapV2Pool", poolEvent?.args?.poolAddress);
+      const reserves = await pool.getReserves();
+      const price = Number(reserves.reserve1) / Number(reserves.reserve0);
 
-      // Verify finalization was successful
-      const status = await contracts.stream.getStreamStatus();
-      expect(status).to.equal(5); // FinalizedStreamed
+      expect(price).to.be.closeTo(1.111, 0.001);
     });
 
     it("Should handle finalize with Pool V3 creation", async function () {
@@ -390,10 +410,6 @@ describe("Stream Finalize", function () {
           .dex("v3")
           .build()
       );
-      // poolOutRatio = 1 / 4
-      // This means 1/4 of generated revenue from the stream will be used to create the pool
-      let poolOutRatio = 1 / 4;
-      let exitFeeRatio = await contracts.streamFactory.getParams().then((params: any) => params.exitFeeRatio);
 
       // Fast forward time to stream start
       await ethers.provider.send("evm_setNextBlockTimestamp", [timeParams.streamStartTime + 1]);
@@ -418,56 +434,74 @@ describe("Stream Finalize", function () {
       const tx2 = await contracts.stream.syncStreamExternal();
       await tx2.wait();
 
+      const creatorInBalanceBefore = await contracts.inSupplyToken.balanceOf(accounts.creator.address);
+      const creatorOutBalanceBefore = await contracts.outSupplyToken.balanceOf(accounts.creator.address);
+
       // Finalize with pool creation
       const finalizeTx = await contracts.stream.connect(accounts.creator).finalizeStream();
       const receipt = await finalizeTx.wait();
 
-      console.log("receipt", receipt);
+      // Query logs from Stream contract for PoolCreated event
+      const streamPoolCreatedInterface = new ethers.Interface([
+        "event PoolCreated(address indexed streamAddress, address indexed poolAddress, address token0, address token1, uint256 amount0, uint256 amount1, uint256 refundedAmount0, uint256 refundedAmount1, address indexed creator)"
+      ]);
 
-      // // Query logs from PoolWrapper contract for PoolCreated event
-      // const poolWrapperInterface = new ethers.Interface([
-      //   "event PoolCreated(address indexed stream, address indexed pool, address indexed poolWrapper, address token0, address token1, uint256 token0Amount, uint256 token1Amount)"
-      // ]);
+      const streamFinalizedInterface = new ethers.Interface([
+        "event FinalizedStreamed(address indexed streamAddress, address indexed creator, uint256 creatorRevenue, uint256 exitFeeAmount, uint256 refundedOutAmount)"
+      ]);
 
-      // // Get logs from V3 PoolWrapper contract
-      // const poolEventTopic = ethers.id("PoolCreated(address,address,address,address,address,uint256,uint256)");
-      // const v3WrapperAddress = await contracts.v3PoolWrapper!.getAddress();
-      // const poolLogs = await ethers.provider.getLogs({
-      //   address: v3WrapperAddress,
-      //   fromBlock: receipt?.blockNumber,
-      //   toBlock: receipt?.blockNumber,
-      //   topics: [poolEventTopic]
-      // });
+      // Get logs from Stream contract for FinalizedStreamed event
+      const streamFinalizedTopic = ethers.id("FinalizedStreamed(address,address,uint256,uint256,uint256)");
+      const streamFinalizedLogs = await ethers.provider.getLogs({
+        address: await contracts.stream.getAddress(),
+        fromBlock: receipt?.blockNumber,
+        toBlock: receipt?.blockNumber,
+        topics: [streamFinalizedTopic]
+      });
 
-      // // Should have one PoolCreated event
-      // expect(poolLogs.length).to.equal(1);
+      // Should have one FinalizedStreamed event
+      expect(streamFinalizedLogs.length).to.equal(1);
 
-      // // Parse the pool event
-      // const poolEvent = poolWrapperInterface.parseLog(poolLogs[0]);
-      // expect(poolEvent?.args?.stream).to.equal(await contracts.stream.getAddress());
-      // expect(poolEvent?.args?.poolWrapper).to.equal(v3WrapperAddress);
-      // expect(poolEvent?.args?.token0).to.equal(await contracts.inSupplyToken.getAddress());
-      // expect(poolEvent?.args?.token1).to.equal(await contracts.outSupplyToken.getAddress());
+      // Parse the finalized event
+      const finalizedEvent = streamFinalizedInterface.parseLog(streamFinalizedLogs[0]);
+      const creatorRevenue = finalizedEvent?.args?.creatorRevenue;
+      const exitFeeAmount = finalizedEvent?.args?.exitFeeAmount;
 
-      // // Calculate expected values
-      // const revenue = subscriptionAmount - (subscriptionAmount * exitFeeRatio.value / BigInt(1e6));
-      // const expectedPoolInAmount = revenue * BigInt(Math.floor(poolOutRatio * 1e6)) / BigInt(1e6);
+      // Get logs from Stream contract
+      const poolEventTopic = ethers.id("PoolCreated(address,address,address,address,uint256,uint256,uint256,uint256,address)");
+      const streamAddress = await contracts.stream.getAddress();
+      const poolLogs = await ethers.provider.getLogs({
+        address: streamAddress,
+        fromBlock: receipt?.blockNumber,
+        toBlock: receipt?.blockNumber,
+        topics: [poolEventTopic]
+      });
 
-      // expect(poolEvent?.args?.token0Amount).to.equal(expectedPoolInAmount);
-      // // V3 pools may not use the full desired amount due to price precision
-      // // Verify it's close to the expected amount (within 20%)
-      // const actualToken1Amount = poolEvent?.args?.token1Amount;
-      // const expectedToken1Amount = ethers.parseEther("25");
-      // expect(actualToken1Amount).to.be.gt(ethers.parseEther("20")); // At least 80% used
-      // expect(actualToken1Amount).to.be.lte(expectedToken1Amount); // Not more than desired
+      // Should have one PoolCreated event
+      expect(poolLogs.length).to.equal(1);
 
-      // // Get pool address
-      // const poolAddress = poolEvent?.args?.pool;
-      // expect(poolAddress).to.not.be.equal(ethers.ZeroAddress);
+      // Parse the pool event
+      const poolEvent = streamPoolCreatedInterface.parseLog(poolLogs[0]);
+      expect(poolEvent?.args?.streamAddress).to.equal(streamAddress);
+      expect(poolEvent?.args?.poolAddress).to.not.be.equal(ethers.ZeroAddress);
 
-      // // Verify finalization was successful
-      // const status = await contracts.stream.getStreamStatus();
-      // expect(status).to.equal(5); // FinalizedStreamed
+      const creatorInBalanceAfter = await contracts.inSupplyToken.balanceOf(accounts.creator.address);
+      const creatorOutBalanceAfter = await contracts.outSupplyToken.balanceOf(accounts.creator.address);
+
+      // Verify balances
+      expect(creatorInBalanceAfter - creatorInBalanceBefore).to.equal(poolEvent?.args?.refundedAmount0 + creatorRevenue);
+      expect(creatorOutBalanceAfter - creatorOutBalanceBefore).to.equal(poolEvent?.args?.refundedAmount1);
+
+      // Get price from the v3 pool
+      const pool = await ethers.getContractAt("IUniswapV3Pool", poolEvent?.args?.poolAddress);
+      const slot0 = await pool.slot0();
+      const sqrtPriceX96 = slot0.sqrtPriceX96;
+
+      // Convert sqrtPriceX96 to readable price
+      const price = (Number(sqrtPriceX96) / (2 ** 96)) ** 2;
+
+      expect(price).to.be.closeTo(1.111, 0.001);
+
     });
   });
 

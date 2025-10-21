@@ -24,7 +24,7 @@ contract V2PoolWrapper is PoolWrapper {
 
     function _createPoolInternal(
         PoolWrapperTypes.CreatePoolMsg calldata createPoolMsg
-    ) internal virtual override returns (address poolAddress, uint256 amountA, uint256 amountB) {
+    ) internal virtual override returns (address poolAddress, uint256 amount0, uint256 amount1, uint256 refundedAmount0, uint256 refundedAmount1) {
         IUniswapV2Factory factory = IUniswapV2Factory(V2_FACTORY);
         address existingPool = factory.getPair(createPoolMsg.token0, createPoolMsg.token1);
 
@@ -36,20 +36,24 @@ contract V2PoolWrapper is PoolWrapper {
         }
 
         // Approve router to spend tokens
-        IERC20(createPoolMsg.token0).approve(V2_ROUTER, createPoolMsg.amount0);
-        IERC20(createPoolMsg.token1).approve(V2_ROUTER, createPoolMsg.amount1);
+        IERC20(createPoolMsg.token0).approve(V2_ROUTER, createPoolMsg.amount0Desired);
+        IERC20(createPoolMsg.token1).approve(V2_ROUTER, createPoolMsg.amount1Desired);
 
         IUniswapV2Router02 router = IUniswapV2Router02(V2_ROUTER);
-        (amountA, amountB, ) = router.addLiquidity(
+        (amount0, amount1, ) = router.addLiquidity(
             createPoolMsg.token0,
             createPoolMsg.token1,
-            createPoolMsg.amount0,
-            createPoolMsg.amount1,
+            createPoolMsg.amount0Desired,
+            createPoolMsg.amount1Desired,
             0,
             0,
             createPoolMsg.creator,
             block.timestamp + 300
         );
+
+        // Calculate refunds
+        refundedAmount0 = createPoolMsg.amount0Desired - amount0;
+        refundedAmount1 = createPoolMsg.amount1Desired - amount1;
     }
 
     function _getFactory() internal view virtual override returns (address) {

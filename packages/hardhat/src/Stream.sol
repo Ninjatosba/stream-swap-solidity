@@ -45,6 +45,10 @@ import { TransferLib } from "./lib/TransferLib.sol";
 
 import { PoolWrapperTypes } from "./types/PoolWrapperTypes.sol";
 
+// import console 
+import "hardhat/console.sol";
+
+
     
 /**
  * @title Stream
@@ -903,6 +907,10 @@ contract Stream is IStreamErrors, IStreamEvents {
         StreamTypes.DexType dexType,
         address streamCreator
     ) internal {
+
+        console.log("amountADesired", amountADesired);
+        console.log("amountBDesired", amountBDesired);
+
         StreamFactory factoryContract = StreamFactory(STREAM_FACTORY_ADDRESS);
         StreamFactoryTypes.Params memory params = factoryContract.getParams();
 
@@ -913,15 +921,48 @@ contract Stream is IStreamErrors, IStreamEvents {
         TransferLib.transferFunds(tokenA, address(this), poolWrapperAddress, amountADesired);
         TransferLib.transferFunds(tokenB, address(this), poolWrapperAddress, amountBDesired);
 
+        // Sort tokens
+        (address token0, address token1, uint256 amount0Desired, uint256 amount1Desired) = _sortTokens(
+            tokenA,
+            tokenB,
+            amountADesired,
+            amountBDesired
+        );
+
+        // Create the pool message
         PoolWrapperTypes.CreatePoolMsg memory createPoolMsg = PoolWrapperTypes.CreatePoolMsg({
-            token0: tokenA,
-            token1: tokenB,
-            amount0: amountADesired,
-            amount1: amountBDesired,
+            token0: token0,
+            token1: token1,
+            amount0Desired: amount0Desired,
+            amount1Desired: amount1Desired,
             creator: streamCreator
         });
         
-        // Now, call createPool
-        poolWrapper.createPool(createPoolMsg);
+        // Create the pool and get the result
+        PoolWrapperTypes.CreatedPoolInfo memory createdPoolInfo = poolWrapper.createPool(createPoolMsg);
+
+        emit PoolCreated(
+            address(this),
+            createdPoolInfo.poolAddress,
+            createdPoolInfo.token0,
+            createdPoolInfo.token1,
+            createdPoolInfo.amount0,
+            createdPoolInfo.amount1,
+            createdPoolInfo.refundedAmount0,
+            createdPoolInfo.refundedAmount1,
+            createdPoolInfo.creator
+        );
+    }
+
+    function _sortTokens(
+        address tokenA,
+        address tokenB,
+        uint256 amountA,
+        uint256 amountB
+    ) internal pure returns (address token0, address token1, uint256 amount0Desired, uint256 amount1Desired) {
+        if (tokenA < tokenB) {
+            return (tokenA, tokenB, amountA, amountB);
+        }
+        return (tokenB, tokenA, amountB, amountA);
     }
 }
