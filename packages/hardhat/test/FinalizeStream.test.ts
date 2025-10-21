@@ -393,7 +393,7 @@ describe("Stream Finalize", function () {
       expect(creatorOutBalanceAfter - creatorOutBalanceBefore).to.equal(poolEvent?.args?.refundedAmount1);
 
       // Get price from the V2 pool
-      const pool = await ethers.getContractAt("IUniswapV2Pool", poolEvent?.args?.poolAddress);
+      const pool = await ethers.getContractAt("IUniswapV2Pair", poolEvent?.args?.poolAddress);
       const reserves = await pool.getReserves();
       const price = Number(reserves.reserve1) / Number(reserves.reserve0);
 

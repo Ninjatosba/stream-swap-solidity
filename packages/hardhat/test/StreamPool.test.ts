@@ -21,6 +21,9 @@ describe("Stream Pool Creation", function () {
   });
 
   it("should create pool and transfer tokens when stream is finalized", async function () {
+    const poolOutSupplyAmount = ethers.parseEther("1000");
+    const streamOutAmount = ethers.parseEther("10000");
+
     const { contracts, timeParams, accounts, config } = await loadFixture(
       stream()
         .streamOut(streamOutAmount)
@@ -47,31 +50,31 @@ describe("Stream Pool Creation", function () {
     const tx = await contracts.stream.connect(accounts.creator).finalizeStream();
     await tx.wait();
 
-    // Get pool creation event
+    // Get pool creation event from Stream contract (not PoolWrapper)
     const receipt = await tx.wait();
-    const poolWrapperIface = new ethers.Interface([
-      "event PoolCreated(address indexed stream, address indexed pool, address indexed poolWrapper, address token0, address token1, uint256 token0Amount, uint256 token1Amount)",
+    const streamIface = new ethers.Interface([
+      "event PoolCreated(address indexed streamAddress, address indexed poolAddress, address token0, address token1, uint256 amount0, uint256 amount1, uint256 refundedAmount0, uint256 refundedAmount1, address indexed creator)",
     ]);
-    const poolCreatedTopic = ethers.id("PoolCreated(address,address,address,address,address,uint256,uint256)");
+    const poolCreatedTopic = ethers.id("PoolCreated(address,address,address,address,uint256,uint256,uint256,uint256,address)");
     const poolCreatedEvent = receipt?.logs.find((log: any) => log.topics[0] === poolCreatedTopic);
     expect(poolCreatedEvent).to.not.be.undefined;
 
     // Parse the event
-    const parsedEvent = poolWrapperIface.parseLog({
+    const parsedEvent = streamIface.parseLog({
       topics: poolCreatedEvent!.topics,
       data: poolCreatedEvent!.data,
     });
     expect(parsedEvent?.name).to.equal("PoolCreated");
-    expect(parsedEvent?.args.stream).to.equal(await contracts.stream.getAddress());
+    expect(parsedEvent?.args.streamAddress).to.equal(await contracts.stream.getAddress());
     expect(parsedEvent?.args.token0).to.equal(await contracts.inSupplyToken.getAddress());
     expect(parsedEvent?.args.token1).to.equal(await contracts.outSupplyToken.getAddress());
 
     // Check pool contracts in token balances
     // Token balances are held by the pool address, not the wrapper
-    const poolAddress = parsedEvent?.args.pool;
+    const poolAddress = parsedEvent?.args.poolAddress;
     const inSupplyTokenBalance = await contracts.inSupplyToken.balanceOf(poolAddress);
     const outSupplyTokenBalance = await contracts.outSupplyToken.balanceOf(poolAddress);
-    expect(inSupplyTokenBalance).to.equal(parsedEvent?.args.token0Amount);
-    expect(outSupplyTokenBalance).to.equal(parsedEvent?.args.token1Amount);
+    expect(inSupplyTokenBalance).to.equal(parsedEvent?.args.amount0);
+    expect(outSupplyTokenBalance).to.equal(parsedEvent?.args.amount1);
   });
 });

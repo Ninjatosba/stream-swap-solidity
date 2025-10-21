@@ -51,24 +51,17 @@ describe("PoolWrapper (fork)", function () {
             const createPoolMsg = {
                 token0: await tokens.tokenA.getAddress(),
                 token1: await tokens.tokenB.getAddress(),
-                amount0,
-                amount1,
+                amount0Desired: amount0,
+                amount1Desired: amount1,
                 creator: accounts.liquidityProvider.address,
             };
 
             const tx = await v2.wrapper.connect(accounts.liquidityProvider).createPool(createPoolMsg);
             const receipt = await tx.wait();
 
-            // Read PoolCreated event generically
-            const iface = new ethers.Interface([
-                "event PoolCreated(address indexed stream, address indexed pool, address indexed poolWrapper, address token0, address token1, uint256 token0Amount, uint256 token1Amount)",
-            ]);
-            const topic = ethers.id("PoolCreated(address,address,address,address,address,uint256,uint256)");
-            const ev = receipt?.logs.find((l: any) => l.topics[0] === topic);
-            expect(ev).to.not.be.undefined;
-            const parsed = iface.parseLog(ev!);
-
-            const poolAddress = parsed!.args.pool as string;
+            // Get the pool address from the return value
+            const poolInfo = await v2.wrapper.streamPools(accounts.liquidityProvider.address);
+            const poolAddress = poolInfo.poolAddress;
             expect(poolAddress).to.not.equal(ethers.ZeroAddress);
 
             // Verify tokens actually moved into the pair contract
@@ -95,7 +88,7 @@ describe("PoolWrapper (fork)", function () {
             );
 
             // First create (wrapper already pre-funded by fixture)
-            const msg1 = { token0: tokenAAddr, token1: tokenBAddr, amount0, amount1, creator: accounts.deployer.address };
+            const msg1 = { token0: tokenAAddr, token1: tokenBAddr, amount0Desired: amount0, amount1Desired: amount1, creator: accounts.deployer.address };
             await (await v2.wrapper.createPool(msg1)).wait();
             const pool1 = await v2Factory.getPair(tokenAAddr, tokenBAddr);
 
@@ -114,8 +107,8 @@ describe("PoolWrapper (fork)", function () {
                 v2.wrapper.createPool({
                     token0: await tokens.tokenA.getAddress(),
                     token1: await tokens.tokenB.getAddress(),
-                    amount0,
-                    amount1,
+                    amount0Desired: amount0,
+                    amount1Desired: amount1,
                     creator: (await ethers.getSigners())[0].address,
                 })
             ).to.be.revertedWithCustomError(v2.wrapper, "InsufficientBalance");
@@ -132,23 +125,17 @@ describe("PoolWrapper (fork)", function () {
             const msg = {
                 token0: await tokens.tokenA.getAddress(),
                 token1: await tokens.tokenB.getAddress(),
-                amount0,
-                amount1,
+                amount0Desired: amount0,
+                amount1Desired: amount1,
                 creator: accounts.liquidityProvider.address,
             };
 
             const tx = await v3.wrapper.connect(accounts.liquidityProvider).createPool(msg);
             const receipt = await tx.wait();
 
-            // Parse PoolCreated
-            const iface = new ethers.Interface([
-                "event PoolCreated(address indexed stream, address indexed pool, address indexed poolWrapper, address token0, address token1, uint256 token0Amount, uint256 token1Amount)",
-            ]);
-            const topic = ethers.id("PoolCreated(address,address,address,address,address,uint256,uint256)");
-            const ev = receipt?.logs.find((l: any) => l.topics[0] === topic);
-            expect(ev).to.not.be.undefined;
-            const parsed = iface.parseLog(ev!);
-            const poolAddress = parsed!.args.pool as string;
+            // Get the pool address from the return value
+            const poolInfo = await v3.wrapper.streamPools(accounts.liquidityProvider.address);
+            const poolAddress = poolInfo.poolAddress;
             expect(poolAddress).to.not.equal(ethers.ZeroAddress);
 
             const balA = await tokens.tokenA.balanceOf(poolAddress);
@@ -163,8 +150,8 @@ describe("PoolWrapper (fork)", function () {
                 v3.wrapper.createPool({
                     token0: await tokens.tokenA.getAddress(),
                     token1: await tokens.tokenB.getAddress(),
-                    amount0: 0,
-                    amount1: ethers.parseEther("1"),
+                    amount0Desired: 0,
+                    amount1Desired: ethers.parseEther("1"),
                     creator: (await ethers.getSigners())[0].address,
                 })
             ).to.be.revertedWithCustomError(v3.wrapper, "InvalidAmount");
