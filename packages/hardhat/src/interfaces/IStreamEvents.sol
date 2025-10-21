@@ -90,4 +90,20 @@ interface IStreamEvents {
     event StreamCancelled(address indexed streamAddress, address creator, uint256 outSupply, uint8 status);
 
     event StreamMetadataUpdated(address indexed streamAddress, string metadataIpfsHash);
+
+    event CreatorVestingCreated(address indexed creator,  uint256 vestingDuration, address token, uint256 amount);
+
+    event BeneficiaryVestingCreated(address indexed beneficiary, uint64 vestingDuration, address token, uint256 amount);
+
+    event PoolCreated(
+        address indexed streamAddress,
+        address indexed poolAddress,
+        address token0,
+        address token1,
+        uint256 amount0,
+        uint256 amount1,
+        uint256 refundedAmount0,
+        uint256 refundedAmount1,
+        address indexed creator
+    );
 }

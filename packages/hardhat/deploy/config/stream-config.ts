@@ -37,7 +37,7 @@ export const defaultStreamConfig: StreamConfig = {
   streamDuration: 100000,
 
   // Stream parameters
-  threshold: parseEther("10"),
+  threshold: parseEther("0"),
   streamName: "Test Stream",
   tosVersion: "1.0.0",
 

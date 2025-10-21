@@ -1,9 +1,12 @@
 import { ethers } from "hardhat";
 import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
 import { Contract, TransactionRequest } from "ethers";
+import fs from "fs";
+import path from "path";
 import { DecimalStruct, StreamTypes } from "../../typechain-types/src/Stream";
 import { StreamFactoryTypes } from "../../typechain-types/src/StreamFactory";
-import { MockUniswapV2Factory, MockUniswapV2Router02 } from "../../typechain-types";
+import { disableFork, enableMainnetFork } from "./fork";
+import { deployV2PoolWrapperFork, deployV3PoolWrapperFork } from "./poolWrappers";
 
 // Configuration interfaces
 interface StreamTimeConfig {
@@ -87,6 +90,9 @@ export class StreamFixtureBuilder {
   private feeTokenAddress?: string;
 
   private nowSeconds?: number;
+  private enablePoolCreationFlag: boolean = false;
+  private selectedDexType: 0 | 1 = 0; // 0: V2, 1: V3
+  private forkBlock?: number;
 
   // Time configuration methods
   public timeParams(waitSeconds: number, bootstrappingDuration: number, streamDuration: number): StreamFixtureBuilder {
@@ -177,13 +183,39 @@ export class StreamFixtureBuilder {
     return this;
   }
 
+  // Pool creation toggle (defaults to false)
+  public enablePoolCreation(enabled: boolean): StreamFixtureBuilder {
+    this.enablePoolCreationFlag = enabled;
+    return this;
+  }
+
+  // Select DEX type for pool creation (defaults to V2)
+  public dex(type: "v2" | "v3"): StreamFixtureBuilder {
+    this.selectedDexType = type === "v2" ? 0 : 1;
+    return this;
+  }
+
+  // Optionally pin fork block for reproducibility
+  public forkAt(blockNumber?: number): StreamFixtureBuilder {
+    this.forkBlock = blockNumber;
+    return this;
+  }
+
   // Build method
   public build() {
     const self = this;
     return async function deployStreamFixture() {
       try {
-        // Reset the Hardhat Network
-        await ethers.provider.send("hardhat_reset", []);
+        // Reset or enable fork depending on pool creation flag
+        if (self.enablePoolCreationFlag) {
+          await enableMainnetFork(self.forkBlock);
+        } else {
+          await disableFork();
+        }
+        // Stabilize base fee to avoid EIP-1559 underpricing during deployments
+        try {
+          await ethers.provider.send("hardhat_setNextBlockBaseFeePerGas", ["0x0"]);
+        } catch { }
 
         // Get signers
         const [deployer, creator, subscriber1, subscriber2, subscriber3, subscriber4, protocolAdmin, feeCollector] =
@@ -218,27 +250,21 @@ export class StreamFixtureBuilder {
         const PERMIT2_ADDRESS = "0x000000000022D473030F116dDEE9F6B43aC78BA3";
 
         // Read Permit2 bytecode from file
-        const fs = require("fs");
-        const path = require("path");
         const permit2BytecodePath = path.join(__dirname, "../../../../permit2_bytecode.txt");
         const permit2Bytecode = fs.readFileSync(permit2BytecodePath, "utf8").trim();
 
         // Deploy Permit2 at the hardcoded address using setCode
         await ethers.provider.send("hardhat_setCode", [PERMIT2_ADDRESS, permit2Bytecode]);
 
-        // Deploy Uniswap V2 mock contracts
-        const UniswapV2FactoryFactory = await ethers.getContractFactory("MockUniswapV2Factory");
-        const uniswapV2Factory = (await UniswapV2FactoryFactory.deploy()) as unknown as MockUniswapV2Factory;
-        const uniswapV2FactoryAddress = await uniswapV2Factory.getAddress();
-
-        const UniswapV2RouterFactory = await ethers.getContractFactory("MockUniswapV2Router02");
-        const uniswapV2Router = (await UniswapV2RouterFactory.deploy(uniswapV2FactoryAddress)) as unknown as MockUniswapV2Router02;
-        const uniswapV2RouterAddress = await uniswapV2Router.getAddress();
-
-        // Deploy pool wrapper contract
-        const PoolWrapperFactory = await ethers.getContractFactory("UniswapV2PoolWrapper");
-        const poolWrapper = await PoolWrapperFactory.deploy(uniswapV2FactoryAddress, uniswapV2RouterAddress);
-        const poolWrapperAddress = await poolWrapper.getAddress();
+        // Optionally deploy pool wrappers on fork
+        let v2PoolWrapperAddress: string = ethers.ZeroAddress;
+        let v3PoolWrapperAddress: string = ethers.ZeroAddress;
+        if (self.enablePoolCreationFlag) {
+          const { wrapperAddress: v2Addr } = await deployV2PoolWrapperFork();
+          const { wrapperAddress: v3Addr } = await deployV3PoolWrapperFork(3000);
+          v2PoolWrapperAddress = v2Addr;
+          v3PoolWrapperAddress = v3Addr;
+        }
 
         // Deploy StreamFactory
         const StreamFactoryFactory = await ethers.getContractFactory("StreamFactory");
@@ -255,8 +281,8 @@ export class StreamFixtureBuilder {
         const tokenFactory = await TokenFactoryFactory.deploy();
         const tokenFactoryAddress = await tokenFactory.getAddress();
 
-        // Initialize Stream Factory
-        const streamFactoryMessage: StreamFactoryTypes.InitializeStreamMessageStruct = {
+        // Initialize Stream Factory (provide wrapper addresses only when pool creation enabled)
+        const streamFactoryMessage: StreamFactoryTypes.InitializeStreamFactoryMessageStruct = {
           streamCreationFee: self.factoryConfig.streamCreationFee,
           streamCreationFeeToken: feeTokenAddress,
           exitFeeRatio: self.factoryConfig.exitFeeRatio,
@@ -267,9 +293,10 @@ export class StreamFixtureBuilder {
           protocolAdmin: protocolAdmin.address,
           tosVersion: self.metadataConfig.tosVersion,
           acceptedInSupplyTokens: [inSupplyTokenAddress, ethers.ZeroAddress],
-          poolWrapperAddress: poolWrapperAddress,
           streamImplementationAddress: streamImplementationAddress,
           tokenFactoryAddress: tokenFactoryAddress,
+          V2PoolWrapperAddress: v2PoolWrapperAddress,
+          V3PoolWrapperAddress: v3PoolWrapperAddress,
         };
 
         await streamFactory.connect(protocolAdmin).initialize(streamFactoryMessage);
@@ -335,7 +362,8 @@ export class StreamFixtureBuilder {
             creatorVesting: self.vestingConfig.creator,
             beneficiaryVesting: self.vestingConfig.beneficiary,
             poolInfo: {
-              poolOutSupplyAmount: self.poolConfig.poolOutSupplyAmount,
+              poolOutSupplyAmount: self.enablePoolCreationFlag ? self.poolConfig.poolOutSupplyAmount : 0n,
+              dexType: self.selectedDexType,
             },
             tosVersion: self.metadataConfig.tosVersion,
           },
@@ -374,7 +402,13 @@ export class StreamFixtureBuilder {
             streamFactory,
             inSupplyToken,
             outSupplyToken,
-            poolWrapper,
+            // Return wrappers only if created
+            v2PoolWrapper: v2PoolWrapperAddress !== ethers.ZeroAddress
+              ? await ethers.getContractAt("PoolWrapper", v2PoolWrapperAddress)
+              : undefined,
+            v3PoolWrapper: v3PoolWrapperAddress !== ethers.ZeroAddress
+              ? await ethers.getContractAt("PoolWrapper", v3PoolWrapperAddress)
+              : undefined,
             permit2,
           },
           accounts: {
@@ -417,8 +451,8 @@ export class StreamFixtureBuilder {
             minStreamDuration: self.factoryConfig.minStreamDuration,
             tosVersion: self.metadataConfig.tosVersion,
           },
-          uniswapV2Factory: uniswapV2Factory as any,
-          uniswapV2Router: uniswapV2Router as any,
+          uniswapV2Factory: undefined as any,
+          uniswapV2Router: undefined as any,
         };
       } catch (error) {
         console.error("Error in fixture:", error);

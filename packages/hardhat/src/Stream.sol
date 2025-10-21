@@ -40,9 +40,14 @@ import { StreamMathLib } from "./lib/math/StreamMathLib.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { IPoolWrapper } from "./interfaces/IPoolWrapper.sol";
 import { IVestingFactory } from "./interfaces/IVestingFactory.sol";
-import { PoolWrapperTypes } from "./types/PoolWrapperTypes.sol";
 import { IPermit2 } from "./interfaces/IPermit2.sol";
 import { TransferLib } from "./lib/TransferLib.sol";
+
+import { PoolWrapperTypes } from "./types/PoolWrapperTypes.sol";
+
+// import console 
+import "hardhat/console.sol";
+
 
     
 /**
@@ -164,6 +169,10 @@ contract Stream is IStreamErrors, IStreamEvents {
             // Validate pool amount is less than or equal to out amount
             if (createStreamMessage.poolInfo.poolOutSupplyAmount > createStreamMessage.streamOutAmount) {
                 revert InvalidPoolOutSupplyAmount();
+            }
+            // Validate pool type
+            if (createStreamMessage.poolInfo.dexType != StreamTypes.DexType.V2 && createStreamMessage.poolInfo.dexType != StreamTypes.DexType.V3) {
+                revert InvalidPoolType();
             }
             postStreamActions.poolInfo = createStreamMessage.poolInfo;
         }
@@ -453,6 +462,7 @@ contract Stream is IStreamErrors, IStreamEvents {
                     streamTokens.outSupplyToken,
                     purchased
                 );
+                emit BeneficiaryVestingCreated(msg.sender, postStreamActions.beneficiaryVesting.vestingDuration, streamTokens.outSupplyToken, purchased);
             } else {
                 TransferLib.transferFunds(streamTokens.outSupplyToken, address(this), msg.sender, purchased);
             }
@@ -548,7 +558,9 @@ contract Stream is IStreamErrors, IStreamEvents {
                     streamTokens.inSupplyToken,
                     streamTokens.outSupplyToken,
                     poolInSupplyAmount,
-                    poolOutSupplyAmount
+                    poolOutSupplyAmount,
+                    postStreamActions.poolInfo.dexType,
+                    creator
                 );
             }
 
@@ -562,6 +574,7 @@ contract Stream is IStreamErrors, IStreamEvents {
                     streamTokens.inSupplyToken,
                     creatorRevenue
                 );
+                emit CreatorVestingCreated(creator, postStreamActions.creatorVesting.vestingDuration, streamTokens.inSupplyToken, creatorRevenue);
             } else {
                 TransferLib.transferFunds(streamTokens.inSupplyToken, address(this), creator, creatorRevenue);
             }
@@ -890,26 +903,66 @@ contract Stream is IStreamErrors, IStreamEvents {
         address tokenA,
         address tokenB,
         uint256 amountADesired,
-        uint256 amountBDesired
+        uint256 amountBDesired,
+        StreamTypes.DexType dexType,
+        address streamCreator
     ) internal {
+
+        console.log("amountADesired", amountADesired);
+        console.log("amountBDesired", amountBDesired);
+
         StreamFactory factoryContract = StreamFactory(STREAM_FACTORY_ADDRESS);
         StreamFactoryTypes.Params memory params = factoryContract.getParams();
 
-        address poolWrapperAddress = params.poolWrapperAddress;
+        address poolWrapperAddress = dexType == StreamTypes.DexType.V2 ? params.V2PoolWrapperAddress : params.V3PoolWrapperAddress;
         IPoolWrapper poolWrapper = IPoolWrapper(poolWrapperAddress);
 
         // Transfer pool tokens to the pool wrapper contract first
         TransferLib.transferFunds(tokenA, address(this), poolWrapperAddress, amountADesired);
         TransferLib.transferFunds(tokenB, address(this), poolWrapperAddress, amountBDesired);
 
+        // Sort tokens
+        (address token0, address token1, uint256 amount0Desired, uint256 amount1Desired) = _sortTokens(
+            tokenA,
+            tokenB,
+            amountADesired,
+            amountBDesired
+        );
+
+        // Create the pool message
         PoolWrapperTypes.CreatePoolMsg memory createPoolMsg = PoolWrapperTypes.CreatePoolMsg({
-            token0: tokenA,
-            token1: tokenB,
-            amount0: amountADesired,
-            amount1: amountBDesired
+            token0: token0,
+            token1: token1,
+            amount0Desired: amount0Desired,
+            amount1Desired: amount1Desired,
+            creator: streamCreator
         });
         
-        // Now, call createPool
-        poolWrapper.createPool(createPoolMsg);
+        // Create the pool and get the result
+        PoolWrapperTypes.CreatedPoolInfo memory createdPoolInfo = poolWrapper.createPool(createPoolMsg);
+
+        emit PoolCreated(
+            address(this),
+            createdPoolInfo.poolAddress,
+            createdPoolInfo.token0,
+            createdPoolInfo.token1,
+            createdPoolInfo.amount0,
+            createdPoolInfo.amount1,
+            createdPoolInfo.refundedAmount0,
+            createdPoolInfo.refundedAmount1,
+            createdPoolInfo.creator
+        );
+    }
+
+    function _sortTokens(
+        address tokenA,
+        address tokenB,
+        uint256 amountA,
+        uint256 amountB
+    ) internal pure returns (address token0, address token1, uint256 amount0Desired, uint256 amount1Desired) {
+        if (tokenA < tokenB) {
+            return (tokenA, tokenB, amountA, amountB);
+        }
+        return (tokenB, tokenA, amountB, amountA);
     }
 }

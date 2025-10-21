@@ -10,6 +10,12 @@ interface IStreamFactoryEvents {
         address creator,
         address positionStorageAddress,
         uint256 streamOutAmount,
+        uint256 poolOutSupplyAmount,
+        string dexType,
+        bool isCreatorVestingEnabled,
+        bool isBeneficiaryVestingEnabled,
+        uint64 creatorVestingDuration,
+        uint64 beneficiaryVestingDuration,
         uint256 bootstrappingStartTime,
         uint256 streamStartTime,
         uint256 streamEndTime,
@@ -24,7 +30,8 @@ interface IStreamFactoryEvents {
     event FactoryInitialized(
         address indexed factory,
         address streamImplementationAddress,
-        address poolWrapperAddress,
+        address V2PoolWrapperAddress,
+        address V3PoolWrapperAddress,
         address feeCollector,
         address protocolAdmin,
         address streamCreationFeeToken,
@@ -58,5 +65,5 @@ interface IStreamFactoryEvents {
 
     event VestingContractDeployed(address indexed factoryAddress, address vestingContract);
 
-    event PoolWrapperUpdated(address indexed factoryAddress, address poolWrapper);
+    event PoolWrapperUpdated(address indexed factoryAddress, address V2PoolWrapperAddress, address V3PoolWrapperAddress);
 }

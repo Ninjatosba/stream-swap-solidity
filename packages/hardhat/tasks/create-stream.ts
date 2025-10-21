@@ -93,7 +93,7 @@ task("create-stream", "Creates a new stream using the deployed factory").setActi
   const nowSeconds = latestBlock?.timestamp ?? 0;
   const bootstrappingStartTime = nowSeconds + 60;
   const streamStartTime = nowSeconds + 120;
-  const streamEndTime = nowSeconds + 1240;
+  const streamEndTime = nowSeconds + 130;
 
   // Prepare stream creation message
   const salt = ethers.hexlify(ethers.randomBytes(32));
@@ -110,7 +110,10 @@ task("create-stream", "Creates a new stream using the deployed factory").setActi
     creator: creator.address,
     creatorVesting: defaultStreamConfig.creatorVestingInfo,
     beneficiaryVesting: defaultStreamConfig.beneficiaryVestingInfo,
-    poolInfo: { poolOutSupplyAmount: ethers.parseEther("500") },
+    poolInfo: {
+      poolOutSupplyAmount: ethers.parseEther("500"),
+      dexType: 1 // 0 = V2, 1 = V3
+    },
     salt,
   };
 

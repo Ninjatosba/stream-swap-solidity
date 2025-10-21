@@ -6,7 +6,7 @@ import { streamFactory } from "./helpers/StreamFactoryFixtureBuilder";
 describe("TokenCreationWithStream", function () {
     describe("Happy Path", function () {
         it("Should create token and stream with correct token distribution", async function () {
-            const fixture = await loadFixture(streamFactory().build());
+            const fixture = await loadFixture(streamFactory().enablePoolCreation(true).build());
 
             const now = Math.floor(Date.now() / 1000);
             const streamOutAmount = ethers.parseEther("1000");
@@ -26,7 +26,7 @@ describe("TokenCreationWithStream", function () {
                 metadata: { ipfsHash: "QmTest123" },
                 creatorVesting: { isVestingEnabled: false, vestingDuration: 0 },
                 beneficiaryVesting: { isVestingEnabled: false, vestingDuration: 0 },
-                poolInfo: { poolOutSupplyAmount: poolOutSupply },
+                poolInfo: { poolOutSupplyAmount: poolOutSupply, dexType: 0 },
                 tosVersion: "1.0",
             };
 
@@ -91,7 +91,7 @@ describe("TokenCreationWithStream", function () {
         });
 
         it("Should create token with custom decimals", async function () {
-            const fixture = await loadFixture(streamFactory().build());
+            const fixture = await loadFixture(streamFactory().enablePoolCreation(true).build());
 
             const now = Math.floor(Date.now() / 1000);
             const streamOutAmount = ethers.parseUnits("1000", 6);
@@ -110,7 +110,7 @@ describe("TokenCreationWithStream", function () {
                 metadata: { ipfsHash: "QmTest123" },
                 creatorVesting: { isVestingEnabled: false, vestingDuration: 0 },
                 beneficiaryVesting: { isVestingEnabled: false, vestingDuration: 0 },
-                poolInfo: { poolOutSupplyAmount: poolOutSupply },
+                poolInfo: { poolOutSupplyAmount: poolOutSupply, dexType: 0 },
                 tosVersion: "1.0",
             };
 
@@ -165,7 +165,7 @@ describe("TokenCreationWithStream", function () {
                 metadata: { ipfsHash: "QmTest123" },
                 creatorVesting: { isVestingEnabled: false, vestingDuration: 0 },
                 beneficiaryVesting: { isVestingEnabled: false, vestingDuration: 0 },
-                poolInfo: { poolOutSupplyAmount: ethers.parseEther("100000") },
+                poolInfo: { poolOutSupplyAmount: ethers.parseEther("0"), dexType: 0 },
                 tosVersion: "1.0",
             };
 
@@ -197,7 +197,7 @@ describe("TokenCreationWithStream", function () {
 
     describe("Error Cases", function () {
         it("Should revert if total supply is less than stream needs", async function () {
-            const fixture = await loadFixture(streamFactory().build());
+            const fixture = await loadFixture(streamFactory().enablePoolCreation(true).build());
 
             const now = Math.floor(Date.now() / 1000);
             const streamOutAmount = ethers.parseEther("1000");
@@ -216,7 +216,7 @@ describe("TokenCreationWithStream", function () {
                 metadata: { ipfsHash: "QmTest123" },
                 creatorVesting: { isVestingEnabled: false, vestingDuration: 0 },
                 beneficiaryVesting: { isVestingEnabled: false, vestingDuration: 0 },
-                poolInfo: { poolOutSupplyAmount: poolOutSupply },
+                poolInfo: { poolOutSupplyAmount: poolOutSupply, dexType: 0 },
                 tosVersion: "1.0",
             };
 
@@ -257,7 +257,7 @@ describe("TokenCreationWithStream", function () {
                 metadata: { ipfsHash: "QmTest123" },
                 creatorVesting: { isVestingEnabled: false, vestingDuration: 0 },
                 beneficiaryVesting: { isVestingEnabled: false, vestingDuration: 0 },
-                poolInfo: { poolOutSupplyAmount: poolOutSupply },
+                poolInfo: { poolOutSupplyAmount: poolOutSupply, dexType: 0 },
                 tosVersion: "1.0",
             };
 
@@ -271,28 +271,12 @@ describe("TokenCreationWithStream", function () {
                 isBurnable: false,
             };
 
-            // This should pass validation (totalSupply >= needed) but mint 0 to creator
-            // Let's test it creates successfully with 0 creator balance
-            const tx = await fixture.contracts.streamFactory
-                .connect(fixture.accounts.creator)
-                .createStreamWithTokenCreation(createStreamMessage, tokenCreationInfo);
-
-            const receipt = await tx.wait();
-            const tokenCreatedEvent = receipt?.logs.find((log) => {
-                try {
-                    const parsed = fixture.contracts.streamFactory.interface.parseLog(log);
-                    return parsed?.name === "TokenCreated";
-                } catch {
-                    return false;
-                }
-            });
-
-            const parsedEvent = fixture.contracts.streamFactory.interface.parseLog(tokenCreatedEvent!);
-            const tokenAddress = parsedEvent?.args.token;
-            const token = await ethers.getContractAt("StandardERC20", tokenAddress);
-
-            // Creator should have 0 balance
-            expect(await token.balanceOf(fixture.accounts.creator.address)).to.equal(0);
+            // Expect revert: pool wrappers are required when poolOutSupplyAmount > 0
+            await expect(
+                fixture.contracts.streamFactory
+                    .connect(fixture.accounts.creator)
+                    .createStreamWithTokenCreation(createStreamMessage, tokenCreationInfo)
+            ).to.be.revertedWithCustomError(fixture.contracts.streamFactory, "PoolWrapperNotSet");
         });
 
         it("Should revert if stream out amount is zero", async function () {
@@ -313,7 +297,7 @@ describe("TokenCreationWithStream", function () {
                 metadata: { ipfsHash: "QmTest123" },
                 creatorVesting: { isVestingEnabled: false, vestingDuration: 0 },
                 beneficiaryVesting: { isVestingEnabled: false, vestingDuration: 0 },
-                poolInfo: { poolOutSupplyAmount: ethers.parseEther("100") },
+                poolInfo: { poolOutSupplyAmount: ethers.parseEther("100"), dexType: 0 },
                 tosVersion: "1.0",
             };
 
@@ -352,7 +336,7 @@ describe("TokenCreationWithStream", function () {
                 metadata: { ipfsHash: "QmTest123" },
                 creatorVesting: { isVestingEnabled: false, vestingDuration: 0 },
                 beneficiaryVesting: { isVestingEnabled: false, vestingDuration: 0 },
-                poolInfo: { poolOutSupplyAmount: ethers.parseEther("100") },
+                poolInfo: { poolOutSupplyAmount: ethers.parseEther("100"), dexType: 0 },
                 tosVersion: "1.0",
             };
 
@@ -397,7 +381,7 @@ describe("TokenCreationWithStream", function () {
                 metadata: { ipfsHash: "QmTest123" },
                 creatorVesting: { isVestingEnabled: false, vestingDuration: 0 },
                 beneficiaryVesting: { isVestingEnabled: false, vestingDuration: 0 },
-                poolInfo: { poolOutSupplyAmount: ethers.parseEther("100") },
+                poolInfo: { poolOutSupplyAmount: ethers.parseEther("100"), dexType: 0 },
                 tosVersion: "1.0",
             };
 
@@ -436,7 +420,7 @@ describe("TokenCreationWithStream", function () {
                 metadata: { ipfsHash: "QmTest123" },
                 creatorVesting: { isVestingEnabled: false, vestingDuration: 0 },
                 beneficiaryVesting: { isVestingEnabled: false, vestingDuration: 0 },
-                poolInfo: { poolOutSupplyAmount: ethers.parseEther("100") },
+                poolInfo: { poolOutSupplyAmount: ethers.parseEther("100"), dexType: 0 },
                 tosVersion: "2.0", // Wrong version
             };
 
@@ -475,7 +459,7 @@ describe("TokenCreationWithStream", function () {
                 metadata: { ipfsHash: "QmTest123" },
                 creatorVesting: { isVestingEnabled: false, vestingDuration: 0 },
                 beneficiaryVesting: { isVestingEnabled: false, vestingDuration: 0 },
-                poolInfo: { poolOutSupplyAmount: ethers.parseEther("100") },
+                poolInfo: { poolOutSupplyAmount: ethers.parseEther("100"), dexType: 0 },
                 tosVersion: "1.0",
             };
 

@@ -24,6 +24,7 @@ interface IStreamFactoryErrors {
     error InvalidProtocolAdmin();
     error NotAdmin();
     error InvalidPoolWrapper();
+    error PoolWrapperNotSet();
     error InvalidImplementationAddress();
     error InvalidStreamCreationFeeToken();
     error AlreadyInitialized();
