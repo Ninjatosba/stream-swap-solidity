@@ -503,6 +503,112 @@ describe("Stream Finalize", function () {
       expect(price).to.be.closeTo(1.111, 0.001);
 
     });
+
+    it("Should handle finalize with Pool Aerodrome creation", async function () {
+      const { contracts, timeParams, accounts } = await loadFixture(
+        stream()
+          .poolOutSupply(ethers.parseEther("25"))
+          .streamOut(ethers.parseEther("100"))
+          .setThreshold(ethers.parseEther("100"))
+          .enablePoolCreation(true)
+          .forkDetails(undefined, "baseAerodrome")
+          .build()
+      );
+
+      // Fast forward time to stream start
+      await ethers.provider.send("evm_setNextBlockTimestamp", [timeParams.streamStartTime + 1]);
+      await ethers.provider.send("evm_mine", []);
+
+      // Sync the stream
+      const tx = await contracts.stream.syncStreamExternal();
+      await tx.wait();
+
+      // Subscribe to reach threshold
+      const subscriptionAmount = ethers.parseEther("100");
+      await contracts.inSupplyToken
+        .connect(accounts.subscriber1)
+        .approve(contracts.stream.getAddress(), subscriptionAmount);
+      await contracts.stream.connect(accounts.subscriber1).subscribe(subscriptionAmount);
+
+
+      // Fast forward time to stream end
+      await ethers.provider.send("evm_setNextBlockTimestamp", [timeParams.streamEndTime + 1]);
+      await ethers.provider.send("evm_mine", []);
+
+      // Sync the stream
+      const tx2 = await contracts.stream.syncStreamExternal();
+      await tx2.wait();
+
+      const creatorInBalanceBefore = await contracts.inSupplyToken.balanceOf(accounts.creator.address);
+      const creatorOutBalanceBefore = await contracts.outSupplyToken.balanceOf(accounts.creator.address);
+
+      // Finalize with pool creation
+      const finalizeTx = await contracts.stream.connect(accounts.creator).finalizeStream();
+      const receipt = await finalizeTx.wait();
+
+      // Query logs from Stream contract for PoolCreated event
+      const streamPoolCreatedInterface = new ethers.Interface([
+        "event PoolCreated(address indexed streamAddress, address indexed poolAddress, address token0, address token1, uint256 amount0, uint256 amount1, uint256 refundedAmount0, uint256 refundedAmount1, address indexed creator)"
+      ]);
+      const streamFinalizedInterface = new ethers.Interface([
+        "event FinalizedStreamed(address indexed streamAddress, address indexed creator, uint256 creatorRevenue, uint256 exitFeeAmount, uint256 refundedOutAmount)"
+      ]);
+
+      // Get logs from Stream contract for FinalizedStreamed event
+      const streamFinalizedTopic = ethers.id("FinalizedStreamed(address,address,uint256,uint256,uint256)");
+      const streamFinalizedLogs = await ethers.provider.getLogs({
+        address: await contracts.stream.getAddress(),
+        fromBlock: receipt?.blockNumber,
+        toBlock: receipt?.blockNumber,
+        topics: [streamFinalizedTopic]
+      });
+
+      // Should have one FinalizedStreamed event
+      expect(streamFinalizedLogs.length).to.equal(1);
+
+      // Parse the finalized event
+      const finalizedEvent = streamFinalizedInterface.parseLog(streamFinalizedLogs[0]);
+      const creatorRevenue = finalizedEvent?.args?.creatorRevenue;
+      const exitFeeAmount = finalizedEvent?.args?.exitFeeAmount;
+
+      // Get logs from Stream contract
+      const poolEventTopic = ethers.id("PoolCreated(address,address,address,address,uint256,uint256,uint256,uint256,address)");
+      const streamAddress = await contracts.stream.getAddress();
+      const poolLogs = await ethers.provider.getLogs({
+        address: streamAddress,
+        fromBlock: receipt?.blockNumber,
+        toBlock: receipt?.blockNumber,
+        topics: [poolEventTopic]
+      });
+
+      // Should have one PoolCreated event
+      expect(poolLogs.length).to.equal(1);
+
+      // Parse the pool event
+      const poolEvent = streamPoolCreatedInterface.parseLog(poolLogs[0]);
+      expect(poolEvent?.args?.streamAddress).to.equal(streamAddress);
+      expect(poolEvent?.args?.poolAddress).to.not.be.equal(ethers.ZeroAddress);
+
+      const creatorInBalanceAfter = await contracts.inSupplyToken.balanceOf(accounts.creator.address);
+      const creatorOutBalanceAfter = await contracts.outSupplyToken.balanceOf(accounts.creator.address);
+
+      // Verify balances
+      expect(creatorInBalanceAfter - creatorInBalanceBefore).to.equal(poolEvent?.args?.refundedAmount0 + creatorRevenue);
+      expect(creatorOutBalanceAfter - creatorOutBalanceBefore).to.equal(poolEvent?.args?.refundedAmount1);
+
+      // Get price from the Aerodrome pool
+      const pool = await ethers.getContractAt("IAerodromePool", poolEvent?.args?.poolAddress);
+
+      // Try getReserves first, fallback to individual calls
+      let reserve0, reserve1;
+      const reserves = await pool.getReserves();
+      reserve0 = reserves[0];
+      reserve1 = reserves[1];
+
+
+      const price = Number(reserve1) / Number(reserve0);
+      expect(price).to.be.closeTo(1.111, 0.001);
+    });
   });
 
   describe("Finalize with Threshold Not Reached", function () {

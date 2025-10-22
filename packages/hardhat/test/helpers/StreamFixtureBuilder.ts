@@ -1,4 +1,4 @@
-import { ethers } from "hardhat";
+import { ethers, network } from "hardhat";
 import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
 import { Contract, TransactionRequest } from "ethers";
 import fs from "fs";
@@ -6,7 +6,7 @@ import path from "path";
 import { DecimalStruct, StreamTypes } from "../../typechain-types/src/Stream";
 import { StreamFactoryTypes } from "../../typechain-types/src/StreamFactory";
 import { disableFork, enableMainnetFork } from "./fork";
-import { deployV2PoolWrapperFork, deployV3PoolWrapperFork } from "./poolWrappers";
+import { deployAerodromePoolWrapperFork, deployV2PoolWrapperFork, deployV3PoolWrapperFork } from "./poolWrappers";
 
 // Configuration interfaces
 interface StreamTimeConfig {
@@ -93,7 +93,7 @@ export class StreamFixtureBuilder {
   private enablePoolCreationFlag: boolean = false;
   private selectedDexType: 0 | 1 = 0; // 0: V2, 1: V3
   private forkBlock?: number;
-
+  private network?: string;
   // Time configuration methods
   public timeParams(waitSeconds: number, bootstrappingDuration: number, streamDuration: number): StreamFixtureBuilder {
     this.timeConfig = { waitSeconds, bootstrappingDuration, streamDuration };
@@ -196,8 +196,9 @@ export class StreamFixtureBuilder {
   }
 
   // Optionally pin fork block for reproducibility
-  public forkAt(blockNumber?: number): StreamFixtureBuilder {
+  public forkDetails(blockNumber?: number, network?: string): StreamFixtureBuilder {
     this.forkBlock = blockNumber;
+    this.network = network;
     return this;
   }
 
@@ -208,7 +209,7 @@ export class StreamFixtureBuilder {
       try {
         // Reset or enable fork depending on pool creation flag
         if (self.enablePoolCreationFlag) {
-          await enableMainnetFork(self.forkBlock);
+          await enableMainnetFork(self.forkBlock, self.network);
         } else {
           await disableFork();
         }
@@ -263,10 +264,10 @@ export class StreamFixtureBuilder {
         if (self.enablePoolCreationFlag) {
           const { wrapperAddress: v2Addr } = await deployV2PoolWrapperFork();
           const { wrapperAddress: v3Addr } = await deployV3PoolWrapperFork(3000);
+          const { wrapperAddress: aerodromeAddr } = await deployAerodromePoolWrapperFork();
           v2PoolWrapperAddress = v2Addr;
           v3PoolWrapperAddress = v3Addr;
-          // For now, don't deploy Aerodrome wrapper in tests since it's not available on mainnet fork
-          aerodromePoolWrapperAddress = ethers.ZeroAddress;
+          aerodromePoolWrapperAddress = aerodromeAddr;
         }
 
         // Deploy StreamFactory

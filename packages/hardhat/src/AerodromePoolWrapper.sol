@@ -41,12 +41,11 @@ contract AerodromePoolWrapper is PoolWrapper {
         IAerodromeFactory factory = IAerodromeFactory(AERODROME_FACTORY);
         IAerodromeRouter router = IAerodromeRouter(AERODROME_ROUTER);
 
-        // Check if pair already exists
-        address existingPool = factory.getPair(createPoolMsg.token0, createPoolMsg.token1, STABLE_POOL);
-
+        // Check if pool already exists
+        address existingPool = factory.getPool(createPoolMsg.token0, createPoolMsg.token1, STABLE_POOL);
         if (existingPool == address(0)) {
-            // Create new pair
-            poolAddress = factory.createPair(createPoolMsg.token0, createPoolMsg.token1, STABLE_POOL);
+            // Create new pool
+            poolAddress = factory.createPool(createPoolMsg.token0, createPoolMsg.token1, STABLE_POOL);
             if (poolAddress == address(0)) revert PoolCreationFailed();
         } else {
             poolAddress = existingPool;
@@ -72,6 +71,8 @@ contract AerodromePoolWrapper is PoolWrapper {
         // Calculate refunds
         refundedAmount0 = createPoolMsg.amount0Desired - amount0;
         refundedAmount1 = createPoolMsg.amount1Desired - amount1;
+
+        return (poolAddress, amount0, amount1, refundedAmount0, refundedAmount1);
     }
 
     function _getFactory() internal view virtual override returns (address) {
@@ -91,12 +92,12 @@ contract AerodromePoolWrapper is PoolWrapper {
     }
 
     /**
-     * @notice Get the pair address for given tokens without creating it
+     * @notice Get the pool address for given tokens without creating it
      * @param tokenA First token address
      * @param tokenB Second token address
-     * @return pair The pair address if it exists, address(0) otherwise
+     * @return pool The pool address if it exists, address(0) otherwise
      */
-    function getPair(address tokenA, address tokenB) external view returns (address pair) {
-        return IAerodromeFactory(AERODROME_FACTORY).getPair(tokenA, tokenB, STABLE_POOL);
+    function getPair(address tokenA, address tokenB) external view returns (address pool) {
+        return IAerodromeFactory(AERODROME_FACTORY).getPool(tokenA, tokenB, STABLE_POOL);
     }
 }

@@ -7,6 +7,7 @@ import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.s
 import { PoolWrapperTypes } from "./types/PoolWrapperTypes.sol";
 import { IPoolWrapperErrors } from "./interfaces/IPoolWrapperErrors.sol";
 import { TransferLib } from "./lib/TransferLib.sol";
+import "hardhat/console.sol";
 
 abstract contract PoolWrapper is Ownable, IPoolWrapperErrors {
     using SafeERC20 for IERC20;
@@ -30,6 +31,7 @@ abstract contract PoolWrapper is Ownable, IPoolWrapperErrors {
         if (createPoolMsg.token0 == createPoolMsg.token1) revert DifferentTokensRequired();
         if (createPoolMsg.amount0Desired == 0) revert InvalidAmount();
         if (createPoolMsg.amount1Desired == 0) revert InvalidAmount();
+        if (createPoolMsg.creator == address(0)) revert InvalidAddress();
 
         // Validate that the tokens are sent to this contract
         if (IERC20(createPoolMsg.token0).balanceOf(address(this)) < createPoolMsg.amount0Desired) {

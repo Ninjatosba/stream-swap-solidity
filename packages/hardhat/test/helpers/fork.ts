@@ -1,9 +1,15 @@
 import { ethers } from "hardhat";
 
-export async function enableMainnetFork(blockNumber?: number) {
+export async function enableMainnetFork(blockNumber?: number, network?: string) {
     const apiKey = process.env.ALCHEMY_API_KEY;
     if (!apiKey) throw new Error("Missing ALCHEMY_API_KEY for fork");
-    const jsonRpcUrl = `https://eth-mainnet.g.alchemy.com/v2/${apiKey}`;
+    let jsonRpcUrl = `https://eth-mainnet.g.alchemy.com/v2/${apiKey}`;
+
+    if (network === "base") {
+        jsonRpcUrl = `https://base-mainnet.g.alchemy.com/v2/${apiKey}`;
+    } else if (network === "baseSepolia") {
+        jsonRpcUrl = `https://base-sepolia.g.alchemy.com/v2/${apiKey}`;
+    }
     await ethers.provider.send("hardhat_reset", [
         {
             forking: {

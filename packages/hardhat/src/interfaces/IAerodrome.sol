@@ -2,14 +2,22 @@
 pragma solidity ^0.8.24;
 
 interface IAerodromeFactory {
-    function getPair(address tokenA, address tokenB, bool stable) external view returns (address pair);
-    function allPairs(uint) external view returns (address pair);
-    function allPairsLength() external view returns (uint);
-    function createPair(address tokenA, address tokenB, bool stable) external returns (address pair);
-    function createPair(address tokenA, address tokenB, uint fee) external returns (address pair);
+    function getPool(address tokenA, address tokenB, bool stable) external view returns (address pool);
+    function getPool(address tokenA, address tokenB, uint24 fee) external view returns (address pool);
+    function allPoolsLength() external view returns (uint256);
+    function isPool(address pool) external view returns (bool);
+    function createPool(address tokenA, address tokenB, bool stable) external returns (address pool);
+    function createPool(address tokenA, address tokenB, uint24 fee) external returns (address pool);
     function setFeeManager(address _feeManager) external;
     function setPauser(address _pauser) external;
     function setPauseState(bool _state) external;
+    function setVoter(address _voter) external;
+    function setFee(bool _stable, uint256 _fee) external;
+    function setCustomFee(address _pool, uint256 _fee) external;
+    function getFee(address _pool, bool _stable) external view returns (uint256);
+    function isPaused() external view returns (bool);
+    function voter() external view returns (address);
+    function implementation() external view returns (address);
 }
 
 interface IAerodromeRouter {
@@ -120,42 +128,15 @@ interface IAerodromeRouter {
     function weth() external view returns (address);
 }
 
-interface IAerodromePair {
-    function name() external pure returns (string memory);
-    function symbol() external pure returns (string memory);
-    function decimals() external pure returns (uint8);
-    function totalSupply() external view returns (uint);
-    function balanceOf(address owner) external view returns (uint);
-    function allowance(address owner, address spender) external view returns (uint);
-    function approve(address spender, uint value) external returns (bool);
-    function transfer(address to, uint value) external returns (bool);
-    function transferFrom(address from, address to, uint value) external returns (bool);
-    function DOMAIN_SEPARATOR() external view returns (bytes32);
-    function PERMIT_TYPEHASH() external pure returns (bytes32);
-    function nonces(address owner) external view returns (uint);
-    function permit(address owner, address spender, uint value, uint deadline, uint8 v, bytes32 r, bytes32 s) external;
-    function MINIMUM_LIQUIDITY() external pure returns (uint);
-    function factory() external view returns (address);
+// Interface for Aerodrome pools - includes functions needed for pool queries
+interface IAerodromePool {
+    function getReserves() external view returns (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast);
+    function reserve0() external view returns (uint256);
+    function reserve1() external view returns (uint256);
     function token0() external view returns (address);
     function token1() external view returns (address);
-    function getReserves() external view returns (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast);
-    function price0CumulativeLast() external view returns (uint);
-    function price1CumulativeLast() external view returns (uint);
-    function kLast() external view returns (uint);
-    function mint(address to) external returns (uint liquidity);
-    function burn(address to) external returns (uint amount0, uint amount1);
-    function swap(uint amount0Out, uint amount1Out, address to, bytes calldata data) external;
-    function skim(address to) external;
-    function sync() external;
-    function initialize(address _token0, address _token1, bool _stable) external;
-    function metadata() external view returns (uint dec0, uint dec1, uint r0, uint r1, bool st, address t0, address t1);
-    function claimFees() external returns (uint claimed0, uint claimed1);
-    function tokens() external view returns (address, address);
+    function totalSupply() external view returns (uint256);
     function stable() external view returns (bool);
-    function getAmountOut(uint amountIn, address tokenIn) external view returns (uint);
-    function fees() external view returns (address);
-    function fee() external view returns (uint32);
-    function admin_fee() external view returns (uint32);
-    function setFee(uint32) external;
-    function setAdminFee(uint32) external;
 }
+
+
