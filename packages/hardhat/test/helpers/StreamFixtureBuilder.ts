@@ -259,11 +259,14 @@ export class StreamFixtureBuilder {
         // Optionally deploy pool wrappers on fork
         let v2PoolWrapperAddress: string = ethers.ZeroAddress;
         let v3PoolWrapperAddress: string = ethers.ZeroAddress;
+        let aerodromePoolWrapperAddress: string = ethers.ZeroAddress;
         if (self.enablePoolCreationFlag) {
           const { wrapperAddress: v2Addr } = await deployV2PoolWrapperFork();
           const { wrapperAddress: v3Addr } = await deployV3PoolWrapperFork(3000);
           v2PoolWrapperAddress = v2Addr;
           v3PoolWrapperAddress = v3Addr;
+          // For now, don't deploy Aerodrome wrapper in tests since it's not available on mainnet fork
+          aerodromePoolWrapperAddress = ethers.ZeroAddress;
         }
 
         // Deploy StreamFactory
@@ -297,6 +300,7 @@ export class StreamFixtureBuilder {
           tokenFactoryAddress: tokenFactoryAddress,
           V2PoolWrapperAddress: v2PoolWrapperAddress,
           V3PoolWrapperAddress: v3PoolWrapperAddress,
+          AerodromePoolWrapperAddress: aerodromePoolWrapperAddress,
         };
 
         await streamFactory.connect(protocolAdmin).initialize(streamFactoryMessage);
@@ -408,6 +412,9 @@ export class StreamFixtureBuilder {
               : undefined,
             v3PoolWrapper: v3PoolWrapperAddress !== ethers.ZeroAddress
               ? await ethers.getContractAt("PoolWrapper", v3PoolWrapperAddress)
+              : undefined,
+            aerodromePoolWrapper: aerodromePoolWrapperAddress !== ethers.ZeroAddress
+              ? await ethers.getContractAt("PoolWrapper", aerodromePoolWrapperAddress)
               : undefined,
             permit2,
           },

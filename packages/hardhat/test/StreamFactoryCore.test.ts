@@ -30,6 +30,7 @@ describe("StreamFactoryCore", function () {
         let streamImplementation: any;
         let v2WrapperAddress: string;
         let v3WrapperAddress: string;
+        let aerodromeWrapperAddress: string;
         let tokenFactory: any;
 
         beforeEach(async function () {
@@ -45,6 +46,7 @@ describe("StreamFactoryCore", function () {
             // No pool wrapper mocks; use zero addresses
             v2WrapperAddress = ethers.ZeroAddress;
             v3WrapperAddress = ethers.ZeroAddress;
+            aerodromeWrapperAddress = ethers.ZeroAddress;
 
             // Deploy fresh factory for each test
             const StreamFactory = await ethers.getContractFactory("StreamFactory");
@@ -76,6 +78,7 @@ describe("StreamFactoryCore", function () {
                 streamImplementationAddress: await streamImplementation.getAddress(),
                 V2PoolWrapperAddress: v2WrapperAddress,
                 V3PoolWrapperAddress: v3WrapperAddress,
+                AerodromePoolWrapperAddress: aerodromeWrapperAddress,
                 tokenFactoryAddress: await tokenFactory.getAddress(),
             };
         });
@@ -186,17 +189,18 @@ describe("StreamFactoryCore", function () {
             expect(parsedEvent.args[1]).to.equal(validInitMessage.streamImplementationAddress);
             expect(parsedEvent.args[2]).to.equal(validInitMessage.V2PoolWrapperAddress);
             expect(parsedEvent.args[3]).to.equal(validInitMessage.V3PoolWrapperAddress);
-            expect(parsedEvent.args[4]).to.equal(validInitMessage.feeCollector);
-            expect(parsedEvent.args[5]).to.equal(validInitMessage.protocolAdmin);
-            expect(parsedEvent.args[6]).to.equal(validInitMessage.streamCreationFeeToken);
-            expect(parsedEvent.args[7]).to.deep.equal(validInitMessage.acceptedInSupplyTokens);
-            expect(parsedEvent.args[8]).to.equal(validInitMessage.streamCreationFee);
-            expect(parsedEvent.args[9]).to.equal(validInitMessage.exitFeeRatio.value);
-            expect(parsedEvent.args[10]).to.equal(validInitMessage.minWaitingDuration);
-            expect(parsedEvent.args[11]).to.equal(validInitMessage.minBootstrappingDuration);
-            expect(parsedEvent.args[12]).to.equal(validInitMessage.minStreamDuration);
-            expect(parsedEvent.args[13]).to.equal(validInitMessage.tosVersion);
-            expect(parsedEvent.args[14]).to.not.equal(ethers.ZeroAddress); // vestingAddress should be set
+            expect(parsedEvent.args[4]).to.equal(validInitMessage.AerodromePoolWrapperAddress);
+            expect(parsedEvent.args[5]).to.equal(validInitMessage.feeCollector);
+            expect(parsedEvent.args[6]).to.equal(validInitMessage.protocolAdmin);
+            expect(parsedEvent.args[7]).to.equal(validInitMessage.streamCreationFeeToken);
+            expect(parsedEvent.args[8]).to.deep.equal(validInitMessage.acceptedInSupplyTokens);
+            expect(parsedEvent.args[9]).to.equal(validInitMessage.streamCreationFee);
+            expect(parsedEvent.args[10]).to.equal(validInitMessage.exitFeeRatio.value);
+            expect(parsedEvent.args[11]).to.equal(validInitMessage.minWaitingDuration);
+            expect(parsedEvent.args[12]).to.equal(validInitMessage.minBootstrappingDuration);
+            expect(parsedEvent.args[13]).to.equal(validInitMessage.minStreamDuration);
+            expect(parsedEvent.args[14]).to.equal(validInitMessage.tosVersion);
+            expect(parsedEvent.args[15]).to.not.equal(ethers.ZeroAddress); // vestingAddress should be set
         });
 
         it("should emit VestingContractDeployed event on successful initialization", async function () {
@@ -299,7 +303,7 @@ describe("StreamFactoryCore", function () {
                 () => fixture.contracts.streamFactory.connect(nonAdmin).updateTosVersion("2.0"),
                 () => fixture.contracts.streamFactory.connect(nonAdmin).updateFeeCollector(dummyAddress),
                 () => fixture.contracts.streamFactory.connect(nonAdmin).updateProtocolAdmin(dummyAddress),
-                () => fixture.contracts.streamFactory.connect(nonAdmin).updatePoolWrapper(dummyAddress, dummyAddress),
+                () => fixture.contracts.streamFactory.connect(nonAdmin).updatePoolWrapper(dummyAddress, dummyAddress, dummyAddress),
                 () => fixture.contracts.streamFactory.connect(nonAdmin).updateStreamImplementation(dummyAddress),
                 () => fixture.contracts.streamFactory.connect(nonAdmin).updateAcceptedTokens([dummyAddress], []),
                 () => fixture.contracts.streamFactory.connect(nonAdmin).setFrozen(true),

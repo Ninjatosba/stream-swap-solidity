@@ -25,4 +25,5 @@ interface IStreamErrors {
     error InvalidImplementationAddress();
     error InvalidInputToken();
     error SameInputAndOutputToken();
+    error InvalidDexType();
 }

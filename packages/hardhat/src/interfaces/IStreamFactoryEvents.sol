@@ -32,6 +32,7 @@ interface IStreamFactoryEvents {
         address streamImplementationAddress,
         address V2PoolWrapperAddress,
         address V3PoolWrapperAddress,
+        address AerodromePoolWrapperAddress,
         address feeCollector,
         address protocolAdmin,
         address streamCreationFeeToken,
@@ -65,5 +66,5 @@ interface IStreamFactoryEvents {
 
     event VestingContractDeployed(address indexed factoryAddress, address vestingContract);
 
-    event PoolWrapperUpdated(address indexed factoryAddress, address V2PoolWrapperAddress, address V3PoolWrapperAddress);
+    event PoolWrapperUpdated(address indexed factoryAddress, address V2PoolWrapperAddress, address V3PoolWrapperAddress, address AerodromePoolWrapperAddress);
 }

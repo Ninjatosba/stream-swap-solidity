@@ -17,6 +17,7 @@ library StreamFactoryTypes {
         address vestingFactoryAddress;
         address V2PoolWrapperAddress;
         address V3PoolWrapperAddress;
+        address AerodromePoolWrapperAddress;
         address streamImplementationAddress;
         address tokenFactoryAddress;
     }
@@ -33,6 +34,7 @@ library StreamFactoryTypes {
         string tosVersion;
         address V2PoolWrapperAddress;
         address V3PoolWrapperAddress;
+        address AerodromePoolWrapperAddress;
         address streamImplementationAddress;
         address[] acceptedInSupplyTokens;
         address tokenFactoryAddress;

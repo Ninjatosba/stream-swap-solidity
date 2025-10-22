@@ -39,4 +39,5 @@ interface IStreamFactoryErrors {
     error InvalidTokenDecimals();
     error InvalidTokenSupply();
     error InvalidTokenTotalSupply();
+    error InvalidDexType();
 }

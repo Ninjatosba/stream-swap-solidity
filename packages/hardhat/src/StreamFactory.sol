@@ -124,6 +124,7 @@ contract StreamFactory is IStreamFactoryEvents, IStreamFactoryErrors {
         params.vestingFactoryAddress = address(vestingFactory);
         params.V2PoolWrapperAddress = initializeStreamFactoryMessage.V2PoolWrapperAddress;
         params.V3PoolWrapperAddress = initializeStreamFactoryMessage.V3PoolWrapperAddress;
+        params.AerodromePoolWrapperAddress = initializeStreamFactoryMessage.AerodromePoolWrapperAddress;
         params.streamImplementationAddress = initializeStreamFactoryMessage.streamImplementationAddress;
         params.tokenFactoryAddress = initializeStreamFactoryMessage.tokenFactoryAddress;
         
@@ -139,6 +140,7 @@ contract StreamFactory is IStreamFactoryEvents, IStreamFactoryErrors {
             initializeStreamFactoryMessage.streamImplementationAddress,
             initializeStreamFactoryMessage.V2PoolWrapperAddress,
             initializeStreamFactoryMessage.V3PoolWrapperAddress,
+            initializeStreamFactoryMessage.AerodromePoolWrapperAddress,
             initializeStreamFactoryMessage.feeCollector,
             initializeStreamFactoryMessage.protocolAdmin,
             initializeStreamFactoryMessage.streamCreationFeeToken,
@@ -256,8 +258,12 @@ contract StreamFactory is IStreamFactoryEvents, IStreamFactoryErrors {
         if (createStreamMessage.poolInfo.poolOutSupplyAmount > 0) {
             if (createStreamMessage.poolInfo.dexType == StreamTypes.DexType.V2) {
                 if (params.V2PoolWrapperAddress == address(0)) revert PoolWrapperNotSet();
-            } else {
+            } else if (createStreamMessage.poolInfo.dexType == StreamTypes.DexType.V3) {
                 if (params.V3PoolWrapperAddress == address(0)) revert PoolWrapperNotSet();
+            } else if (createStreamMessage.poolInfo.dexType == StreamTypes.DexType.Aerodrome) {
+                if (params.AerodromePoolWrapperAddress == address(0)) revert PoolWrapperNotSet();
+            } else {
+                revert InvalidDexType();
             }
         }
 
@@ -441,10 +447,15 @@ contract StreamFactory is IStreamFactoryEvents, IStreamFactoryErrors {
      * @param V2PoolWrapperAddress New V2 pool wrapper address
      * @param V3PoolWrapperAddress New V3 pool wrapper address
      */
-    function updatePoolWrapper(address V2PoolWrapperAddress, address V3PoolWrapperAddress) external onlyAdmin {
+    function updatePoolWrapper(
+        address V2PoolWrapperAddress,
+        address V3PoolWrapperAddress,
+        address AerodromePoolWrapperAddress
+    ) external onlyAdmin {
         params.V2PoolWrapperAddress = V2PoolWrapperAddress;
         params.V3PoolWrapperAddress = V3PoolWrapperAddress;
-        emit PoolWrapperUpdated(address(this), V2PoolWrapperAddress, V3PoolWrapperAddress);
+        params.AerodromePoolWrapperAddress = AerodromePoolWrapperAddress;
+        emit PoolWrapperUpdated(address(this), V2PoolWrapperAddress, V3PoolWrapperAddress, AerodromePoolWrapperAddress);
     }
 
     /**

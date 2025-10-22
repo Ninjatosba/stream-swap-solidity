@@ -16,6 +16,7 @@ export interface StreamFactoryFixture {
     feeToken: ERC20Mock;
     v2PoolWrapper?: PoolWrapper;
     v3PoolWrapper?: PoolWrapper;
+    aerodromePoolWrapper?: PoolWrapper;
   };
   accounts: {
     creator: HardhatEthersSigner;
@@ -168,8 +169,10 @@ export class StreamFactoryFixtureBuilder {
         // Optionally deploy pool wrappers on fork (no mocks)
         let v2WrapperAddress = ethers.ZeroAddress;
         let v3WrapperAddress = ethers.ZeroAddress;
+        let aerodromeWrapperAddress = ethers.ZeroAddress;
         let v2PoolWrapper: PoolWrapper | undefined = undefined;
         let v3PoolWrapper: PoolWrapper | undefined = undefined;
+        let aerodromePoolWrapper: PoolWrapper | undefined = undefined;
         if (self.enablePoolCreationFlag) {
           const v2 = await deployV2PoolWrapperFork();
           const v3 = await deployV3PoolWrapperFork(3000);
@@ -177,6 +180,10 @@ export class StreamFactoryFixtureBuilder {
           v3WrapperAddress = v3.wrapperAddress;
           v2PoolWrapper = await ethers.getContractAt("PoolWrapper", v2WrapperAddress) as unknown as PoolWrapper;
           v3PoolWrapper = await ethers.getContractAt("PoolWrapper", v3WrapperAddress) as unknown as PoolWrapper;
+
+          // For now, don't deploy Aerodrome wrapper in tests since it's not available on mainnet fork
+          // In real deployment, this would be deployed via the deployment script
+          aerodromeWrapperAddress = ethers.ZeroAddress;
         }
 
 
@@ -211,6 +218,7 @@ export class StreamFactoryFixtureBuilder {
           tokenFactoryAddress: await tokenFactory.getAddress(),
           V2PoolWrapperAddress: v2WrapperAddress,
           V3PoolWrapperAddress: v3WrapperAddress,
+          AerodromePoolWrapperAddress: aerodromeWrapperAddress,
         };
 
         // Initialize with proper error handling
@@ -226,6 +234,7 @@ export class StreamFactoryFixtureBuilder {
             feeToken,
             v2PoolWrapper,
             v3PoolWrapper,
+            aerodromePoolWrapper,
           },
           accounts: {
             creator,

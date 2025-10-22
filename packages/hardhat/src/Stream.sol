@@ -914,7 +914,16 @@ contract Stream is IStreamErrors, IStreamEvents {
         StreamFactory factoryContract = StreamFactory(STREAM_FACTORY_ADDRESS);
         StreamFactoryTypes.Params memory params = factoryContract.getParams();
 
-        address poolWrapperAddress = dexType == StreamTypes.DexType.V2 ? params.V2PoolWrapperAddress : params.V3PoolWrapperAddress;
+        address poolWrapperAddress;
+        if (dexType == StreamTypes.DexType.V2) {
+            poolWrapperAddress = params.V2PoolWrapperAddress;
+        } else if (dexType == StreamTypes.DexType.V3) {
+            poolWrapperAddress = params.V3PoolWrapperAddress;
+        } else if (dexType == StreamTypes.DexType.Aerodrome) {
+            poolWrapperAddress = params.AerodromePoolWrapperAddress;
+        } else {
+            revert InvalidDexType();
+        }
         IPoolWrapper poolWrapper = IPoolWrapper(poolWrapperAddress);
 
         // Transfer pool tokens to the pool wrapper contract first

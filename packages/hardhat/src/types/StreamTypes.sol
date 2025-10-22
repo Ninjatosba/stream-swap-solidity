@@ -16,7 +16,8 @@ library StreamTypes {
 
     enum DexType {
             V2,
-            V3
+            V3,
+            Aerodrome
     }
 
     struct CreateStreamMessage {

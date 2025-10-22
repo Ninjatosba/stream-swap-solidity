@@ -4,7 +4,7 @@
  * pool wrapper configurations, and feature flags
  */
 
-export type DexType = "uniswap-v2" | "uniswap-v3" | "pancakeswap-v2" | "sushiswap" | "none";
+export type DexType = "uniswap-v2" | "uniswap-v3" | "pancakeswap-v2" | "sushiswap" | "aerodrome" | "none";
 
 export interface DexConfigV2 {
     type: "uniswap-v2" | "pancakeswap-v2" | "sushiswap";
@@ -19,11 +19,18 @@ export interface DexConfigV3 {
     defaultFee: number;
 }
 
+export interface DexConfigAerodrome {
+    type: "aerodrome";
+    factory: string;
+    router: string;
+    stable: boolean; // true for stable pools, false for volatile
+}
+
 export interface NoDexConfig {
     type: "none";
 }
 
-export type DexConfig = DexConfigV2 | DexConfigV3 | NoDexConfig;
+export type DexConfig = DexConfigV2 | DexConfigV3 | DexConfigAerodrome | NoDexConfig;
 
 export interface PoolWrapperConfig {
     /** Enable V2 pool creation */
@@ -34,6 +41,8 @@ export interface PoolWrapperConfig {
     enableV3: boolean;
     /** V3 DEX configuration (if enabled) */
     v3Config?: DexConfigV3;
+    /** Aerodrome DEX configuration (if enabled) */
+    aerodromeConfig?: DexConfigAerodrome;
 }
 
 export interface ChainConfig {
@@ -126,6 +135,7 @@ export const CHAIN_CONFIGS: Record<string, ChainConfig> = {
         },
     },
 
+
     baseSepolia: {
         name: "Base Sepolia Testnet",
         chainId: 84532,
@@ -141,8 +151,16 @@ export const CHAIN_CONFIGS: Record<string, ChainConfig> = {
                 router: "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D",
             },
             enableV3: false, // Disabled for testnet
+            // Enable Aerodrome for testing on Base Sepolia
+            aerodromeConfig: {
+                type: "aerodrome",
+                factory: "0x0000000000000000000000000000000000000000", // TODO: Replace with actual Aerodrome testnet factory
+                router: "0x0000000000000000000000000000000000000000",   // TODO: Replace with actual Aerodrome testnet router
+                stable: false // Default to volatile pools for testing
+            }
         },
     },
+
 
     // ============ Arbitrum Networks ============
     arbitrum: {
@@ -436,6 +454,32 @@ export function getV2Config(network: string): DexConfigV2 | undefined {
 export function getV3Config(network: string): DexConfigV3 | undefined {
     const config = getChainConfig(network);
     return config.poolWrappers.enableV3 ? config.poolWrappers.v3Config : undefined;
+}
+
+/**
+ * Get Aerodrome pool wrapper address or zero address if disabled
+ * @param network - Network name
+ * @returns Aerodrome config or undefined if disabled
+ */
+export function getAerodromeConfig(network: string): DexConfigAerodrome | undefined {
+    // For now, we'll use hardcoded Aerodrome addresses for Base networks
+    // In the future, this could be expanded to support multiple Aerodrome deployments
+    if (network === "base" || network === "baseAerodrome") {
+        return {
+            type: "aerodrome",
+            factory: "0x420DD381b31aEf6683db6B902084cB0FFECe40DaB", // Aerodrome Factory on Base
+            router: "0xBA12222222228d8Ba445958a75a0704d566BF2C8",  // Aerodrome Router on Base
+            stable: false // Default to volatile pools
+        };
+    } else if (network === "baseSepolia" || network === "baseSepoliaAerodrome") {
+        return {
+            type: "aerodrome",
+            factory: "0x0000000000000000000000000000000000000000", // Placeholder - need actual testnet address
+            router: "0x0000000000000000000000000000000000000000",   // Placeholder - need actual testnet address
+            stable: false // Default to volatile pools
+        };
+    }
+    return undefined;
 }
 
 /**
