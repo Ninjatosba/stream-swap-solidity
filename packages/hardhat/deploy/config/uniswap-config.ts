@@ -85,8 +85,9 @@ export const DEX_CONFIG: Record<string, DexConfig> = {
         router: "0x3a3eBAe0Eec80852FBC7B9E824C6756969cc8dc1",
     },
     baseSepolia: {
-        type: "uniswap-v2",
-        factory: "0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f",
-        router: "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D",
+        type: "uniswap-v3",
+        factory: "0x4752ba5DBc23f44D87826276BF6Fd6b1C372aD24",
+        positionManager: "0x27F971cb582BF9E50F397e4d29a5C7A34f11faA2",
+        defaultFee: 3000,
     },
 };

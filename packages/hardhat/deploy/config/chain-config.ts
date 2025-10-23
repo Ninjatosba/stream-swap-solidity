@@ -144,20 +144,14 @@ export const CHAIN_CONFIGS: Record<string, ChainConfig> = {
         nativeToken: "ETH",
         blockExplorer: "https://sepolia.basescan.org",
         poolWrappers: {
-            enableV2: true,
-            v2Config: {
-                type: "uniswap-v2",
-                factory: "0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f",
-                router: "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D",
+            enableV2: false, // V2 not deployed on Base Sepolia
+            enableV3: true,
+            v3Config: {
+                type: "uniswap-v3",
+                factory: "0x4752ba5DBc23f44D87826276BF6Fd6b1C372aD24", // Official Base Sepolia V3 Factory
+                positionManager: "0x27F971cb582BF9E50F397e4d29a5C7A34f11faA2", // Official Base Sepolia NFPM
+                defaultFee: 3000, // 0.3%
             },
-            enableV3: false, // Disabled for testnet
-            // Enable Aerodrome for testing on Base Sepolia
-            aerodromeConfig: {
-                type: "aerodrome",
-                factory: "0x0000000000000000000000000000000000000000", // TODO: Replace with actual Aerodrome testnet factory
-                router: "0x0000000000000000000000000000000000000000",   // TODO: Replace with actual Aerodrome testnet router
-                stable: false // Default to volatile pools for testing
-            }
         },
     },
 
@@ -471,14 +465,8 @@ export function getAerodromeConfig(network: string): DexConfigAerodrome | undefi
             router: "0xBA12222222228d8Ba445958a75a0704d566BF2C8",  // Aerodrome Router on Base
             stable: false // Default to volatile pools
         };
-    } else if (network === "baseSepolia" || network === "baseSepoliaAerodrome") {
-        return {
-            type: "aerodrome",
-            factory: "0x0000000000000000000000000000000000000000", // Placeholder - need actual testnet address
-            router: "0x0000000000000000000000000000000000000000",   // Placeholder - need actual testnet address
-            stable: false // Default to volatile pools
-        };
     }
+    // Base Sepolia Aerodrome deployment removed - using Uniswap V3 instead
     return undefined;
 }
 
