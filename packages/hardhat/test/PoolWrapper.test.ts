@@ -1,13 +1,18 @@
-import { expect } from "chai";
+import { assert, expect } from "chai";
 import { ethers } from "hardhat";
 import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { enableMainnetFork } from "./helpers/fork";
-import { deployV2PoolWrapperFork, deployV3PoolWrapperFork } from "./helpers/poolWrappers";
+import { deployAerodromePoolWrapperFork, deployV2PoolWrapperFork, deployV3PoolWrapperFork } from "./helpers/poolWrappers";
+import { PoolWrapperTypes } from "../typechain-types/src/PoolWrapper";
+import { EventLog } from "ethers";
 
 describe("PoolWrapper (fork)", function () {
-    async function poolFixture() {
+    async function poolFixture(network?: string) {
         // Enable fork and stabilize base fee
-        await enableMainnetFork();
+        await enableMainnetFork(undefined, network);
+
+        // log network
+        console.log("Network:", await ethers.provider.getNetwork());
 
         const [deployer, liquidityProvider, other] = await ethers.getSigners();
 
@@ -21,22 +26,26 @@ describe("PoolWrapper (fork)", function () {
         // Deploy wrappers pointing to canonical mainnet contracts
         const v2 = await deployV2PoolWrapperFork();
         const v3 = await deployV3PoolWrapperFork(3000);
+        const aerodrome = await deployAerodromePoolWrapperFork();
 
         const v2Wrapper = await ethers.getContractAt("V2PoolWrapper", v2.wrapperAddress);
         const v3Wrapper = await ethers.getContractAt("V3PoolWrapper", v3.wrapperAddress);
-
+        const aerodromeWrapper = await ethers.getContractAt("AerodromePoolWrapper", aerodrome.wrapperAddress);
         // Pre-fund wrappers with tokens so tests don't mint each time
         const baseAmount = ethers.parseEther("1000");
         await tokenA.mint(await v2Wrapper.getAddress(), baseAmount);
         await tokenB.mint(await v2Wrapper.getAddress(), baseAmount);
         await tokenA.mint(await v3Wrapper.getAddress(), baseAmount);
         await tokenB.mint(await v3Wrapper.getAddress(), baseAmount);
+        await tokenA.mint(await aerodromeWrapper.getAddress(), baseAmount);
+        await tokenB.mint(await aerodromeWrapper.getAddress(), baseAmount);
 
         return {
             accounts: { deployer, liquidityProvider, other },
             tokens: { tokenA, tokenB },
             v2: { wrapper: v2Wrapper, factory: v2.factoryAddress, router: v2.routerAddress },
             v3: { wrapper: v3Wrapper, factory: v3.factoryAddress, positionManager: v3.positionManagerAddress, fee: v3.feeTier },
+            aerodrome: { wrapper: aerodromeWrapper, factory: aerodrome.factoryAddress, router: aerodrome.routerAddress },
             balances: { baseAmount },
         };
     }
@@ -155,6 +164,119 @@ describe("PoolWrapper (fork)", function () {
                     creator: (await ethers.getSigners())[0].address,
                 })
             ).to.be.revertedWithCustomError(v3.wrapper, "InvalidAmount");
+        });
+    });
+
+    describe("Aerodrome", function () {
+        it("creates a new aerodrome pool and adds full-range liquidity", async function () {
+            const { tokens, aerodrome, accounts } = await poolFixture("base");
+
+            const amount0 = ethers.parseEther("10");
+            const amount1 = ethers.parseEther("10");
+
+            const createPoolMsg = {
+                token0: await tokens.tokenA.getAddress(),
+                token1: await tokens.tokenB.getAddress(),
+                amount0Desired: amount0,
+                amount1Desired: amount1,
+                creator: accounts.liquidityProvider.address,
+            };
+
+            const tx = await aerodrome.wrapper.connect(accounts.liquidityProvider).createPool(createPoolMsg);
+            await tx.wait();
+
+            // Get pool info from storage after the transaction
+            const poolInfo = await aerodrome.wrapper.streamPools(accounts.liquidityProvider.address);
+            expect(poolInfo.poolAddress).to.not.equal(ethers.ZeroAddress);
+            expect(poolInfo.token0).to.equal(await tokens.tokenA.getAddress());
+            expect(poolInfo.token1).to.equal(await tokens.tokenB.getAddress());
+            expect(poolInfo.amount0).to.equal(amount0);
+            expect(poolInfo.amount1).to.equal(amount1);
+            expect(poolInfo.creator).to.equal(accounts.liquidityProvider.address);
+            expect(poolInfo.refundedAmount0).to.equal(0);
+            expect(poolInfo.refundedAmount1).to.equal(0);
+        });
+
+        it("reverts on zero amounts", async function () {
+            const { tokens, aerodrome } = await poolFixture("base");
+            await expect(
+                aerodrome.wrapper.createPool({
+                    token0: await tokens.tokenA.getAddress(),
+                    token1: await tokens.tokenB.getAddress(),
+                    amount0Desired: 0,
+                    amount1Desired: ethers.parseEther("1"),
+                    creator: (await ethers.getSigners())[0].address,
+                })
+            ).to.be.revertedWithCustomError(aerodrome.wrapper, "InvalidAmount");
+        });
+
+        it("reverts on insufficient wrapper balance", async function () {
+            const { tokens, aerodrome } = await poolFixture("base");
+            const amount0 = ethers.parseEther("1");
+            const amount1 = ethers.parseEther("10000000"); // exceed pre-funded balance
+            await expect(
+                aerodrome.wrapper.createPool({
+                    token0: await tokens.tokenA.getAddress(),
+                    token1: await tokens.tokenB.getAddress(),
+                    amount0Desired: amount0,
+                    amount1Desired: amount1,
+                    creator: (await ethers.getSigners())[0].address,
+                })
+            ).to.be.revertedWithCustomError(aerodrome.wrapper, "InsufficientBalance");
+        });
+
+        it("reverts on invalid token pair", async function () {
+            const { tokens, aerodrome } = await poolFixture("base");
+            await expect(
+                aerodrome.wrapper.createPool({
+                    token0: await tokens.tokenA.getAddress(),
+                    token1: await tokens.tokenA.getAddress(),
+                    amount0Desired: ethers.parseEther("10"),
+                    amount1Desired: ethers.parseEther("10"),
+                    creator: (await ethers.getSigners())[0].address,
+                })
+            ).to.be.revertedWithCustomError(aerodrome.wrapper, "DifferentTokensRequired");
+        });
+
+        it("reuses existing pool on subsequent calls", async function () {
+            const { tokens, aerodrome, accounts } = await poolFixture("base");
+
+            const amount0 = ethers.parseEther("5");
+            const amount1 = ethers.parseEther("5");
+
+            const tokenAAddr = await tokens.tokenA.getAddress();
+            const tokenBAddr = await tokens.tokenB.getAddress();
+
+            // Minimal ABI to read getPool
+            const aerodromeFactory = new ethers.Contract(
+                aerodrome.factory,
+                ["function getPool(address,address,bool) view returns (address)"],
+                ethers.provider
+            );
+
+            // First create (wrapper already pre-funded by fixture)
+            const msg1 = { token0: tokenAAddr, token1: tokenBAddr, amount0Desired: amount0, amount1Desired: amount1, creator: accounts.deployer.address };
+            await (await aerodrome.wrapper.createPool(msg1)).wait();
+            const pool1 = await aerodromeFactory.getPool(tokenAAddr, tokenBAddr, false);
+
+            // Second create (should use same pool)
+            await (await aerodrome.wrapper.connect(accounts.other).createPool(msg1)).wait();
+            const pool2 = await aerodromeFactory.getPool(tokenAAddr, tokenBAddr, false);
+
+            expect(pool1).to.equal(pool2);
+        });
+
+        it("reverts on invalid creator", async function () {
+            const { tokens, aerodrome } = await poolFixture("base");
+            await expect(
+                aerodrome.wrapper.createPool({
+                    token0: await tokens.tokenA.getAddress(),
+                    token1: await tokens.tokenB.getAddress(),
+                    amount0Desired: ethers.parseEther("10"),
+                    amount1Desired: ethers.parseEther("10"),
+                    creator: ethers.ZeroAddress,
+                })
+            ).to.be.revertedWithCustomError(aerodrome.wrapper, "InvalidAddress");
         });
     });
 });

@@ -5,6 +5,7 @@ import {
   getChainConfig,
   getV2Config,
   getV3Config,
+  getAerodromeConfig,
   isPoolCreationEnabled,
   printChainSummary
 } from "./config/chain-config";
@@ -97,6 +98,29 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     console.log("\n⏭️  V3 Pool Wrapper disabled - skipping deployment");
   }
 
+  // Deploy Aerodrome Pool Wrapper (if enabled)
+  let aerodromePoolWrapperAddress = ZERO_ADDRESS;
+  const aerodromeConfig = getAerodromeConfig(network);
+
+  if (aerodromeConfig) {
+    console.log(`\n📦 Deploying Aerodrome Pool Wrapper (${aerodromeConfig.type})...`);
+    console.log(`  Factory: ${aerodromeConfig.factory}`);
+    console.log(`  Router: ${aerodromeConfig.router}`);
+    console.log(`  Pool Type: ${aerodromeConfig.stable ? "Stable" : "Volatile"}`);
+
+    const aerodromePoolWrapper = await deploy("AerodromePoolWrapper", {
+      from: deployer,
+      args: [aerodromeConfig.factory, aerodromeConfig.router, aerodromeConfig.stable],
+      log: true,
+      skipIfAlreadyDeployed: false,
+      deterministicDeployment: false,
+    });
+    aerodromePoolWrapperAddress = aerodromePoolWrapper.address;
+    console.log(`✅ Aerodrome Pool Wrapper deployed at: ${aerodromePoolWrapperAddress}`);
+  } else {
+    console.log("\n⏭️  Aerodrome Pool Wrapper disabled - skipping deployment");
+  }
+
   // Warning if no pool wrappers are enabled
   if (!isPoolCreationEnabled(network)) {
     console.log("\n⚠️  WARNING: No pool wrappers enabled. Pool creation will be disabled.");
@@ -151,6 +175,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
       acceptedInSupplyTokens: config.acceptedInTokens,
       V2PoolWrapperAddress: v2PoolWrapperAddress,
       V3PoolWrapperAddress: v3PoolWrapperAddress,
+      AerodromePoolWrapperAddress: aerodromePoolWrapperAddress,
       streamImplementationAddress: streamImplementation.address,
       tokenFactoryAddress: tokenFactory.address,
     };
@@ -158,6 +183,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     console.log("\nInitialization Parameters:");
     console.log(`  V2 Pool Wrapper: ${v2PoolWrapperAddress === ZERO_ADDRESS ? "DISABLED" : v2PoolWrapperAddress}`);
     console.log(`  V3 Pool Wrapper: ${v3PoolWrapperAddress === ZERO_ADDRESS ? "DISABLED" : v3PoolWrapperAddress}`);
+    console.log(`  Aerodrome Pool Wrapper: ${aerodromePoolWrapperAddress === ZERO_ADDRESS ? "DISABLED" : aerodromePoolWrapperAddress}`);
     console.log(`  Stream Implementation: ${streamImplementation.address}`);
     console.log(`  Token Factory: ${tokenFactory.address}`);
     console.log(`  Protocol Admin: ${config.protocolAdmin}`);

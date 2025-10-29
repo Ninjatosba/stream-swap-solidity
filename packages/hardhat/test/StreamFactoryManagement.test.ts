@@ -266,10 +266,10 @@ describe("StreamFactoryManagement", function () {
                 const v3PoolWrapper = ethers.Wallet.createRandom().address;
 
                 await expect(
-                    fixture.contracts.streamFactory.connect(fixture.accounts.protocolAdmin).updatePoolWrapper(v2PoolWrapper, v3PoolWrapper),
+                    fixture.contracts.streamFactory.connect(fixture.accounts.protocolAdmin).updatePoolWrapper(v2PoolWrapper, v3PoolWrapper, ethers.ZeroAddress),
                 )
                     .to.emit(fixture.contracts.streamFactory, "PoolWrapperUpdated")
-                    .withArgs(await fixture.contracts.streamFactory.getAddress(), v2PoolWrapper, v3PoolWrapper);
+                    .withArgs(await fixture.contracts.streamFactory.getAddress(), v2PoolWrapper, v3PoolWrapper, ethers.ZeroAddress);
 
                 const params = await fixture.contracts.streamFactory.getParams();
                 expect(params.V2PoolWrapperAddress).to.equal(v2PoolWrapper);
@@ -280,7 +280,7 @@ describe("StreamFactoryManagement", function () {
                 const fixture = await loadFixture(streamFactory().build());
 
                 await expect(
-                    fixture.contracts.streamFactory.connect(fixture.accounts.protocolAdmin).updatePoolWrapper(ethers.ZeroAddress, ethers.ZeroAddress),
+                    fixture.contracts.streamFactory.connect(fixture.accounts.protocolAdmin).updatePoolWrapper(ethers.ZeroAddress, ethers.ZeroAddress, ethers.ZeroAddress),
                 ).to.not.be.reverted; // zero addresses are allowed
             });
 
@@ -290,7 +290,7 @@ describe("StreamFactoryManagement", function () {
                 const v3PoolWrapper = ethers.Wallet.createRandom().address;
 
                 await expect(
-                    fixture.contracts.streamFactory.connect(fixture.accounts.creator).updatePoolWrapper(v2PoolWrapper, v3PoolWrapper),
+                    fixture.contracts.streamFactory.connect(fixture.accounts.creator).updatePoolWrapper(v2PoolWrapper, v3PoolWrapper, ethers.ZeroAddress),
                 ).to.be.revertedWithCustomError(fixture.contracts.streamFactory, "NotAdmin");
             });
         });

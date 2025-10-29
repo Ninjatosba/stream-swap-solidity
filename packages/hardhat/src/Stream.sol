@@ -455,14 +455,14 @@ contract Stream is IStreamErrors, IStreamEvents {
                 IVestingFactory vestingFactory = IVestingFactory(params.vestingFactoryAddress);
 
                 IERC20(streamTokens.outSupplyToken).approve(params.vestingFactoryAddress, purchased);
-                vestingFactory.createVestingWalletWithTokens(
+                address vestingAddress = vestingFactory.createVestingWalletWithTokens(
                     msg.sender,
                     uint64(block.timestamp),
                     postStreamActions.beneficiaryVesting.vestingDuration,
                     streamTokens.outSupplyToken,
                     purchased
                 );
-                emit BeneficiaryVestingCreated(msg.sender, postStreamActions.beneficiaryVesting.vestingDuration, streamTokens.outSupplyToken, purchased);
+                emit BeneficiaryVestingCreated(msg.sender, vestingAddress, postStreamActions.beneficiaryVesting.vestingDuration, streamTokens.outSupplyToken, purchased);
             } else {
                 TransferLib.transferFunds(streamTokens.outSupplyToken, address(this), msg.sender, purchased);
             }
@@ -567,14 +567,14 @@ contract Stream is IStreamErrors, IStreamEvents {
             if (postStreamActions.creatorVesting.isVestingEnabled) {
                 IVestingFactory vestingFactory = IVestingFactory(params.vestingFactoryAddress);
                 IERC20(streamTokens.inSupplyToken).approve(params.vestingFactoryAddress, creatorRevenue);
-                vestingFactory.createVestingWalletWithTokens(
+                address vestingAddress = vestingFactory.createVestingWalletWithTokens(
                     creator,
                     uint64(block.timestamp),
                     postStreamActions.creatorVesting.vestingDuration,
                     streamTokens.inSupplyToken,
                     creatorRevenue
                 );
-                emit CreatorVestingCreated(creator, postStreamActions.creatorVesting.vestingDuration, streamTokens.inSupplyToken, creatorRevenue);
+                emit CreatorVestingCreated(creator, vestingAddress, postStreamActions.creatorVesting.vestingDuration, streamTokens.inSupplyToken, creatorRevenue);
             } else {
                 TransferLib.transferFunds(streamTokens.inSupplyToken, address(this), creator, creatorRevenue);
             }
@@ -908,13 +908,19 @@ contract Stream is IStreamErrors, IStreamEvents {
         address streamCreator
     ) internal {
 
-        console.log("amountADesired", amountADesired);
-        console.log("amountBDesired", amountBDesired);
-
         StreamFactory factoryContract = StreamFactory(STREAM_FACTORY_ADDRESS);
         StreamFactoryTypes.Params memory params = factoryContract.getParams();
 
-        address poolWrapperAddress = dexType == StreamTypes.DexType.V2 ? params.V2PoolWrapperAddress : params.V3PoolWrapperAddress;
+        address poolWrapperAddress;
+        if (dexType == StreamTypes.DexType.V2) {
+            poolWrapperAddress = params.V2PoolWrapperAddress;
+        } else if (dexType == StreamTypes.DexType.V3) {
+            poolWrapperAddress = params.V3PoolWrapperAddress;
+        } else if (dexType == StreamTypes.DexType.Aerodrome) {
+            poolWrapperAddress = params.AerodromePoolWrapperAddress;
+        } else {
+            revert InvalidDexType();
+        }
         IPoolWrapper poolWrapper = IPoolWrapper(poolWrapperAddress);
 
         // Transfer pool tokens to the pool wrapper contract first
