@@ -11,9 +11,11 @@ interface IVestingFactory {
      * @param beneficiary address of the beneficiary
      * @param startTime the time (as Unix time) at which point vesting begins
      * @param duration duration in seconds of the period in which the tokens will vest
-     * @param token the ERC20 token to transfer to the vesting wallet
+     * @param token the token to transfer to the vesting wallet (zero address for native token)
      * @param amount the amount of tokens to transfer
      * @return vestingWallet the address of the created VestingWallet
+     * @notice When token is address(0), native tokens are sent via msg.value. For ERC20 tokens, 
+     *         the caller must approve this contract first.
      */
     function createVestingWalletWithTokens(
         address beneficiary,
@@ -21,7 +23,7 @@ interface IVestingFactory {
         uint64 duration,
         address token,
         uint256 amount
-    ) external returns (address vestingWallet);
+    ) external payable returns (address vestingWallet);
 
     /**
      * @dev Event emitted when a new VestingWallet is created
