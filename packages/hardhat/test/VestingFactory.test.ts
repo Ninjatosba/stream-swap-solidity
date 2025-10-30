@@ -60,20 +60,88 @@ describe("VestingFactory", function () {
             expect(await mockToken.balanceOf(vestingWalletAddress)).to.equal(amount);
         });
 
-        it("Should revert when beneficiary is zero address", async function () {
-            const { vestingFactory, mockToken, tokenOwner } = await loadFixture(deployVestingFactoryFixture);
+        it("Should vest native tokens when token is zero address and msg.value == amount", async function () {
+            const { vestingFactory, beneficiary, tokenOwner } = await loadFixture(deployVestingFactoryFixture);
 
             const startTime = Math.floor(Date.now() / 1000) + 3600;
             const duration = 86400;
-            const amount = ethers.parseEther("100");
+            const amount = ethers.parseEther("1");
 
-            await mockToken.connect(tokenOwner).approve(vestingFactory.getAddress(), amount);
+            const tx = await vestingFactory
+                .connect(tokenOwner)
+                .createVestingWalletWithTokens(beneficiary.address, startTime, duration, ethers.ZeroAddress, amount, {
+                    value: amount,
+                });
+
+            const receipt = await tx.wait();
+            const vestingWalletCreatedLog = receipt!.logs.find(log => {
+                try {
+                    const parsed = vestingFactory.interface.parseLog(log as any);
+                    return parsed?.name === "VestingWalletCreated";
+                } catch {
+                    return false;
+                }
+            });
+
+            expect(vestingWalletCreatedLog).to.not.be.undefined;
+            const event = vestingFactory.interface.parseLog(vestingWalletCreatedLog as any);
+            const vestingWalletAddress = event!.args!.vestingWallet as string;
+
+            expect(vestingWalletAddress).to.not.equal(ethers.ZeroAddress);
+            expect(await ethers.provider.getBalance(vestingWalletAddress)).to.equal(amount);
+        });
+
+        it("Should revert if msg.value != amount for native token vesting", async function () {
+            const { vestingFactory, beneficiary, tokenOwner } = await loadFixture(deployVestingFactoryFixture);
+
+            const startTime = Math.floor(Date.now() / 1000) + 3600;
+            const duration = 86400;
+            const amount = ethers.parseEther("1");
 
             await expect(
                 vestingFactory
                     .connect(tokenOwner)
-                    .createVestingWalletWithTokens(ethers.ZeroAddress, startTime, duration, mockToken.getAddress(), amount)
-            ).to.be.revertedWithCustomError(vestingFactory, "InvalidBeneficiary");
+                    .createVestingWalletWithTokens(beneficiary.address, startTime, duration, ethers.ZeroAddress, amount, {
+                        value: 0n,
+                    })
+            ).to.be.reverted; // TransferLib.IncorrectNativeAmount
+        });
+
+        it("Beneficiary can claim native after vesting ends", async function () {
+            const { vestingFactory, beneficiary, tokenOwner } = await loadFixture(deployVestingFactoryFixture);
+
+            const now = (await ethers.provider.getBlock(await ethers.provider.getBlockNumber()))!.timestamp;
+            const startTime = BigInt(now) + 10n; // 10s in future
+            const duration = 60n; // 1 minute
+            const amount = ethers.parseEther("1");
+
+            const tx = await vestingFactory
+                .connect(tokenOwner)
+                .createVestingWalletWithTokens(beneficiary.address, Number(startTime), Number(duration), ethers.ZeroAddress, amount, {
+                    value: amount,
+                });
+            const receipt = await tx.wait();
+            const vestingWalletCreatedLog = receipt!.logs.find(log => {
+                try {
+                    const parsed = vestingFactory.interface.parseLog(log as any);
+                    return parsed?.name === "VestingWalletCreated";
+                } catch {
+                    return false;
+                }
+            });
+            const event = vestingFactory.interface.parseLog(vestingWalletCreatedLog as any);
+            const vestingWalletAddress = event!.args!.vestingWallet as string;
+
+            // Fast-forward to after vesting end
+            await ethers.provider.send("evm_setNextBlockTimestamp", [Number(startTime + duration + 1n)]);
+            await ethers.provider.send("evm_mine", []);
+
+            // Call release() from beneficiary
+            const vestingWallet = new ethers.Contract(vestingWalletAddress, ["function release() external"], beneficiary);
+            await vestingWallet.release();
+
+            // Vesting wallet balance should be zero afterwards
+            expect(await ethers.provider.getBalance(vestingWalletAddress)).to.equal(0n);
         });
 
         it("Should revert when startTime is zero", async function () {
@@ -108,19 +176,7 @@ describe("VestingFactory", function () {
             ).to.be.revertedWithCustomError(vestingFactory, "InvalidDuration");
         });
 
-        it("Should revert when token is zero address", async function () {
-            const { vestingFactory, beneficiary, tokenOwner } = await loadFixture(deployVestingFactoryFixture);
-
-            const startTime = Math.floor(Date.now() / 1000) + 3600;
-            const duration = 86400;
-            const amount = ethers.parseEther("100");
-
-            await expect(
-                vestingFactory
-                    .connect(tokenOwner)
-                    .createVestingWalletWithTokens(beneficiary.address, startTime, duration, ethers.ZeroAddress, amount)
-            ).to.be.revertedWithCustomError(vestingFactory, "InvalidToken");
-        });
+        // removed: zero-address token is valid for native vesting
 
         it("Should revert when amount is zero", async function () {
             const { vestingFactory, mockToken, beneficiary, tokenOwner } = await loadFixture(deployVestingFactoryFixture);
