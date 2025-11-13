@@ -1,7 +1,7 @@
 // packages/hardhat/deploy-config/factory-config.ts
 
 import { AddressLike, BigNumberish } from "ethers";
-import { DecimalStruct } from "../../typechain-types/src/Stream";
+import { DecimalStruct } from "../../typechain-types/src/StreamCore";
 
 export interface FactoryConfig {
     ExitFeeRatio: DecimalStruct;

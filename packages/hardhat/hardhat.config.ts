@@ -52,6 +52,8 @@ const config: HardhatUserConfig = {
   paths: {
     sources: "./src",
     deploy: "deploy",
+    cache: "./cache",
+    artifacts: "./artifacts",
   },
   defaultNetwork: "hardhat",
   mocha: {

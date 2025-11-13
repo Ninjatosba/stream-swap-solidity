@@ -39,7 +39,7 @@
 
 import { task } from "hardhat/config";
 import { parseEther } from "ethers";
-import { ERC20Mock, Stream } from "../typechain-types";
+import { ERC20Mock, IStream, StreamCore } from "../typechain-types";
 
 task("subscribe", "Subscribe to a stream")
   .addParam("stream", "The address of the stream to subscribe to")
@@ -59,15 +59,16 @@ task("subscribe", "Subscribe to a stream")
       console.log(`Subscriber balance: ${nativeBalance}`);
 
       // Get stream contract
-      const stream = (await ethers.getContractAt("Stream", taskArgs.stream)) as unknown as Stream;
+      const stream = (await ethers.getContractAt("IStream", taskArgs.stream)) as unknown as IStream;
       console.log(`Stream address: ${taskArgs.stream}`);
 
       // Get stream status
       const status = await stream.getStreamStatus();
       console.log(`Stream status: ${status}`);
 
-      // Get in token address from stream
-      const streamTokens = await stream.streamTokens();
+      // Get in token address from stream (via StreamCore ABI)
+      const core = (await ethers.getContractAt("StreamCore", taskArgs.stream)) as unknown as StreamCore;
+      const streamTokens = await core.streamTokens();
       const inTokenAddress = streamTokens.inSupplyToken;
       console.log(`In token address: ${inTokenAddress}`);
 

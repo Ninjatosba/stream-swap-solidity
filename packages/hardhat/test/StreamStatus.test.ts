@@ -23,7 +23,7 @@ describe("Stream Status", function () {
         await tx.wait();
 
         // Check status
-        const status = await contracts.stream.streamStatus();
+        const status = await contracts.stream.getStreamStatus();
         expect(status).to.equal(1); // Bootstrapping phase
     });
 
@@ -39,7 +39,7 @@ describe("Stream Status", function () {
         await tx.wait();
 
         // Check status
-        const status = await contracts.stream.streamStatus();
+        const status = await contracts.stream.getStreamStatus();
         expect(status).to.equal(2); // Stream phase (Active)
     });
 
@@ -55,7 +55,7 @@ describe("Stream Status", function () {
         await tx.wait();
 
         // Check status
-        const status = await contracts.stream.streamStatus();
+        const status = await contracts.stream.getStreamStatus();
         expect(status).to.equal(3); // Ended phase
     });
     it("Should handle sync when diff is 0", async function () {

@@ -1,6 +1,6 @@
 import { task } from "hardhat/config";
 import { parseEther } from "ethers";
-import { Stream } from "../typechain-types";
+import { IStream } from "../typechain-types";
 
 task("withdraw", "Withdraw from a stream")
     .addParam("stream", "The address of the stream to withdraw from")
@@ -16,7 +16,7 @@ task("withdraw", "Withdraw from a stream")
             console.log(`Subscriber address: ${subscriberAddress}`);
 
             // Get stream contract
-            const stream = (await ethers.getContractAt("Stream", taskArgs.stream)) as unknown as Stream;
+            const stream = (await ethers.getContractAt("IStream", taskArgs.stream)) as unknown as IStream;
             console.log(`Stream address: ${taskArgs.stream}`);
 
             // Check stream status

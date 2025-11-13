@@ -31,19 +31,26 @@ contract V3PoolWrapper is PoolWrapper {
     function _createPoolInternal(
         PoolWrapperTypes.CreatePoolMsg calldata createPoolMsg
     ) internal virtual override returns (address poolAddress, uint256 amount0, uint256 amount1, uint256 refundedAmount0, uint256 refundedAmount1) {
-        (address token0, address token1, uint256 amount0Desired, uint256 amount1Desired) = _sortTokens(
-            createPoolMsg.token0,
-            createPoolMsg.token1,
-            createPoolMsg.amount0Desired,
-            createPoolMsg.amount1Desired
-        );
+        address token0 = createPoolMsg.token0;
+        address token1 = createPoolMsg.token1;
+        uint256 amount0Desired = createPoolMsg.amount0Desired;
+        uint256 amount1Desired = createPoolMsg.amount1Desired;
+
+        // Determine fee tier: prefer msg.extra if provided, otherwise fallback to immutable
+        uint24 feeTier = FEE_TIER;
+        if (createPoolMsg.extra.length > 0) {
+            uint24 decodedFee = abi.decode(createPoolMsg.extra, (uint24));
+            if (decodedFee == 0) revert InvalidAmount();
+            feeTier = decodedFee;
+        }
 
         IUniswapV3Factory factory = IUniswapV3Factory(UNISWAP_V3_FACTORY);
-        poolAddress = factory.getPool(token0, token1, FEE_TIER);
+        poolAddress = factory.getPool(token0, token1, feeTier);
 
         if (poolAddress == address(0)) {
-            uint160 sqrtPriceX96 = _getSqrtPriceX96(amount1Desired, amount0Desired);
-            poolAddress = factory.createPool(token0, token1, FEE_TIER);
+            // Set initial price so that token0/token1 reflects amount0Desired/amount1Desired
+            uint160 sqrtPriceX96 = _getSqrtPriceX96(amount0Desired, amount1Desired);
+            poolAddress = factory.createPool(token0, token1, feeTier);
             if (poolAddress == address(0)) revert PoolCreationFailed();
             IUniswapV3Pool(poolAddress).initialize(sqrtPriceX96);
         }
@@ -53,8 +60,20 @@ contract V3PoolWrapper is PoolWrapper {
 
         // Safe tick calculation
         {
-            int24 tickSpacing = 60; // assume 0.3% fee tier
-            int24 currentTick = TickMath.getTickAtSqrtRatio(_getSqrtPriceX96(amount1Desired, amount0Desired));
+            int24 tickSpacing;
+            if (feeTier == 100) {
+                tickSpacing = 1;
+            } else if (feeTier == 500) {
+                tickSpacing = 10;
+            } else if (feeTier == 3000) {
+                tickSpacing = 60;
+            } else if (feeTier == 10000) {
+                tickSpacing = 200;
+            } else {
+                // default to 60 to avoid revert on uncommon fee tiers
+                tickSpacing = 60;
+            }
+            int24 currentTick = TickMath.getTickAtSqrtRatio(_getSqrtPriceX96(amount0Desired, amount1Desired));
 
             // Create a wider range around the current price (10 tick spacings on each side)
             int24 tickLower = ((currentTick - (tickSpacing * 10)) / tickSpacing) * tickSpacing;
@@ -66,7 +85,7 @@ contract V3PoolWrapper is PoolWrapper {
                 INonfungiblePositionManager.MintParams({
                     token0: token0,
                     token1: token1,
-                    fee: FEE_TIER,
+                    fee: feeTier,
                     tickLower: tickLower,
                     tickUpper: tickUpper,
                     amount0Desired: amount0Desired,
@@ -78,10 +97,6 @@ contract V3PoolWrapper is PoolWrapper {
                 });
 
             (, , amount0, amount1) = INonfungiblePositionManager(NONFUNGIBLE_POSITION_MANAGER).mint(params);
-            if (createPoolMsg.token0 != token0) {
-                (amount0, amount1) = (amount1, amount0);
-            }
-
             refundedAmount0 = createPoolMsg.amount0Desired - amount0;
             refundedAmount1 = createPoolMsg.amount1Desired - amount1;
         }
@@ -94,19 +109,6 @@ contract V3PoolWrapper is PoolWrapper {
 
     function _getRouter() internal view virtual override returns (address) {
         return NONFUNGIBLE_POSITION_MANAGER;
-    }
-
-    function _sortTokens(
-        address tokenA,
-        address tokenB,
-        uint256 amountA,
-        uint256 amountB
-    ) internal pure returns (address token0, address token1, uint256 amount0, uint256 amount1) {
-        if (tokenA < tokenB) {
-            return (tokenA, tokenB, amountA, amountB);
-        } else {
-            return (tokenB, tokenA, amountB, amountA);
-        }
     }
 
     function _getSqrtPriceX96(uint256 amount1, uint256 amount0) internal pure returns (uint160 sqrtPriceX96) {

@@ -15,10 +15,7 @@ library StreamFactoryTypes {
         address protocolAdmin;
         string tosVersion;
         address vestingFactoryAddress;
-        address V2PoolWrapperAddress;
-        address V3PoolWrapperAddress;
-        address AerodromePoolWrapperAddress;
-        address streamImplementationAddress;
+        address poolRouterAddress;
         address tokenFactoryAddress;
     }
 
@@ -32,10 +29,10 @@ library StreamFactoryTypes {
         address feeCollector;
         address protocolAdmin;
         string tosVersion;
-        address V2PoolWrapperAddress;
-        address V3PoolWrapperAddress;
-        address AerodromePoolWrapperAddress;
-        address streamImplementationAddress;
+        address poolRouterAddress;
+        // Variant implementations
+        address basicImplementationAddress;
+        address postActionsImplementationAddress;
         address[] acceptedInSupplyTokens;
         address tokenFactoryAddress;
     }

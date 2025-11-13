@@ -2,68 +2,41 @@
 pragma solidity ^0.8.24;
 
 /**
- * @title Stream
+ * @title StreamCore
  * @author Adnan Deniz Corlu (@Ninjatosba)
- * @notice Core streaming contract implementing time-based token distribution with dynamic pricing
- * @dev StreamSwap enables continuous token swaps where price is determined by community participation
- *      over time. Unlike traditional ICOs or Dutch auctions, StreamSwap uses a streaming mechanism
- *      where tokens are distributed continuously based on subscription timing and amounts.
- *      
- *      Key Features:
- *      - Dynamic pricing based on total participation and time
- *      - Threshold mechanism to ensure minimum viable participation
- *      - Bootstrapping phase for early commitment without immediate distribution
- *      - Proportional withdrawal and exit mechanisms
- *      - Post-stream vesting and automated liquidity pool creation
- *      - Emergency controls for creator and protocol admin
- *      
- *      Stream Lifecycle:
- *      1. Waiting: Stream created, no interactions allowed
- *      2. Bootstrapping: Users can subscribe, no distribution yet
- *      3. Active: Live streaming with continuous token distribution
- *      4. Ended: Stream concluded, users can exit, creator can finalize
- *      5. FinalizedStreamed: Stream finalized and streamed
- *      6. FinalizedRefunded: Stream finalized and refunded
- *      7. Cancelled: Emergency state, full refunds available
+ * @notice Abstract base contract for streaming functionality with extension hooks
+ * @dev This contract contains the core streaming logic with virtual hook functions
+ *      that can be overridden by implementation contracts to add features like
+ *      vesting, pool creation, etc. All storage is defined here to ensure
+ *      consistent layout across implementations for upgradeability.
  */
-
 
 import { PositionTypes } from "./types/PositionTypes.sol";
 import { IPositionStorage } from "./interfaces/IPositionStorage.sol";
 import { IStreamEvents } from "./interfaces/IStreamEvents.sol";
 import { IStreamErrors } from "./interfaces/IStreamErrors.sol";
 import { StreamTypes } from "./types/StreamTypes.sol";
-import { StreamFactory } from "./StreamFactory.sol";
 import { StreamFactoryTypes } from "./types/StreamFactoryTypes.sol";
+import { IStreamFactoryParams } from "./interfaces/IStreamFactoryParams.sol";
 import { DecimalMath, Decimal } from "./lib/math/DecimalMath.sol";
 import { StreamMathLib } from "./lib/math/StreamMathLib.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { IPoolWrapper } from "./interfaces/IPoolWrapper.sol";
-import { IVestingFactory } from "./interfaces/IVestingFactory.sol";
-import { IPermit2 } from "./interfaces/IPermit2.sol";
 import { TransferLib } from "./lib/TransferLib.sol";
+import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import { IPermit2 } from "./interfaces/IPermit2.sol";
 
-import { PoolWrapperTypes } from "./types/PoolWrapperTypes.sol";
-
-// import console 
 import "hardhat/console.sol";
 
-
-    
-/**
- * @title Stream
- * @dev Main contract for managing token streaming with vesting and pool creation capabilities
- * @notice This contract handles the core streaming logic including subscriptions, withdrawals, exits, and finalization
- */
-contract Stream is IStreamErrors, IStreamEvents {
-
+abstract contract StreamCore is IStreamErrors, IStreamEvents, UUPSUpgradeable {
     // ============ State Variables ============
-
+    // All storage must be defined here for upgrade compatibility
+    
     /// @notice Address of the stream creator
     address public creator;
 
-    /// @notice Immutable address of the stream factory that deployed this stream
-    address public immutable STREAM_FACTORY_ADDRESS;
+    /// @notice Address of the stream factory that deployed this stream
+    /// @dev Changed from immutable to storage for proxy compatibility
+    address public STREAM_FACTORY_ADDRESS;
 
     /// @notice Address of the position storage contract
     address public positionStorageAddress;
@@ -85,12 +58,13 @@ contract Stream is IStreamErrors, IStreamEvents {
 
     /// @notice Timing information for the stream phases
     StreamTypes.StreamTimes public streamTimes;
-
-    /// @notice Post-stream actions like vesting and pool creation
-    StreamTypes.PostStreamActions public postStreamActions;
+    
 
     /// @notice Address of the Permit2 contract
     address public constant PERMIT2 = 0x000000000022D473030F116dDEE9F6B43aC78BA3;
+
+    /// @notice Storage gap for future upgrades
+    uint256[40] private __gap;
 
     // ============ Modifiers ============
 
@@ -123,21 +97,10 @@ contract Stream is IStreamErrors, IStreamEvents {
      * @dev Ensures only the protocol admin can call the function
      */
     modifier onlyProtocolAdmin() {
-        StreamFactory factoryContract = StreamFactory(STREAM_FACTORY_ADDRESS);
+        IStreamFactoryParams factoryContract = IStreamFactoryParams(STREAM_FACTORY_ADDRESS);
         address protocolAdmin = factoryContract.getParams().protocolAdmin;
         if (msg.sender != protocolAdmin) revert Unauthorized();
         _;
-    }
-
-    // ============ Constructor ============
-
-    /**
-     * @dev Constructor to set the stream factory address
-     * @param factoryAddress Address of the stream factory
-     */
-    constructor(address factoryAddress) {
-        if (factoryAddress == address(0)) revert InvalidStreamFactoryAddress();
-        STREAM_FACTORY_ADDRESS = factoryAddress;
     }
 
     // ============ Initialization ============
@@ -146,36 +109,16 @@ contract Stream is IStreamErrors, IStreamEvents {
      * @dev Initializes the stream with the provided configuration
      * @param createStreamMessage Stream creation parameters
      * @param storageAddress Address of the position storage contract
-     * @notice This function can only be called once by the stream factory
+     * @notice This function can only be called once and must be invoked by the factory
      */
     function initialize(
         StreamTypes.CreateStreamMessage memory createStreamMessage,
         address storageAddress
-    ) external onlyOnce onlyStreamFactory {
+    ) external virtual onlyOnce {
         if (storageAddress == address(0)) revert InvalidPositionStorageAddress();
-
-        // Validate and set creator vesting info
-        if (createStreamMessage.creatorVesting.isVestingEnabled) {
-            postStreamActions.creatorVesting = createStreamMessage.creatorVesting;
-        }
         
-        // Validate and set beneficiary vesting info
-        if (createStreamMessage.beneficiaryVesting.isVestingEnabled) {
-            postStreamActions.beneficiaryVesting = createStreamMessage.beneficiaryVesting;
-        }
-        
-        // Validate pool config
-        if (createStreamMessage.poolInfo.poolOutSupplyAmount > 0) {
-            // Validate pool amount is less than or equal to out amount
-            if (createStreamMessage.poolInfo.poolOutSupplyAmount > createStreamMessage.streamOutAmount) {
-                revert InvalidPoolOutSupplyAmount();
-            }
-            // Validate pool type
-            if (createStreamMessage.poolInfo.dexType != StreamTypes.DexType.V2 && createStreamMessage.poolInfo.dexType != StreamTypes.DexType.V3) {
-                revert InvalidPoolType();
-            }
-            postStreamActions.poolInfo = createStreamMessage.poolInfo;
-        }
+        // Set factory address from caller
+        STREAM_FACTORY_ADDRESS = msg.sender;
         
         // Save position storage address
         positionStorageAddress = storageAddress;
@@ -214,15 +157,83 @@ contract Stream is IStreamErrors, IStreamEvents {
             streamStartTime: createStreamMessage.streamStartTime,
             streamEndTime: createStreamMessage.streamEndTime
         });
+        
+        // Call initialization hook for extensions
+        _onInitialize(createStreamMessage);
+    }
+
+    // ============ Extension Hooks (Virtual Functions) ============
+
+    /**
+     * @dev Hook called during initialization for extensions to set up their state
+     * @param createStreamMessage Stream creation parameters
+     */
+    function _onInitialize(StreamTypes.CreateStreamMessage memory createStreamMessage) internal virtual {}
+
+    /**
+     * @dev Hook called after a subscription
+     * @param user Address of the subscriber
+     * @param amountIn Amount subscribed
+     */
+    function _onSubscribe(address user, uint256 amountIn) internal virtual {}
+
+    /**
+     * @dev Hook called after a withdrawal
+     * @param user Address of the withdrawer
+     * @param amountOut Amount withdrawn
+     */
+    function _onWithdraw(address user, uint256 amountOut) internal virtual {}
+
+    /**
+     * @dev Hook called when a user exits successfully (threshold met)
+     * @param user Address of the exiting user
+     * @param purchased Amount of output tokens purchased
+     * @param inRefunded Amount of input tokens refunded
+     */
+    function _onExitSuccess(address user, uint256 purchased, uint256 inRefunded) internal virtual {
+        TransferLib.transferFunds(streamTokens.outSupplyToken, address(this), user, purchased);
+        
+        if (inRefunded > 0) {
+            TransferLib.transferFunds(streamTokens.inSupplyToken, address(this), user, inRefunded);
+        }
+    }
+
+    /**
+     * @dev Hook called when a user exits with refund (threshold not met or cancelled)
+     * @param user Address of the exiting user
+     * @param totalRefund Amount of input tokens to refund
+     */
+    function _onExitRefund(address user, uint256 totalRefund) internal virtual {
+        TransferLib.transferFunds(streamTokens.inSupplyToken, address(this), user, totalRefund);
+    }
+
+    /**
+     * @dev Hook called after finalizing a successful stream
+     * @param creatorRevenue Amount of input tokens for creator
+     * @param outRemaining Remaining output tokens
+     */
+    function _afterFinalizeSuccess(uint256 creatorRevenue, uint256 outRemaining) internal virtual returns (uint256 adjustedCreatorRevenue) {
+        TransferLib.transferFunds(streamTokens.inSupplyToken, address(this), creator, creatorRevenue);
+        
+        if (outRemaining > 0) {
+            TransferLib.transferFunds(streamTokens.outSupplyToken, address(this), creator, outRemaining);
+        }
+        return creatorRevenue;
+    }
+
+    /**
+     * @dev Hook called after finalizing a refunded stream
+     * @param outSupply Amount of output tokens to return
+     */
+    function _afterFinalizeRefund(uint256 outSupply) internal virtual {
+        TransferLib.transferFunds(streamTokens.outSupplyToken, address(this), creator, outSupply);
     }
 
     // ============ Core Stream Functions ============
 
     /**
      * @dev Internal function containing the core subscription logic
-     *      Assumes `amountIn` tokens have already been transferred to this contract.
      * @param amountIn Amount of input tokens to subscribe with
-     * @notice Business logic for updating positions and stream state.
      */
     function _subscribeCore(uint256 amountIn) internal {
         if (amountIn == 0) revert InvalidAmount();
@@ -273,12 +284,14 @@ contract Stream is IStreamErrors, IStreamEvents {
             state.inSupply,
             state.shares
         );
+
+        // Call subscription hook
+        _onSubscribe(msg.sender, amountIn);
     }
 
     /**
      * @dev Allows users to subscribe to the stream by providing input tokens
      * @param amountIn Amount of input tokens to subscribe with
-     * @notice Users can subscribe during Bootstrapping or Active phases
      */
     function subscribe(uint256 amountIn) external {
         if (streamTokens.inSupplyToken == address(0)) revert InvalidInputToken();
@@ -287,6 +300,10 @@ contract Stream is IStreamErrors, IStreamEvents {
         _subscribeCore(amountIn);
     }
 
+    /**
+     * @dev Allows users to subscribe with native tokens
+     * @param amountIn Amount of native tokens to subscribe with
+     */
     function subscribeWithNativeToken(uint256 amountIn) external payable {
         if (streamTokens.inSupplyToken != address(0)) revert InvalidInputToken();
         // Pull funds (native)
@@ -295,14 +312,11 @@ contract Stream is IStreamErrors, IStreamEvents {
     }
 
     /**
-     * @dev Allows users to subscribe using Permit2 signature-based allowance.
-     *      The Permit2 signature (PermitSingle) is verified and consumed, then the
-     *      tokens are pulled from `owner` to this Stream contract. The rest of the
-     *      logic mirrors the regular `subscribe` flow.
-     * @param amountIn      Amount of input tokens user wants to contribute
-     * @param owner         Address that actually holds the tokens (signer of permit)
-     * @param permitSingle  Full Permit2 data struct describing the allowance
-     * @param signature     EIP-712 signature over `permitSingle`
+     * @dev Allows users to subscribe using Uniswap Permit2 for ERC20 approvals
+     * @param amountIn Amount of input tokens to subscribe with
+     * @param owner Owner of tokens and signer
+     * @param permitSingle Permit2 Single permit data
+     * @param signature EIP-712 signature
      */
     function subscribeWithPermit(
         uint256 amountIn,
@@ -310,28 +324,21 @@ contract Stream is IStreamErrors, IStreamEvents {
         IPermit2.PermitSingle calldata permitSingle,
         bytes calldata signature
     ) external {
-        // Validate the permit matches the stream requirements
+        if (streamTokens.inSupplyToken == address(0)) revert InvalidInputToken();
         if (permitSingle.details.token != streamTokens.inSupplyToken) revert InvalidAmount();
         if (permitSingle.details.amount < uint160(amountIn)) revert InvalidAmount();
         if (permitSingle.spender != address(this)) revert InvalidAmount();
         if (permitSingle.sigDeadline < block.timestamp) revert InvalidAmount();
 
-        // Execute Permit2 flow
         IPermit2 permit2 = IPermit2(PERMIT2);
-        // 1. Validate & store allowance via signature
         permit2.permit(owner, permitSingle, signature);
-        // 2. Pull tokens from owner to the stream contract
         permit2.transferFrom(owner, address(this), uint160(amountIn), streamTokens.inSupplyToken);
-
-        // Tokens are now in this contract — proceed with core logic
         _subscribeCore(amountIn);
     }
 
     /**
      * @dev Allows users to withdraw their input tokens from the stream
      * @param cap Amount of input tokens to withdraw
-     * @notice Users can withdraw during Active or Bootstrapping phases
-     * @dev If cap is 0, the user will withdraw all their input tokens
      */
     function withdraw(uint256 cap) external {
         // Load position once
@@ -402,11 +409,13 @@ contract Stream is IStreamErrors, IStreamEvents {
 
         // Transfer tokens
         TransferLib.transferFunds(streamTokens.inSupplyToken, address(this), msg.sender, withdrawAmount);
+        
+        // Call withdrawal hook
+        _onWithdraw(msg.sender, withdrawAmount);
     }
 
     /**
      * @dev Allows users to exit the stream and receive their tokens based on stream outcome
-     * @notice Users can exit after the stream has ended or been cancelled
      */
     function exitStream() external {
         // Load and validate position
@@ -432,7 +441,6 @@ contract Stream is IStreamErrors, IStreamEvents {
         saveStreamStatus(status);
         saveStream(state);
         savePosition(msg.sender, position);
-        
 
         // Determine outcome
         bool thresholdReached = (state.spentIn >= state.threshold);
@@ -443,56 +451,30 @@ contract Stream is IStreamErrors, IStreamEvents {
             (status == StreamTypes.Status.Ended && !thresholdReached));
 
         if (isSuccess) {
-            // Case 1: Successful exit - return unused input tokens and deliver output
-            // This case is highly unlikely to happen because the stream is designed to spend all input tokens if stream is ended
-            if (inBalance > 0) {
-                TransferLib.transferFunds(streamTokens.inSupplyToken, address(this), msg.sender, inBalance);
-            }
-
-            if (postStreamActions.beneficiaryVesting.isVestingEnabled) {
-                StreamFactory factoryContract = StreamFactory(STREAM_FACTORY_ADDRESS);
-                StreamFactoryTypes.Params memory params = factoryContract.getParams();
-                IVestingFactory vestingFactory = IVestingFactory(params.vestingFactoryAddress);
-
-                IERC20(streamTokens.outSupplyToken).approve(params.vestingFactoryAddress, purchased);
-                address vestingAddress = vestingFactory.createVestingWalletWithTokens(
-                    msg.sender,
-                    uint64(block.timestamp),
-                    postStreamActions.beneficiaryVesting.vestingDuration,
-                    streamTokens.outSupplyToken,
-                    purchased
-                );
-                emit BeneficiaryVestingCreated(msg.sender, vestingAddress, postStreamActions.beneficiaryVesting.vestingDuration, streamTokens.outSupplyToken, purchased);
-            } else {
-                TransferLib.transferFunds(streamTokens.outSupplyToken, address(this), msg.sender, purchased);
-            }
-
+            // Case 1: Successful exit - use hook for distribution
             emit ExitStreamed(address(this), msg.sender, purchased, spentIn, position.index.value, inBalance, block.timestamp);
+            _onExitSuccess(msg.sender, purchased, inBalance);
         } else if (isRefund) {
-            // Case 2: Refund exit - return all input tokens
+            // Case 2: Refund exit - use hook for refund
             uint256 totalRefund = inBalance + spentIn;
             position.purchased = 0;
             position.spentIn = 0;
             position.inBalance = totalRefund;
             savePosition(msg.sender, position);
-            TransferLib.transferFunds(streamTokens.inSupplyToken, address(this), msg.sender, totalRefund);
             emit ExitRefunded(address(this), msg.sender, position.inBalance, position.spentIn, block.timestamp);
+            _onExitRefund(msg.sender, totalRefund);
         } else {
             // Case 3: No exit allowed
             revert OperationNotAllowed();
         }
-      
     }
-
-    // ============ Stream Management Functions ============
 
     /**
      * @dev Allows the creator to finalize the stream after it has ended
-     * @notice Only the creator can call this function when stream status is Ended
      */
     function finalizeStream() external onlyCreator {
         // Get factory params
-        StreamFactory factoryContract = StreamFactory(STREAM_FACTORY_ADDRESS);
+        IStreamFactoryParams factoryContract = IStreamFactoryParams(STREAM_FACTORY_ADDRESS);
         StreamFactoryTypes.Params memory params = factoryContract.getParams();
 
         // Load and update status
@@ -519,69 +501,20 @@ contract Stream is IStreamErrors, IStreamEvents {
         if (thresholdReached) {
             address feeCollector = params.feeCollector;
             Decimal memory exitFeeRatio = params.exitFeeRatio;
-
             // Calculate exit fee
             (uint256 feeAmount, uint256 creatorRevenue) = StreamMathLib.calculateExitFee(spentIn, exitFeeRatio);
-
-            // Handle pool creation if configured
-            uint256 poolInSupplyAmount = 0;
-            uint256 poolOutSupplyAmount = 0;
-            if (postStreamActions.poolInfo.poolOutSupplyAmount > 0) {
-                // Calculate pool ratio
-                Decimal memory poolRatio = DecimalMath.div(
-                    DecimalMath.fromNumber(postStreamActions.poolInfo.poolOutSupplyAmount),
-                    DecimalMath.fromNumber(streamState.outSupply)
-                );
-
-                Decimal memory decimalCreatorRevenue = DecimalMath.fromNumber(creatorRevenue);
-                Decimal memory decimalPoolAmount = DecimalMath.mul(decimalCreatorRevenue, poolRatio);
-
-                poolInSupplyAmount = DecimalMath.floor(decimalPoolAmount);
-                poolOutSupplyAmount = postStreamActions.poolInfo.poolOutSupplyAmount;
-                // Calculate remaining revenue
-                creatorRevenue = creatorRevenue - poolInSupplyAmount;
-            }
 
             // Update status
             status = StreamTypes.Status.FinalizedStreamed;
             saveStreamStatus(status);
             saveStream(state);
 
-            // Emit event before external calls
-            emit FinalizedStreamed(address(this), creator, creatorRevenue, feeAmount, outRemaining);
-
             // External calls last
             TransferLib.transferFunds(streamTokens.inSupplyToken, address(this), feeCollector, feeAmount);
-
-            if (poolOutSupplyAmount > 0) {
-                createPoolAndAddLiquidity(
-                    streamTokens.inSupplyToken,
-                    streamTokens.outSupplyToken,
-                    poolInSupplyAmount,
-                    poolOutSupplyAmount,
-                    postStreamActions.poolInfo.dexType,
-                    creator
-                );
-            }
-
-            if (postStreamActions.creatorVesting.isVestingEnabled) {
-                IVestingFactory vestingFactory = IVestingFactory(params.vestingFactoryAddress);
-                IERC20(streamTokens.inSupplyToken).approve(params.vestingFactoryAddress, creatorRevenue);
-                address vestingAddress = vestingFactory.createVestingWalletWithTokens(
-                    creator,
-                    uint64(block.timestamp),
-                    postStreamActions.creatorVesting.vestingDuration,
-                    streamTokens.inSupplyToken,
-                    creatorRevenue
-                );
-                emit CreatorVestingCreated(creator, vestingAddress, postStreamActions.creatorVesting.vestingDuration, streamTokens.inSupplyToken, creatorRevenue);
-            } else {
-                TransferLib.transferFunds(streamTokens.inSupplyToken, address(this), creator, creatorRevenue);
-            }
-
-            if (outRemaining > 0) {
-                TransferLib.transferFunds(streamTokens.outSupplyToken, address(this), creator, outRemaining);
-            }
+            
+            // Call hook for final distribution
+            uint256 adjustedCreatorRevenue = _afterFinalizeSuccess(creatorRevenue, outRemaining);
+            emit FinalizedStreamed(address(this), creator, adjustedCreatorRevenue, feeAmount, outRemaining);
         } else {
             // Update status
             status = StreamTypes.Status.FinalizedRefunded;
@@ -591,14 +524,13 @@ contract Stream is IStreamErrors, IStreamEvents {
             // Emit event before external call
             emit FinalizedRefunded(address(this), creator, outSupply);
 
-            // External call last
-            TransferLib.transferFunds(streamTokens.outSupplyToken, address(this), creator, outSupply);
+            // Call hook for refund
+            _afterFinalizeRefund(outSupply);
         }
     }
 
     /**
      * @dev Allows the creator to cancel the stream during the Waiting phase
-     * @notice Only the creator can cancel during Waiting phase
      */
     function cancelStream() external onlyCreator {
         // Load and update status
@@ -623,8 +555,7 @@ contract Stream is IStreamErrors, IStreamEvents {
     }
 
     /**
-     * @dev Allows the protocol admin to cancel the stream during Waiting, Bootstrapping, or Active phases
-     * @notice Only the protocol admin can call this function
+     * @dev Allows the protocol admin to cancel the stream
      */
     function cancelWithAdmin() external onlyProtocolAdmin {
         // Load and update status
@@ -656,7 +587,6 @@ contract Stream is IStreamErrors, IStreamEvents {
 
     /**
      * @dev Allows the creator to update the stream metadata
-     * @notice Only the creator can call this function
      */
     function updateStreamMetadata(string memory metadataIpfsHash) external onlyCreator {
         streamMetadata.ipfsHash = metadataIpfsHash;
@@ -667,7 +597,6 @@ contract Stream is IStreamErrors, IStreamEvents {
 
     /**
      * @dev External function to sync the stream state and status
-     * @notice Anyone can call this to update the stream state based on current time
      */
     function syncStreamExternal() external {
         // Load, update and save stream state
@@ -696,7 +625,6 @@ contract Stream is IStreamErrors, IStreamEvents {
     /**
      * @dev External function to sync a specific user's position
      * @param user Address of the user whose position should be synced
-     * @notice Anyone can call this to update a user's position based on current stream state
      */
     function syncPositionExternal(address user) external {
         PositionTypes.Position memory position = loadPosition(user);
@@ -720,27 +648,24 @@ contract Stream is IStreamErrors, IStreamEvents {
 
     // ============ View Functions ============
 
-    /**
-     * @dev Get the current stream status
-     * @return The current stream status
-     */
     function getStreamStatus() external view returns (StreamTypes.Status) {
         return streamStatus;
     }
 
-    /**
-     * @dev Get the current stream state
-     * @return The current stream state
-     */
     function getStreamState() external view returns (StreamTypes.StreamState memory) {
         return streamState;
     }
 
-    /**
-     * @dev Get a user's position information
-     * @param user Address of the user
-     * @return The user's position
-     */
+    function getStreamMetadata() external view returns (StreamTypes.StreamMetadata memory) {
+        return streamMetadata;
+    }
+
+    function getPostStreamActions() external view virtual returns (StreamTypes.PostStreamActions memory) {
+        // Default empty actions in core; variants may override and return their own storage
+        StreamTypes.PostStreamActions memory emptyActions;
+        return emptyActions;
+    }
+
     function getPosition(address user) external view returns (PositionTypes.Position memory) {
         IPositionStorage positionStorage = IPositionStorage(positionStorageAddress);
         return positionStorage.getPosition(user);
@@ -748,13 +673,6 @@ contract Stream is IStreamErrors, IStreamEvents {
 
     // ============ Internal Helper Functions ============
 
-    // ============ State Management ============
-
-    /**
-     * @dev Synchronizes the stream state based on the current timestamp
-     * @param state The current stream state to update
-     * @return The updated stream state
-     */
     function syncStream(StreamTypes.StreamState memory state) internal returns (StreamTypes.StreamState memory) {
         StreamTypes.StreamTimes memory times = loadStreamTimes();
 
@@ -786,13 +704,6 @@ contract Stream is IStreamErrors, IStreamEvents {
         return state;
     }
 
-    /**
-     * @dev Syncs the stream status based on current time and stream times
-     * @param status Current stream status
-     * @param times Stream timing information
-     * @param nowTime Current timestamp
-     * @return Updated stream status
-     */
     function syncStreamStatus(
         StreamTypes.Status status,
         StreamTypes.StreamTimes memory times,
@@ -811,63 +722,33 @@ contract Stream is IStreamErrors, IStreamEvents {
 
     // ============ Load Functions ============
 
-    /**
-     * @dev Loads the current stream state
-     * @return Current stream state
-     */
     function loadStream() internal view returns (StreamTypes.StreamState memory) {
         return streamState;
     }
 
-    /**
-     * @dev Loads the current stream status
-     * @return Current stream status
-     */
     function loadStreamStatus() internal view returns (StreamTypes.Status) {
         return streamStatus;
     }
 
-    /**
-     * @dev Loads a user's position from storage
-     * @param user Address of the user
-     * @return User's position
-     */
     function loadPosition(address user) internal view returns (PositionTypes.Position memory) {
         IPositionStorage positionStorage = IPositionStorage(positionStorageAddress);
         return positionStorage.getPosition(user);
     }
 
-    /**
-     * @dev Loads the stream timing information
-     * @return Stream timing information
-     */
     function loadStreamTimes() internal view returns (StreamTypes.StreamTimes memory) {
         return streamTimes;
     }
 
     // ============ Save Functions ============
 
-    /**
-     * @dev Saves the stream state
-     * @param state Stream state to save
-     */
     function saveStream(StreamTypes.StreamState memory state) internal {
         streamState = state;
     }
 
-    /**
-     * @dev Saves the stream status
-     * @param status Stream status to save
-     */
     function saveStreamStatus(StreamTypes.Status status) internal {
         streamStatus = status;
     }
 
-    /**
-     * @dev Saves a user's position to storage
-     * @param user Address of the user
-     * @param position Position to save
-     */
     function savePosition(address user, PositionTypes.Position memory position) internal {
         IPositionStorage positionStorage = IPositionStorage(positionStorageAddress);
         positionStorage.updatePosition(user, position);
@@ -875,12 +756,6 @@ contract Stream is IStreamErrors, IStreamEvents {
 
     // ============ Validation Functions ============
 
-    /**
-     * @dev Validates a position and reverts if invalid
-     * @param position The position to validate
-     * @param user The address of the user whose position is being validated
-     * @custom:error InvalidPosition if position is invalid or inactive
-     */
     function validatePosition(PositionTypes.Position memory position, address user) internal pure {
         if (position.shares == 0) {
             revert InvalidPosition(user, position.shares, position.exitDate, "Position has no shares");
@@ -890,85 +765,14 @@ contract Stream is IStreamErrors, IStreamEvents {
         }
     }
 
-    // ============ Pool Management ============
+    // ============ UUPS Upgrade Authorization ============
 
     /**
-     * @dev Creates a pool and adds liquidity using the pool wrapper
-     * @param tokenA First token address
-     * @param tokenB Second token address
-     * @param amountADesired Amount of token A to add
-     * @param amountBDesired Amount of token B to add
+     * @dev Function that should revert when `msg.sender` is not authorized to upgrade the contract
+     * @param newImplementation Address of the new implementation
      */
-    function createPoolAndAddLiquidity(
-        address tokenA,
-        address tokenB,
-        uint256 amountADesired,
-        uint256 amountBDesired,
-        StreamTypes.DexType dexType,
-        address streamCreator
-    ) internal {
-
-        StreamFactory factoryContract = StreamFactory(STREAM_FACTORY_ADDRESS);
-        StreamFactoryTypes.Params memory params = factoryContract.getParams();
-
-        address poolWrapperAddress;
-        if (dexType == StreamTypes.DexType.V2) {
-            poolWrapperAddress = params.V2PoolWrapperAddress;
-        } else if (dexType == StreamTypes.DexType.V3) {
-            poolWrapperAddress = params.V3PoolWrapperAddress;
-        } else if (dexType == StreamTypes.DexType.Aerodrome) {
-            poolWrapperAddress = params.AerodromePoolWrapperAddress;
-        } else {
-            revert InvalidDexType();
-        }
-        IPoolWrapper poolWrapper = IPoolWrapper(poolWrapperAddress);
-
-        // Transfer pool tokens to the pool wrapper contract first
-        TransferLib.transferFunds(tokenA, address(this), poolWrapperAddress, amountADesired);
-        TransferLib.transferFunds(tokenB, address(this), poolWrapperAddress, amountBDesired);
-
-        // Sort tokens
-        (address token0, address token1, uint256 amount0Desired, uint256 amount1Desired) = _sortTokens(
-            tokenA,
-            tokenB,
-            amountADesired,
-            amountBDesired
-        );
-
-        // Create the pool message
-        PoolWrapperTypes.CreatePoolMsg memory createPoolMsg = PoolWrapperTypes.CreatePoolMsg({
-            token0: token0,
-            token1: token1,
-            amount0Desired: amount0Desired,
-            amount1Desired: amount1Desired,
-            creator: streamCreator
-        });
-        
-        // Create the pool and get the result
-        PoolWrapperTypes.CreatedPoolInfo memory createdPoolInfo = poolWrapper.createPool(createPoolMsg);
-
-        emit PoolCreated(
-            address(this),
-            createdPoolInfo.poolAddress,
-            createdPoolInfo.token0,
-            createdPoolInfo.token1,
-            createdPoolInfo.amount0,
-            createdPoolInfo.amount1,
-            createdPoolInfo.refundedAmount0,
-            createdPoolInfo.refundedAmount1,
-            createdPoolInfo.creator
-        );
-    }
-
-    function _sortTokens(
-        address tokenA,
-        address tokenB,
-        uint256 amountA,
-        uint256 amountB
-    ) internal pure returns (address token0, address token1, uint256 amount0Desired, uint256 amount1Desired) {
-        if (tokenA < tokenB) {
-            return (tokenA, tokenB, amountA, amountB);
-        }
-        return (tokenB, tokenA, amountB, amountA);
+    function _authorizeUpgrade(address newImplementation) internal override onlyProtocolAdmin {
+        // Only protocol admin can upgrade
+        // Additional checks can be added here (e.g., timelock, phase restrictions)
     }
 }

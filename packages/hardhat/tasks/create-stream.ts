@@ -112,7 +112,9 @@ task("create-stream", "Creates a new stream using the deployed factory").setActi
     beneficiaryVesting: defaultStreamConfig.beneficiaryVestingInfo,
     poolInfo: {
       poolOutSupplyAmount: ethers.parseEther("500"),
-      dexType: 1 // 0 = V2, 1 = V3
+      dexType: 1, // 0 = V2, 1 = V3
+      // For V2: "0x"; For V3: abi.encode(uint24 fee)
+      extra: ethers.AbiCoder.defaultAbiCoder().encode(["uint24"], [3000])
     },
     salt,
   };

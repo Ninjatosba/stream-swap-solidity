@@ -1,16 +1,21 @@
 // packages/hardhat/test/helpers/StreamFactoryFixtureBuilder.ts
 import { ethers } from "hardhat";
-import { StreamFactory, ERC20Mock, Stream, PoolWrapper } from "../../typechain-types";
-import { DecimalStruct } from "../../typechain-types/src/Stream";
-import { StreamFactoryTypes } from "../../typechain-types/src/StreamFactory";
+import { ERC20Mock, PoolWrapper, PoolRouter } from "../../typechain-types";
+import { DecimalStruct } from "../../typechain-types/src/StreamCore";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 import { disableFork, enableMainnetFork } from "./fork";
 import { deployV2PoolWrapperFork, deployV3PoolWrapperFork } from "./poolWrappers";
+import { StreamFactoryTypes } from "../../typechain-types/src/StreamFactory";
 
 export interface StreamFactoryFixture {
   contracts: {
-    streamFactory: StreamFactory;
-    streamImplementation: Stream;
+    streamFactory: any;
+    implementations: {
+      basic: string;
+      withVesting: string;
+      withPool: string;
+      full: string;
+    };
     inSupplyToken: ERC20Mock;
     outSupplyToken: ERC20Mock;
     feeToken: ERC20Mock;
@@ -166,13 +171,14 @@ export class StreamFactoryFixtureBuilder {
         await outSupplyToken.mint(creator.address, initialSupply);
         await feeToken.mint(creator.address, ethers.parseEther("1000000000"));
 
-        // Optionally deploy pool wrappers on fork (no mocks)
+        // Optionally deploy pool wrappers on fork
         let v2WrapperAddress = ethers.ZeroAddress;
         let v3WrapperAddress = ethers.ZeroAddress;
         let aerodromeWrapperAddress = ethers.ZeroAddress;
         let v2PoolWrapper: PoolWrapper | undefined = undefined;
         let v3PoolWrapper: PoolWrapper | undefined = undefined;
         let aerodromePoolWrapper: PoolWrapper | undefined = undefined;
+        let poolRouterAddress: string = ethers.ZeroAddress;
         if (self.enablePoolCreationFlag) {
           const v2 = await deployV2PoolWrapperFork();
           const v3 = await deployV3PoolWrapperFork(3000);
@@ -180,10 +186,16 @@ export class StreamFactoryFixtureBuilder {
           v3WrapperAddress = v3.wrapperAddress;
           v2PoolWrapper = await ethers.getContractAt("PoolWrapper", v2WrapperAddress) as unknown as PoolWrapper;
           v3PoolWrapper = await ethers.getContractAt("PoolWrapper", v3WrapperAddress) as unknown as PoolWrapper;
-
-          // For now, don't deploy Aerodrome wrapper in tests since it's not available on mainnet fork
-          // In real deployment, this would be deployed via the deployment script
           aerodromeWrapperAddress = ethers.ZeroAddress;
+
+          // Deploy PoolRouter and register wrappers
+          const PoolRouterFactory = await ethers.getContractFactory("PoolRouter");
+          const poolRouter = (await PoolRouterFactory.deploy()) as unknown as PoolRouter;
+          await poolRouter.waitForDeployment();
+          poolRouterAddress = await (poolRouter as any).getAddress();
+          // DexType: 0 -> V2, 1 -> V3
+          await (poolRouter as any).setWrapper(0, 0, v2WrapperAddress);
+          await (poolRouter as any).setWrapper(1, 3000, v3WrapperAddress);
         }
 
 
@@ -197,10 +209,17 @@ export class StreamFactoryFixtureBuilder {
         const tokenFactory = await TokenFactoryFactory.deploy();
         await tokenFactory.waitForDeployment();
 
-        // Deploy Stream Implementation
-        const StreamImplementationFactory = await ethers.getContractFactory("Stream");
-        const streamImplementation = await StreamImplementationFactory.deploy(await streamFactory.getAddress());
-        await streamImplementation.waitForDeployment();
+        // Deploy Stream Implementations (variants)
+        const StreamBasicFactory = await ethers.getContractFactory("StreamBasic");
+        const StreamPostActionsFactory = await ethers.getContractFactory("StreamPostActions");
+
+        const streamBasic = await StreamBasicFactory.deploy();
+        const streamPostActions = await StreamPostActionsFactory.deploy();
+
+        await Promise.all([
+          streamBasic.waitForDeployment(),
+          streamPostActions.waitForDeployment(),
+        ]);
 
         // Initialize the factory
         const initMessage: StreamFactoryTypes.InitializeStreamFactoryMessageStruct = {
@@ -214,21 +233,27 @@ export class StreamFactoryFixtureBuilder {
           protocolAdmin: protocolAdmin.address,
           tosVersion: config.tosVersion,
           acceptedInSupplyTokens: useNativeInputToken ? [ethers.ZeroAddress] : [await inSupplyToken.getAddress()],
-          streamImplementationAddress: await streamImplementation.getAddress(),
+          basicImplementationAddress: await streamBasic.getAddress(),
+          postActionsImplementationAddress: await streamPostActions.getAddress(),
           tokenFactoryAddress: await tokenFactory.getAddress(),
-          V2PoolWrapperAddress: v2WrapperAddress,
-          V3PoolWrapperAddress: v3WrapperAddress,
-          AerodromePoolWrapperAddress: aerodromeWrapperAddress,
+          poolRouterAddress: poolRouterAddress,
         };
 
         // Initialize with proper error handling
-        const tx = await streamFactory.connect(protocolAdmin).initialize(initMessage);
+        const tx = await (streamFactory as any).connect(protocolAdmin).initialize(initMessage);
         await tx.wait();
+
+        // Implementations set during initialize
 
         return {
           contracts: {
             streamFactory,
-            streamImplementation,
+            implementations: {
+              basic: await streamBasic.getAddress(),
+              withVesting: await streamPostActions.getAddress(),
+              withPool: await streamPostActions.getAddress(),
+              full: await streamPostActions.getAddress(),
+            },
             inSupplyToken,
             outSupplyToken,
             feeToken,
