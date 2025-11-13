@@ -7,6 +7,12 @@ import { PoolWrapperTypes } from "../typechain-types/src/PoolWrapper";
 import { EventLog } from "ethers";
 
 describe("PoolWrapper (fork)", function () {
+    function sortForMsg(tokenA: string, tokenB: string, amountA: bigint, amountB: bigint) {
+        if (tokenA.toLowerCase() < tokenB.toLowerCase()) {
+            return { token0: tokenA, token1: tokenB, amount0Desired: amountA, amount1Desired: amountB };
+        }
+        return { token0: tokenB, token1: tokenA, amount0Desired: amountB, amount1Desired: amountA };
+    }
     async function poolFixture(network?: string) {
         // Enable fork and stabilize base fee
         await enableMainnetFork(undefined, network);
@@ -57,13 +63,10 @@ describe("PoolWrapper (fork)", function () {
             const amount0 = ethers.parseEther("10");
             const amount1 = ethers.parseEther("10");
 
-            const createPoolMsg = {
-                token0: await tokens.tokenA.getAddress(),
-                token1: await tokens.tokenB.getAddress(),
-                amount0Desired: amount0,
-                amount1Desired: amount1,
-                creator: accounts.liquidityProvider.address,
-            };
+            const a = await tokens.tokenA.getAddress();
+            const b = await tokens.tokenB.getAddress();
+            const sorted = sortForMsg(a, b, amount0, amount1);
+            const createPoolMsg = { ...sorted, creator: accounts.liquidityProvider.address, extra: "0x" };
 
             const tx = await v2.wrapper.connect(accounts.liquidityProvider).createPool(createPoolMsg);
             const receipt = await tx.wait();
@@ -97,7 +100,8 @@ describe("PoolWrapper (fork)", function () {
             );
 
             // First create (wrapper already pre-funded by fixture)
-            const msg1 = { token0: tokenAAddr, token1: tokenBAddr, amount0Desired: amount0, amount1Desired: amount1, creator: accounts.deployer.address };
+            const sorted = sortForMsg(tokenAAddr, tokenBAddr, amount0, amount1);
+            const msg1 = { ...sorted, creator: accounts.deployer.address, extra: "0x" };
             await (await v2.wrapper.createPool(msg1)).wait();
             const pool1 = await v2Factory.getPair(tokenAAddr, tokenBAddr);
 
@@ -112,13 +116,14 @@ describe("PoolWrapper (fork)", function () {
             const { tokens, v2 } = await loadFixture(poolFixture);
             const amount0 = ethers.parseEther("1");
             const amount1 = ethers.parseEther("10000000"); // exceed pre-funded balance
+            const a = await tokens.tokenA.getAddress();
+            const b = await tokens.tokenB.getAddress();
+            const sorted2 = sortForMsg(a, b, amount0, amount1);
             await expect(
                 v2.wrapper.createPool({
-                    token0: await tokens.tokenA.getAddress(),
-                    token1: await tokens.tokenB.getAddress(),
-                    amount0Desired: amount0,
-                    amount1Desired: amount1,
+                    ...sorted2,
                     creator: (await ethers.getSigners())[0].address,
+                    extra: "0x",
                 })
             ).to.be.revertedWithCustomError(v2.wrapper, "InsufficientBalance");
         });
@@ -131,13 +136,10 @@ describe("PoolWrapper (fork)", function () {
             const amount0 = ethers.parseEther("10");
             const amount1 = ethers.parseEther("10");
 
-            const msg = {
-                token0: await tokens.tokenA.getAddress(),
-                token1: await tokens.tokenB.getAddress(),
-                amount0Desired: amount0,
-                amount1Desired: amount1,
-                creator: accounts.liquidityProvider.address,
-            };
+            const a = await tokens.tokenA.getAddress();
+            const b = await tokens.tokenB.getAddress();
+            const sorted = sortForMsg(a, b, amount0, amount1);
+            const msg = { ...sorted, creator: accounts.liquidityProvider.address, extra: "0x" };
 
             const tx = await v3.wrapper.connect(accounts.liquidityProvider).createPool(msg);
             const receipt = await tx.wait();
@@ -155,13 +157,14 @@ describe("PoolWrapper (fork)", function () {
 
         it("reverts on zero amounts", async function () {
             const { tokens, v3 } = await loadFixture(poolFixture);
+            const a = await tokens.tokenA.getAddress();
+            const b = await tokens.tokenB.getAddress();
+            const sorted = sortForMsg(a, b, 0n, ethers.parseEther("1"));
             await expect(
                 v3.wrapper.createPool({
-                    token0: await tokens.tokenA.getAddress(),
-                    token1: await tokens.tokenB.getAddress(),
-                    amount0Desired: 0,
-                    amount1Desired: ethers.parseEther("1"),
+                    ...sorted,
                     creator: (await ethers.getSigners())[0].address,
+                    extra: "0x",
                 })
             ).to.be.revertedWithCustomError(v3.wrapper, "InvalidAmount");
         });
@@ -174,13 +177,10 @@ describe("PoolWrapper (fork)", function () {
             const amount0 = ethers.parseEther("10");
             const amount1 = ethers.parseEther("10");
 
-            const createPoolMsg = {
-                token0: await tokens.tokenA.getAddress(),
-                token1: await tokens.tokenB.getAddress(),
-                amount0Desired: amount0,
-                amount1Desired: amount1,
-                creator: accounts.liquidityProvider.address,
-            };
+            const a = await tokens.tokenA.getAddress();
+            const b = await tokens.tokenB.getAddress();
+            const sorted = sortForMsg(a, b, amount0, amount1);
+            const createPoolMsg = { ...sorted, creator: accounts.liquidityProvider.address, extra: "0x" };
 
             const tx = await aerodrome.wrapper.connect(accounts.liquidityProvider).createPool(createPoolMsg);
             await tx.wait();
@@ -199,13 +199,14 @@ describe("PoolWrapper (fork)", function () {
 
         it("reverts on zero amounts", async function () {
             const { tokens, aerodrome } = await poolFixture("base");
+            const a = await tokens.tokenA.getAddress();
+            const b = await tokens.tokenB.getAddress();
+            const sorted0 = sortForMsg(a, b, 0n, ethers.parseEther("1"));
             await expect(
                 aerodrome.wrapper.createPool({
-                    token0: await tokens.tokenA.getAddress(),
-                    token1: await tokens.tokenB.getAddress(),
-                    amount0Desired: 0,
-                    amount1Desired: ethers.parseEther("1"),
+                    ...sorted0,
                     creator: (await ethers.getSigners())[0].address,
+                    extra: "0x",
                 })
             ).to.be.revertedWithCustomError(aerodrome.wrapper, "InvalidAmount");
         });
@@ -214,26 +215,29 @@ describe("PoolWrapper (fork)", function () {
             const { tokens, aerodrome } = await poolFixture("base");
             const amount0 = ethers.parseEther("1");
             const amount1 = ethers.parseEther("10000000"); // exceed pre-funded balance
+            const a = await tokens.tokenA.getAddress();
+            const b = await tokens.tokenB.getAddress();
+            const sorted1 = sortForMsg(a, b, amount0, amount1);
             await expect(
                 aerodrome.wrapper.createPool({
-                    token0: await tokens.tokenA.getAddress(),
-                    token1: await tokens.tokenB.getAddress(),
-                    amount0Desired: amount0,
-                    amount1Desired: amount1,
+                    ...sorted1,
                     creator: (await ethers.getSigners())[0].address,
+                    extra: "0x",
                 })
             ).to.be.revertedWithCustomError(aerodrome.wrapper, "InsufficientBalance");
         });
 
         it("reverts on invalid token pair", async function () {
             const { tokens, aerodrome } = await poolFixture("base");
+            const a = await tokens.tokenA.getAddress();
             await expect(
                 aerodrome.wrapper.createPool({
-                    token0: await tokens.tokenA.getAddress(),
-                    token1: await tokens.tokenA.getAddress(),
+                    token0: a,
+                    token1: a,
                     amount0Desired: ethers.parseEther("10"),
                     amount1Desired: ethers.parseEther("10"),
                     creator: (await ethers.getSigners())[0].address,
+                    extra: "0x",
                 })
             ).to.be.revertedWithCustomError(aerodrome.wrapper, "DifferentTokensRequired");
         });
@@ -255,7 +259,8 @@ describe("PoolWrapper (fork)", function () {
             );
 
             // First create (wrapper already pre-funded by fixture)
-            const msg1 = { token0: tokenAAddr, token1: tokenBAddr, amount0Desired: amount0, amount1Desired: amount1, creator: accounts.deployer.address };
+            const sorted = sortForMsg(tokenAAddr, tokenBAddr, amount0, amount1);
+            const msg1 = { ...sorted, creator: accounts.deployer.address, extra: "0x" };
             await (await aerodrome.wrapper.createPool(msg1)).wait();
             const pool1 = await aerodromeFactory.getPool(tokenAAddr, tokenBAddr, false);
 
@@ -275,6 +280,7 @@ describe("PoolWrapper (fork)", function () {
                     amount0Desired: ethers.parseEther("10"),
                     amount1Desired: ethers.parseEther("10"),
                     creator: ethers.ZeroAddress,
+                    extra: "0x",
                 })
             ).to.be.revertedWithCustomError(aerodrome.wrapper, "InvalidAddress");
         });

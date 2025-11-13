@@ -2,6 +2,7 @@ import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { expect } from "chai";
 import { ethers } from "hardhat";
 import { streamFactory } from "./helpers/StreamFactoryFixtureBuilder";
+import { StreamFactoryTypes } from "../typechain-types/src/StreamFactory";
 
 describe("StreamFactoryCore", function () {
     const defaultFixture = streamFactory().build();
@@ -24,13 +25,15 @@ describe("StreamFactoryCore", function () {
     describe("Initialization", function () {
         let protocolAdmin: any;
         let feeCollector: any;
-        let validInitMessage: any;
+        let validInitMessage: StreamFactoryTypes.InitializeStreamFactoryMessageStruct;
         let streamFactory: any;
         let mockToken: any;
-        let streamImplementation: any;
+        let streamBasic: any;
+        let streamPostActions: any;
         let v2WrapperAddress: string;
         let v3WrapperAddress: string;
         let aerodromeWrapperAddress: string;
+        let poolRouterAddress: string;
         let tokenFactory: any;
 
         beforeEach(async function () {
@@ -43,25 +46,39 @@ describe("StreamFactoryCore", function () {
             mockToken = await ERC20Mock.deploy("Mock Token", "MOCK");
             await mockToken.waitForDeployment();
 
-            // No pool wrapper mocks; use zero addresses
+            // No pool router by default
             v2WrapperAddress = ethers.ZeroAddress;
             v3WrapperAddress = ethers.ZeroAddress;
             aerodromeWrapperAddress = ethers.ZeroAddress;
+            poolRouterAddress = ethers.ZeroAddress;
 
             // Deploy fresh factory for each test
             const StreamFactory = await ethers.getContractFactory("StreamFactory");
             streamFactory = await StreamFactory.deploy(protocolAdmin.address);
             await streamFactory.waitForDeployment();
 
-            // Deploy stream implementation
-            const Stream = await ethers.getContractFactory("Stream");
-            streamImplementation = await Stream.deploy(await streamFactory.getAddress());
-            await streamImplementation.waitForDeployment();
+            // Deploy stream implementations (all 4 variants)
+            const StreamBasicFactory = await ethers.getContractFactory("StreamBasic");
+            const StreamPostActionsFactory = await ethers.getContractFactory("StreamPostActions");
+
+            streamBasic = await StreamBasicFactory.deploy();
+            streamPostActions = await StreamPostActionsFactory.deploy();
+
+            await Promise.all([
+                streamBasic.waitForDeployment(),
+                streamPostActions.waitForDeployment(),
+            ]);
 
             // Deploy TokenFactory
             const TokenFactory = await ethers.getContractFactory("TokenFactory");
             tokenFactory = await TokenFactory.deploy();
             await tokenFactory.waitForDeployment();
+
+            // Deploy a PoolRouter for default init
+            const PoolRouter = await ethers.getContractFactory("PoolRouter");
+            const poolRouter = await PoolRouter.deploy();
+            await poolRouter.waitForDeployment();
+            poolRouterAddress = await poolRouter.getAddress();
 
             // Valid init message template
             validInitMessage = {
@@ -75,10 +92,9 @@ describe("StreamFactoryCore", function () {
                 protocolAdmin: protocolAdmin.address,
                 tosVersion: "1.0",
                 acceptedInSupplyTokens: [await mockToken.getAddress()],
-                streamImplementationAddress: await streamImplementation.getAddress(),
-                V2PoolWrapperAddress: v2WrapperAddress,
-                V3PoolWrapperAddress: v3WrapperAddress,
-                AerodromePoolWrapperAddress: aerodromeWrapperAddress,
+                basicImplementationAddress: await streamBasic.getAddress(),
+                postActionsImplementationAddress: await streamPostActions.getAddress(),
+                poolRouterAddress: poolRouterAddress,
                 tokenFactoryAddress: await tokenFactory.getAddress(),
             };
         });
@@ -136,23 +152,20 @@ describe("StreamFactoryCore", function () {
             await expect(streamFactory.connect(protocolAdmin).initialize(nativeTokenInitMessage)).to.not.be.reverted;
         });
 
-        it("should revert if stream implementation address is zero address", async function () {
-            const invalidInitMessage = {
+        it("should allow zero address for implementation addresses to disable stream types", async function () {
+            const zeroImplInitMessage = {
                 ...validInitMessage,
-                streamImplementationAddress: ethers.ZeroAddress,
+                basicImplementationAddress: ethers.ZeroAddress,
             };
 
-            await expect(streamFactory.connect(protocolAdmin).initialize(invalidInitMessage)).to.be.revertedWithCustomError(
-                streamFactory,
-                "InvalidStreamImplementationAddress",
-            );
+            // Should not revert - zero addresses are allowed to disable stream types
+            await expect(streamFactory.connect(protocolAdmin).initialize(zeroImplInitMessage)).to.not.be.reverted;
         });
 
-        it("should allow zero addresses for pool wrappers", async function () {
+        it("should allow zero address for pool router", async function () {
             const zeroWrappers = {
                 ...validInitMessage,
-                V2PoolWrapperAddress: ethers.ZeroAddress,
-                V3PoolWrapperAddress: ethers.ZeroAddress,
+                poolRouterAddress: ethers.ZeroAddress,
             };
 
             await expect(streamFactory.connect(protocolAdmin).initialize(zeroWrappers)).to.not.be.reverted;
@@ -186,21 +199,20 @@ describe("StreamFactoryCore", function () {
             // Parse the event to verify the parameters
             const parsedEvent = streamFactory.interface.parseLog(factoryInitializedEvent);
             expect(parsedEvent.args[0]).to.equal(await streamFactory.getAddress()); // factory
-            expect(parsedEvent.args[1]).to.equal(validInitMessage.streamImplementationAddress);
-            expect(parsedEvent.args[2]).to.equal(validInitMessage.V2PoolWrapperAddress);
-            expect(parsedEvent.args[3]).to.equal(validInitMessage.V3PoolWrapperAddress);
-            expect(parsedEvent.args[4]).to.equal(validInitMessage.AerodromePoolWrapperAddress);
-            expect(parsedEvent.args[5]).to.equal(validInitMessage.feeCollector);
-            expect(parsedEvent.args[6]).to.equal(validInitMessage.protocolAdmin);
-            expect(parsedEvent.args[7]).to.equal(validInitMessage.streamCreationFeeToken);
-            expect(parsedEvent.args[8]).to.deep.equal(validInitMessage.acceptedInSupplyTokens);
-            expect(parsedEvent.args[9]).to.equal(validInitMessage.streamCreationFee);
-            expect(parsedEvent.args[10]).to.equal(validInitMessage.exitFeeRatio.value);
-            expect(parsedEvent.args[11]).to.equal(validInitMessage.minWaitingDuration);
-            expect(parsedEvent.args[12]).to.equal(validInitMessage.minBootstrappingDuration);
-            expect(parsedEvent.args[13]).to.equal(validInitMessage.minStreamDuration);
-            expect(parsedEvent.args[14]).to.equal(validInitMessage.tosVersion);
-            expect(parsedEvent.args[15]).to.not.equal(ethers.ZeroAddress); // vestingAddress should be set
+            expect(parsedEvent.args[1]).to.equal(validInitMessage.basicImplementationAddress);
+            expect(parsedEvent.args[2]).to.equal(validInitMessage.postActionsImplementationAddress);
+            expect(parsedEvent.args[3]).to.equal(validInitMessage.poolRouterAddress);
+            expect(parsedEvent.args[4]).to.equal(validInitMessage.feeCollector);
+            expect(parsedEvent.args[5]).to.equal(validInitMessage.protocolAdmin);
+            expect(parsedEvent.args[6]).to.equal(validInitMessage.streamCreationFeeToken);
+            expect(parsedEvent.args[7]).to.deep.equal(validInitMessage.acceptedInSupplyTokens);
+            expect(parsedEvent.args[8]).to.equal(validInitMessage.streamCreationFee);
+            expect(parsedEvent.args[9]).to.equal(validInitMessage.exitFeeRatio.value);
+            expect(parsedEvent.args[10]).to.equal(validInitMessage.minWaitingDuration);
+            expect(parsedEvent.args[11]).to.equal(validInitMessage.minBootstrappingDuration);
+            expect(parsedEvent.args[12]).to.equal(validInitMessage.minStreamDuration);
+            expect(parsedEvent.args[13]).to.equal(validInitMessage.tosVersion);
+            expect(parsedEvent.args[14]).to.not.equal(ethers.ZeroAddress); // vestingAddress should be set
         });
 
         it("should emit VestingContractDeployed event on successful initialization", async function () {
@@ -223,9 +235,10 @@ describe("StreamFactoryCore", function () {
             expect(params.feeCollector).to.equal(validInitMessage.feeCollector);
             expect(params.protocolAdmin).to.equal(validInitMessage.protocolAdmin);
             expect(params.tosVersion).to.equal(validInitMessage.tosVersion);
-            expect(params.streamImplementationAddress).to.equal(validInitMessage.streamImplementationAddress);
-            expect(params.V2PoolWrapperAddress).to.equal(validInitMessage.V2PoolWrapperAddress);
-            expect(params.V3PoolWrapperAddress).to.equal(validInitMessage.V3PoolWrapperAddress);
+            // Check implementations using getImplementation
+            expect(await streamFactory.getImplementation(0)).to.equal(validInitMessage.basicImplementationAddress); // Basic
+            expect(await streamFactory.getImplementation(1)).to.equal(validInitMessage.postActionsImplementationAddress); // PostActions
+            expect(params.poolRouterAddress).to.equal(validInitMessage.poolRouterAddress);
             expect(params.vestingFactoryAddress).to.not.equal(ethers.ZeroAddress);
 
             // Check accepted tokens are set correctly
@@ -294,17 +307,14 @@ describe("StreamFactoryCore", function () {
 
             // Test all admin functions
             const adminFunctions = [
-                () => fixture.contracts.streamFactory.connect(nonAdmin).updateStreamCreationFee(100),
-                () => fixture.contracts.streamFactory.connect(nonAdmin).updateStreamCreationFeeToken(dummyAddress),
+                () => fixture.contracts.streamFactory.connect(nonAdmin).updateStreamFeeParameters(100, dummyAddress),
                 () => fixture.contracts.streamFactory.connect(nonAdmin).updateExitFeeRatio({ value: 100000n }),
-                () => fixture.contracts.streamFactory.connect(nonAdmin).updateMinWaitingDuration(3600),
-                () => fixture.contracts.streamFactory.connect(nonAdmin).updateMinBootstrappingDuration(3600),
-                () => fixture.contracts.streamFactory.connect(nonAdmin).updateMinStreamDuration(3600),
+                () => fixture.contracts.streamFactory.connect(nonAdmin).updateTimingParameters(3600, 3600, 3600),
                 () => fixture.contracts.streamFactory.connect(nonAdmin).updateTosVersion("2.0"),
                 () => fixture.contracts.streamFactory.connect(nonAdmin).updateFeeCollector(dummyAddress),
                 () => fixture.contracts.streamFactory.connect(nonAdmin).updateProtocolAdmin(dummyAddress),
-                () => fixture.contracts.streamFactory.connect(nonAdmin).updatePoolWrapper(dummyAddress, dummyAddress, dummyAddress),
-                () => fixture.contracts.streamFactory.connect(nonAdmin).updateStreamImplementation(dummyAddress),
+                () => fixture.contracts.streamFactory.connect(nonAdmin).updatePoolRouterAddress(dummyAddress),
+                () => fixture.contracts.streamFactory.connect(nonAdmin).updateImplementationParameters(dummyAddress, dummyAddress),
                 () => fixture.contracts.streamFactory.connect(nonAdmin).updateAcceptedTokens([dummyAddress], []),
                 () => fixture.contracts.streamFactory.connect(nonAdmin).setFrozen(true),
             ];

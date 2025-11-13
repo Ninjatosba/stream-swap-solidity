@@ -38,6 +38,12 @@ contract AerodromePoolWrapper is PoolWrapper {
         uint256 refundedAmount0,
         uint256 refundedAmount1
     ) {
+        // If caller provided extra, enforce that it matches this wrapper's stability mode
+        if (createPoolMsg.extra.length > 0) {
+            bool stableParam = abi.decode(createPoolMsg.extra, (bool));
+            if (stableParam != STABLE_POOL) revert InvalidAmount();
+        }
+
         IAerodromeFactory factory = IAerodromeFactory(AERODROME_FACTORY);
         IAerodromeRouter router = IAerodromeRouter(AERODROME_ROUTER);
 

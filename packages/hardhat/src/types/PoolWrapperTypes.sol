@@ -8,6 +8,7 @@ library PoolWrapperTypes {
         uint256 amount0Desired;
         uint256 amount1Desired;
         address creator;
+        bytes extra; // abi-encoded per-dex parameters (optional)
     }
 
     struct CreatedPoolInfo {

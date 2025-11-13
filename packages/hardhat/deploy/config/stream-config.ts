@@ -1,7 +1,7 @@
 // packages/hardhat/deploy/config/stream-config.ts
 
 import { BigNumberish, parseEther } from "ethers";
-import { StreamTypes } from "../../typechain-types/src/Stream";
+import { StreamTypes } from "../../typechain-types/src/StreamCore";
 
 export interface StreamConfig {
   // Token configuration

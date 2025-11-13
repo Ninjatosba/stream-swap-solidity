@@ -16,7 +16,7 @@ describe("Stream Pool Creation", function () {
 
     const streamContract = contracts.stream;
     // Query post stream actions
-    const state = await streamContract.postStreamActions();
+    const state = await streamContract.getPostStreamActions();
     expect(state.poolInfo.poolOutSupplyAmount).to.equal(poolOutSupplyAmount);
   });
 

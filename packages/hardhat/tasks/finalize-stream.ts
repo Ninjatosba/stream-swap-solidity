@@ -1,6 +1,6 @@
 import { task } from "hardhat/config";
 import { ethers } from "hardhat";
-import { Stream } from "../typechain-types";
+import { IStream } from "../typechain-types";
 
 task("finalize-stream", "Finalizes a stream")
   .addParam("stream", "The address of the stream to finalize")
@@ -13,7 +13,7 @@ task("finalize-stream", "Finalizes a stream")
       console.log(`Creator address: ${creator}`);
 
       // Get stream contract
-      const stream = (await ethers.getContractAt("Stream", taskArgs.stream)) as unknown as Stream;
+      const stream = (await ethers.getContractAt("IStream", taskArgs.stream)) as unknown as IStream;
       console.log(`Stream address: ${taskArgs.stream}`);
 
       // Get stream status before finalization
@@ -69,56 +69,8 @@ task("finalize-stream", "Finalizes a stream")
         console.log(`Refunded Out Amount: ${finalizedRefundedEvent.args.refundedOutAmount}`);
       }
 
-      // Look for PoolCreated event from PoolWrapper
-      console.log("\n🔍 Looking for PoolCreated event...");
-
-      // Get PoolWrapper address from StreamFactory
-      const streamFactory = await ethers.getContractAt("StreamFactory", await stream.STREAM_FACTORY_ADDRESS());
-      const poolWrapperAddress = (await streamFactory.getParams()).V2PoolWrapperAddress;
-      console.log(`PoolWrapper address: ${poolWrapperAddress}`);
-
-      // Get PoolWrapper contract
-      const poolWrapper = await ethers.getContractAt("PoolWrapper", poolWrapperAddress);
-      if (!poolWrapper) {
-        throw new Error("Failed to get PoolWrapper contract");
-      }
-
-      // Look for PoolCreated event in the receipt
-      const poolCreatedEvent = poolWrapper.interface.getEvent("PoolCreated");
-      if (!poolCreatedEvent) {
-        console.log("\n⚠️  PoolCreated event not found in PoolWrapper interface. Skipping pool event parsing.");
-        return;
-      }
-      const poolCreatedEventTopic = poolCreatedEvent.topicHash;
-      const poolCreatedLog = receipt.logs.find((log: any) =>
-        log.topics[0] === poolCreatedEventTopic &&
-        log.address.toLowerCase() === poolWrapperAddress.toLowerCase()
-      );
-
-      if (poolCreatedLog) {
-        const poolCreatedEvent = poolWrapper.interface.parseLog(poolCreatedLog);
-        if (poolCreatedEvent) {
-          console.log("\n🎉 Pool Created Successfully!");
-          console.log(`📍 Pool Address: ${poolCreatedEvent.args.pool}`);
-          console.log(`🏭 PoolWrapper: ${poolCreatedEvent.args.poolWrapper}`);
-          console.log(`🪙 Token0 (In): ${poolCreatedEvent.args.token0}`);
-          console.log(`🪙 Token1 (Out): ${poolCreatedEvent.args.token1}`);
-          console.log(`💰 Token0 Amount: ${poolCreatedEvent.args.token0Amount}`);
-          console.log(`💰 Token1 Amount: ${poolCreatedEvent.args.token1Amount}`);
-          console.log(`📊 Stream: ${poolCreatedEvent.args.stream}`);
-
-          // Get pool info from PoolWrapper
-          const poolInfo = await poolWrapper.getPoolInfo(taskArgs.stream);
-          console.log("\n📋 Pool Info from PoolWrapper:");
-          console.log(`📍 Pool Address: ${poolInfo.poolAddress}`);
-          console.log(`🪙 Token0: ${poolInfo.token0}`);
-          console.log(`🪙 Token1: ${poolInfo.token1}`);
-        } else {
-          console.log("\n⚠️  Could not parse PoolCreated event.");
-        }
-      } else {
-        console.log("\n⚠️  No PoolCreated event found. Pool might not have been created.");
-      }
+      // Look for PoolCreated event from Stream contract (already parsed above)
+      console.log("\n🔍 Parsed PoolCreated event from stream receipt above.");
     } catch (error: any) {
       console.error("Error details:", {
         message: error.message,

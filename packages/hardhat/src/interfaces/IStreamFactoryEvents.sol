@@ -29,10 +29,9 @@ interface IStreamFactoryEvents {
 
     event FactoryInitialized(
         address indexed factory,
-        address streamImplementationAddress,
-        address V2PoolWrapperAddress,
-        address V3PoolWrapperAddress,
-        address AerodromePoolWrapperAddress,
+        address basicImplementationAddress,
+        address postActionsImplementationAddress,
+        address poolRouterAddress,
         address feeCollector,
         address protocolAdmin,
         address streamCreationFeeToken,
@@ -46,25 +45,49 @@ interface IStreamFactoryEvents {
         address vestingAddress
     );
 
-    event ParamsUpdated(
+    event FeeCollectorUpdated(address indexed factory, address oldFeeCollector, address newFeeCollector);
+
+    event ProtocolAdminUpdated(address indexed factory, address oldProtocolAdmin, address newProtocolAdmin);
+
+    event StreamFeeParametersUpdated(
         address indexed factory,
-        uint256 streamCreationFee,
-        uint256 exitFeeRatio,
-        uint256 minWaitingDuration,
-        uint256 minBootstrappingDuration,
-        uint256 minStreamDuration,
-        string tosVersion
+        uint256 oldFee,
+        uint256 newFee,
+        address oldFeeToken,
+        address newFeeToken
     );
 
-    event FeeCollectorUpdated(address indexed factory, address newFeeCollector);
+    event TimingParametersUpdated(
+        address indexed factory,
+        uint256 oldMinWaitingDuration,
+        uint256 newMinWaitingDuration,
+        uint256 oldMinBootstrappingDuration,
+        uint256 newMinBootstrappingDuration,
+        uint256 oldMinStreamDuration,
+        uint256 newMinStreamDuration
+    );
 
-    event ProtocolAdminUpdated(address indexed factory, address newProtocolAdmin);
+    event ImplementationParametersUpdated(
+        address indexed factory,
+        address oldBasic,
+        address newBasic,
+        address oldPostActions,
+        address newPostActions
+    );
+
+    event PoolRouterUpdated(
+        address indexed factory,
+        address oldPoolRouter,
+        address newPoolRouter
+    );
+
+    event ExitFeeRatioUpdated(address indexed factory, uint256 oldRatio, uint256 newRatio);
+
+    event TosVersionUpdated(address indexed factory, string oldVersion, string newVersion);
 
     event FrozenStateUpdated(address indexed factory, bool frozen);
 
     event AcceptedTokensUpdated(address indexed factory, address[] tokensAdded, address[] tokensRemoved);
 
     event VestingContractDeployed(address indexed factoryAddress, address vestingContract);
-
-    event PoolWrapperUpdated(address indexed factoryAddress, address V2PoolWrapperAddress, address V3PoolWrapperAddress, address AerodromePoolWrapperAddress);
 }

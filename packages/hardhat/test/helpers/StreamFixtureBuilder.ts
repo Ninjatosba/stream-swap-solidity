@@ -3,10 +3,10 @@ import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
 import { Contract, TransactionRequest } from "ethers";
 import fs from "fs";
 import path from "path";
-import { DecimalStruct, StreamTypes } from "../../typechain-types/src/Stream";
-import { StreamFactoryTypes } from "../../typechain-types/src/StreamFactory";
+import { DecimalStruct, StreamTypes } from "../../typechain-types/src/StreamCore";
 import { disableFork, enableMainnetFork } from "./fork";
 import { deployAerodromePoolWrapperFork, deployV2PoolWrapperFork, deployV3PoolWrapperFork } from "./poolWrappers";
+import { StreamFactoryTypes } from "../../typechain-types/src/StreamFactory";
 
 // Configuration interfaces
 interface StreamTimeConfig {
@@ -261,6 +261,7 @@ export class StreamFixtureBuilder {
         let v2PoolWrapperAddress: string = ethers.ZeroAddress;
         let v3PoolWrapperAddress: string = ethers.ZeroAddress;
         let aerodromePoolWrapperAddress: string = ethers.ZeroAddress;
+        let poolRouterAddress: string = ethers.ZeroAddress;
         if (self.enablePoolCreationFlag) {
           const { wrapperAddress: v2Addr } = await deployV2PoolWrapperFork();
           const { wrapperAddress: v3Addr } = await deployV3PoolWrapperFork(3000);
@@ -268,6 +269,14 @@ export class StreamFixtureBuilder {
           v2PoolWrapperAddress = v2Addr;
           v3PoolWrapperAddress = v3Addr;
           aerodromePoolWrapperAddress = aerodromeAddr;
+
+          // Deploy PoolRouter and register wrappers for V2 and V3 (fee 3000)
+          const PoolRouterFactory = await ethers.getContractFactory("PoolRouter");
+          const poolRouter = await PoolRouterFactory.deploy();
+          await poolRouter.waitForDeployment();
+          poolRouterAddress = await (poolRouter as any).getAddress();
+          await (poolRouter as any).setWrapper(0, 0, v2PoolWrapperAddress);
+          await (poolRouter as any).setWrapper(1, 3000, v3PoolWrapperAddress);
         }
 
         // Deploy StreamFactory
@@ -275,10 +284,17 @@ export class StreamFixtureBuilder {
         const streamFactory = await StreamFactoryFactory.deploy(protocolAdmin.address);
         const streamFactoryAddress = await streamFactory.getAddress();
 
-        // Deploy Stream Implementation
-        const StreamImplementationFactory = await ethers.getContractFactory("Stream");
-        const streamImplementation = await StreamImplementationFactory.deploy(streamFactoryAddress);
-        const streamImplementationAddress = await streamImplementation.getAddress();
+        // Deploy Stream Implementations (variants)
+        const StreamBasicFactory = await ethers.getContractFactory("StreamBasic");
+        const StreamPostActionsFactory = await ethers.getContractFactory("StreamPostActions");
+
+        const streamBasic = await StreamBasicFactory.deploy();
+        const streamPostActions = await StreamPostActionsFactory.deploy();
+
+        await Promise.all([
+          streamBasic.waitForDeployment(),
+          streamPostActions.waitForDeployment(),
+        ]);
 
         // Deploy TokenFactory
         const TokenFactoryFactory = await ethers.getContractFactory("TokenFactory");
@@ -297,17 +313,18 @@ export class StreamFixtureBuilder {
           protocolAdmin: protocolAdmin.address,
           tosVersion: self.metadataConfig.tosVersion,
           acceptedInSupplyTokens: [inSupplyTokenAddress, ethers.ZeroAddress],
-          streamImplementationAddress: streamImplementationAddress,
+          basicImplementationAddress: await streamBasic.getAddress(),
+          postActionsImplementationAddress: await streamPostActions.getAddress(),
           tokenFactoryAddress: tokenFactoryAddress,
-          V2PoolWrapperAddress: v2PoolWrapperAddress,
-          V3PoolWrapperAddress: v3PoolWrapperAddress,
-          AerodromePoolWrapperAddress: aerodromePoolWrapperAddress,
+          poolRouterAddress: poolRouterAddress,
         };
 
-        await streamFactory.connect(protocolAdmin).initialize(streamFactoryMessage);
+        await (streamFactory as any).connect(protocolAdmin).initialize(streamFactoryMessage);
+
+        // Implementations set during initialize
 
         // Get factory params
-        const factoryParams = await streamFactory.getParams();
+        const factoryParams = await (streamFactory as any).getParams();
         const streamCreationFee = factoryParams.streamCreationFee;
 
         // Mint tokens
@@ -353,7 +370,7 @@ export class StreamFixtureBuilder {
         const streamEndTime = streamStartTime + self.timeConfig.streamDuration;
 
         // Create stream
-        const tx = await streamFactory.connect(creator).createStream(
+        const tx = await (streamFactory as any).connect(creator).createStream(
           {
             streamOutAmount: self.amountConfig.streamOutAmount,
             outSupplyToken: outSupplyTokenAddress,
@@ -369,23 +386,26 @@ export class StreamFixtureBuilder {
             poolInfo: {
               poolOutSupplyAmount: self.enablePoolCreationFlag ? self.poolConfig.poolOutSupplyAmount : 0n,
               dexType: self.selectedDexType,
+              extra: self.selectedDexType === 0
+                ? "0x"
+                : ethers.AbiCoder.defaultAbiCoder().encode(["uint24"], [3000]),
             },
             tosVersion: self.metadataConfig.tosVersion,
-          },
+          } as any,
           txOptions,
         );
 
         // Get stream address from event
         const receipt = await tx.wait();
         const event = receipt?.logs.find(
-          log => log.topics[0] === streamFactory.interface.getEvent("StreamCreated").topicHash,
+          (log: any) => log.topics[0] === (streamFactory as any).interface.getEvent("StreamCreated").topicHash,
         );
 
         if (!event) {
           throw new Error("StreamCreated event not found in transaction logs");
         }
 
-        const parsedEvent = streamFactory.interface.parseLog({
+        const parsedEvent = (streamFactory as any).interface.parseLog({
           topics: event.topics,
           data: event.data,
         });
@@ -396,7 +416,7 @@ export class StreamFixtureBuilder {
           throw new Error("Invalid stream address (zero address)");
         }
 
-        const stream = await ethers.getContractAt("Stream", streamAddress);
+        const stream = await ethers.getContractAt("IStream", streamAddress);
 
         // Get Permit2 contract instance
         const permit2 = await ethers.getContractAt("IPermit2", PERMIT2_ADDRESS);

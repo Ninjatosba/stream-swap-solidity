@@ -2,6 +2,7 @@ import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { expect } from "chai";
 import { ethers } from "hardhat";
 import { streamFactory } from "./helpers/StreamFactoryFixtureBuilder";
+import { StreamTypes } from "../typechain-types/src/StreamCore";
 
 describe("TokenCreationWithStream", function () {
     describe("Happy Path", function () {
@@ -14,7 +15,7 @@ describe("TokenCreationWithStream", function () {
             const totalSupply = ethers.parseEther("10000");
             const creatorBalance = totalSupply - streamOutAmount - poolOutSupply;
 
-            const createStreamMessage = {
+            const createStreamMessage: StreamTypes.CreateStreamMessageStruct = {
                 creator: fixture.accounts.creator.address,
                 streamOutAmount: streamOutAmount,
                 inSupplyToken: await fixture.contracts.inSupplyToken.getAddress(),
@@ -26,7 +27,7 @@ describe("TokenCreationWithStream", function () {
                 metadata: { ipfsHash: "QmTest123" },
                 creatorVesting: { isVestingEnabled: false, vestingDuration: 0 },
                 beneficiaryVesting: { isVestingEnabled: false, vestingDuration: 0 },
-                poolInfo: { poolOutSupplyAmount: poolOutSupply, dexType: 0 },
+                poolInfo: { poolOutSupplyAmount: poolOutSupply, dexType: 0, extra: "0x" },
                 tosVersion: "1.0",
             };
 
@@ -61,7 +62,7 @@ describe("TokenCreationWithStream", function () {
             await expect(tx).to.emit(fixture.contracts.streamFactory, "StreamCreated");
 
             // Get token address from event
-            const tokenCreatedEvent = receipt?.logs.find((log) => {
+            const tokenCreatedEvent = receipt?.logs.find((log: any) => {
                 try {
                     const parsed = fixture.contracts.streamFactory.interface.parseLog(log);
                     return parsed?.name === "TokenCreated";
@@ -98,7 +99,7 @@ describe("TokenCreationWithStream", function () {
             const poolOutSupply = ethers.parseUnits("100", 6);
             const totalSupply = ethers.parseUnits("1000000", 6);
 
-            const createStreamMessage = {
+            const createStreamMessage: StreamTypes.CreateStreamMessageStruct = {
                 creator: fixture.accounts.creator.address,
                 streamOutAmount: streamOutAmount,
                 inSupplyToken: await fixture.contracts.inSupplyToken.getAddress(),
@@ -110,7 +111,7 @@ describe("TokenCreationWithStream", function () {
                 metadata: { ipfsHash: "QmTest123" },
                 creatorVesting: { isVestingEnabled: false, vestingDuration: 0 },
                 beneficiaryVesting: { isVestingEnabled: false, vestingDuration: 0 },
-                poolInfo: { poolOutSupplyAmount: poolOutSupply, dexType: 0 },
+                poolInfo: { poolOutSupplyAmount: poolOutSupply, dexType: 0, extra: "0x" },
                 tosVersion: "1.0",
             };
 
@@ -130,7 +131,7 @@ describe("TokenCreationWithStream", function () {
 
             const receipt = await tx.wait();
 
-            const tokenCreatedEvent = receipt?.logs.find((log) => {
+            const tokenCreatedEvent = receipt?.logs.find((log: any) => {
                 try {
                     const parsed = fixture.contracts.streamFactory.interface.parseLog(log);
                     return parsed?.name === "TokenCreated";
@@ -143,7 +144,8 @@ describe("TokenCreationWithStream", function () {
             const tokenAddress = parsedEvent?.args.token;
 
             const token = await ethers.getContractAt("StandardERC20", tokenAddress);
-            expect(await token.decimals()).to.equal(6);
+            expect(await token.decimals()).
+                to.equal(6);
             expect(await token.totalSupply()).to.equal(totalSupply);
         });
 
@@ -153,7 +155,7 @@ describe("TokenCreationWithStream", function () {
             const now = Math.floor(Date.now() / 1000);
             const totalSupply = ethers.parseEther("5000000");
 
-            const createStreamMessage = {
+            const createStreamMessage: StreamTypes.CreateStreamMessageStruct = {
                 creator: fixture.accounts.creator.address,
                 streamOutAmount: ethers.parseEther("1000000"),
                 inSupplyToken: await fixture.contracts.inSupplyToken.getAddress(),
@@ -165,7 +167,7 @@ describe("TokenCreationWithStream", function () {
                 metadata: { ipfsHash: "QmTest123" },
                 creatorVesting: { isVestingEnabled: false, vestingDuration: 0 },
                 beneficiaryVesting: { isVestingEnabled: false, vestingDuration: 0 },
-                poolInfo: { poolOutSupplyAmount: ethers.parseEther("0"), dexType: 0 },
+                poolInfo: { poolOutSupplyAmount: ethers.parseEther("0"), dexType: 0, extra: "0x" },
                 tosVersion: "1.0",
             };
 
@@ -204,7 +206,7 @@ describe("TokenCreationWithStream", function () {
             const poolOutSupply = ethers.parseEther("100");
             const insufficientTotalSupply = ethers.parseEther("500"); // Less than streamOut + poolOut
 
-            const createStreamMessage = {
+            const createStreamMessage: StreamTypes.CreateStreamMessageStruct = {
                 creator: fixture.accounts.creator.address,
                 streamOutAmount: streamOutAmount,
                 inSupplyToken: await fixture.contracts.inSupplyToken.getAddress(),
@@ -216,7 +218,7 @@ describe("TokenCreationWithStream", function () {
                 metadata: { ipfsHash: "QmTest123" },
                 creatorVesting: { isVestingEnabled: false, vestingDuration: 0 },
                 beneficiaryVesting: { isVestingEnabled: false, vestingDuration: 0 },
-                poolInfo: { poolOutSupplyAmount: poolOutSupply, dexType: 0 },
+                poolInfo: { poolOutSupplyAmount: poolOutSupply, dexType: 0, extra: "0x" },
                 tosVersion: "1.0",
             };
 
@@ -245,7 +247,7 @@ describe("TokenCreationWithStream", function () {
             const poolOutSupply = ethers.parseEther("100");
             const exactTotalSupply = streamOutAmount + poolOutSupply; // Exactly what stream needs (validation requires >)
 
-            const createStreamMessage = {
+            const createStreamMessage: StreamTypes.CreateStreamMessageStruct = {
                 creator: fixture.accounts.creator.address,
                 streamOutAmount: streamOutAmount,
                 inSupplyToken: await fixture.contracts.inSupplyToken.getAddress(),
@@ -257,7 +259,7 @@ describe("TokenCreationWithStream", function () {
                 metadata: { ipfsHash: "QmTest123" },
                 creatorVesting: { isVestingEnabled: false, vestingDuration: 0 },
                 beneficiaryVesting: { isVestingEnabled: false, vestingDuration: 0 },
-                poolInfo: { poolOutSupplyAmount: poolOutSupply, dexType: 0 },
+                poolInfo: { poolOutSupplyAmount: poolOutSupply, dexType: 0, extra: "0x" },
                 tosVersion: "1.0",
             };
 
@@ -271,12 +273,12 @@ describe("TokenCreationWithStream", function () {
                 isBurnable: false,
             };
 
-            // Expect revert: pool wrappers are required when poolOutSupplyAmount > 0
+            // Expect revert: pool router required when poolOutSupplyAmount > 0
             await expect(
                 fixture.contracts.streamFactory
                     .connect(fixture.accounts.creator)
                     .createStreamWithTokenCreation(createStreamMessage, tokenCreationInfo)
-            ).to.be.revertedWithCustomError(fixture.contracts.streamFactory, "PoolWrapperNotSet");
+            ).to.be.revertedWithCustomError(fixture.contracts.streamFactory, "PoolRouterNotSet");
         });
 
         it("Should revert if stream out amount is zero", async function () {
@@ -285,7 +287,7 @@ describe("TokenCreationWithStream", function () {
             const now = Math.floor(Date.now() / 1000);
             const totalSupply = ethers.parseEther("10000");
 
-            const createStreamMessage = {
+            const createStreamMessage: StreamTypes.CreateStreamMessageStruct = {
                 creator: fixture.accounts.creator.address,
                 streamOutAmount: 0, // Zero amount
                 inSupplyToken: await fixture.contracts.inSupplyToken.getAddress(),
@@ -297,7 +299,7 @@ describe("TokenCreationWithStream", function () {
                 metadata: { ipfsHash: "QmTest123" },
                 creatorVesting: { isVestingEnabled: false, vestingDuration: 0 },
                 beneficiaryVesting: { isVestingEnabled: false, vestingDuration: 0 },
-                poolInfo: { poolOutSupplyAmount: ethers.parseEther("100"), dexType: 0 },
+                poolInfo: { poolOutSupplyAmount: ethers.parseEther("100"), dexType: 0, extra: "0x" },
                 tosVersion: "1.0",
             };
 
@@ -324,7 +326,7 @@ describe("TokenCreationWithStream", function () {
             const now = Math.floor(Date.now() / 1000);
             const totalSupply = ethers.parseEther("10000");
 
-            const createStreamMessage = {
+            const createStreamMessage: StreamTypes.CreateStreamMessageStruct = {
                 creator: ethers.ZeroAddress, // Invalid creator
                 streamOutAmount: ethers.parseEther("1000"),
                 inSupplyToken: await fixture.contracts.inSupplyToken.getAddress(),
@@ -336,7 +338,7 @@ describe("TokenCreationWithStream", function () {
                 metadata: { ipfsHash: "QmTest123" },
                 creatorVesting: { isVestingEnabled: false, vestingDuration: 0 },
                 beneficiaryVesting: { isVestingEnabled: false, vestingDuration: 0 },
-                poolInfo: { poolOutSupplyAmount: ethers.parseEther("100"), dexType: 0 },
+                poolInfo: { poolOutSupplyAmount: ethers.parseEther("100"), dexType: 0, extra: "0x" },
                 tosVersion: "1.0",
             };
 
@@ -381,7 +383,7 @@ describe("TokenCreationWithStream", function () {
                 metadata: { ipfsHash: "QmTest123" },
                 creatorVesting: { isVestingEnabled: false, vestingDuration: 0 },
                 beneficiaryVesting: { isVestingEnabled: false, vestingDuration: 0 },
-                poolInfo: { poolOutSupplyAmount: ethers.parseEther("100"), dexType: 0 },
+                poolInfo: { poolOutSupplyAmount: ethers.parseEther("100"), dexType: 0, extra: "0x" },
                 tosVersion: "1.0",
             };
 
@@ -420,7 +422,7 @@ describe("TokenCreationWithStream", function () {
                 metadata: { ipfsHash: "QmTest123" },
                 creatorVesting: { isVestingEnabled: false, vestingDuration: 0 },
                 beneficiaryVesting: { isVestingEnabled: false, vestingDuration: 0 },
-                poolInfo: { poolOutSupplyAmount: ethers.parseEther("100"), dexType: 0 },
+                poolInfo: { poolOutSupplyAmount: ethers.parseEther("100"), dexType: 0, extra: "0x" },
                 tosVersion: "2.0", // Wrong version
             };
 
@@ -459,7 +461,7 @@ describe("TokenCreationWithStream", function () {
                 metadata: { ipfsHash: "QmTest123" },
                 creatorVesting: { isVestingEnabled: false, vestingDuration: 0 },
                 beneficiaryVesting: { isVestingEnabled: false, vestingDuration: 0 },
-                poolInfo: { poolOutSupplyAmount: ethers.parseEther("100"), dexType: 0 },
+                poolInfo: { poolOutSupplyAmount: ethers.parseEther("0"), dexType: 0, extra: "0x" },
                 tosVersion: "1.0",
             };
 

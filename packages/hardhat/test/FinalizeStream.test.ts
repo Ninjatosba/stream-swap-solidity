@@ -2,6 +2,7 @@ import { expect } from "chai";
 import { ethers } from "hardhat";
 import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { stream } from "./helpers/StreamFixtureBuilder";
+// typechain import for StreamFactory types is optional; we avoid it to prevent compile/type drift during refactors
 
 enum Status {
   Waiting,
@@ -111,7 +112,7 @@ describe("Stream Finalize", function () {
       await tx2.wait();
 
       // Get factory params to access vesting factory address
-      const factoryParams = await contracts.streamFactory.getParams();
+      const factoryParams = await (contracts.streamFactory as any).getParams();
       expect(factoryParams.vestingFactoryAddress).to.not.be.equal(ethers.ZeroAddress);
 
       // Finalize with creator vesting enabled
@@ -220,10 +221,11 @@ describe("Stream Finalize", function () {
     });
 
     it("Should handle finalize with creator vesting", async function () {
+      const poolOutAmount = ethers.parseEther("25");
       const { contracts, timeParams, accounts } = await loadFixture(
         stream()
           .creatorVesting(3600)
-          .streamOut(ethers.parseEther("100"))
+          .poolOutSupply(poolOutAmount)
           .setThreshold(ethers.parseEther("100"))
           .build()
       );
@@ -256,7 +258,7 @@ describe("Stream Finalize", function () {
       const receipt = await finalizeTx.wait();
 
       // Get factory params to access vesting factory address
-      const factoryParams = await contracts.streamFactory.getParams();
+      const factoryParams = await (contracts.streamFactory as any).getParams();
       expect(factoryParams.vestingFactoryAddress).to.not.be.equal(ethers.ZeroAddress);
 
       // Query logs from VestingFactory contract for VestingWalletCreated event
@@ -298,19 +300,17 @@ describe("Stream Finalize", function () {
     });
 
     it("Should handle finalize with Pool V2 creation", async function () {
+      const poolOutAmount = ethers.parseEther("25");
       const { contracts, timeParams, accounts } = await loadFixture(
         stream()
-          .poolOutSupply(ethers.parseEther("25"))
+          .poolOutSupply(poolOutAmount)
           .streamOut(ethers.parseEther("100"))
           .setThreshold(ethers.parseEther("100"))
           .enablePoolCreation(true)
           .dex("v2")
           .build()
       );
-      // poolOutRatio = 1 / 4
-      // This means 1/4 of generated revenue from the stream will be used to create the pool
-      let poolOutRatio = 1 / 4;
-      let exitFeeRatio = await contracts.streamFactory.getParams().then((params: any) => params.exitFeeRatio);
+      let exitFeeRatio = await (contracts.streamFactory as any).getParams().then((params: any) => params.exitFeeRatio);
 
       // Fast forward time to stream start
       await ethers.provider.send("evm_setNextBlockTimestamp", [timeParams.streamStartTime + 1]);
@@ -388,14 +388,21 @@ describe("Stream Finalize", function () {
       const creatorInBalanceAfter = await contracts.inSupplyToken.balanceOf(accounts.creator.address);
       const creatorOutBalanceAfter = await contracts.outSupplyToken.balanceOf(accounts.creator.address);
 
-      // Verify balances
-      expect(creatorInBalanceAfter - creatorInBalanceBefore).to.equal(poolEvent?.args?.refundedAmount0 + creatorRevenue);
-      expect(creatorOutBalanceAfter - creatorOutBalanceBefore).to.equal(poolEvent?.args?.refundedAmount1);
+      // Verify balances (refundedAmount0 = out token refund, refundedAmount1 = in token refund)
+      expect(creatorInBalanceAfter - creatorInBalanceBefore).to.equal(poolEvent?.args?.refundedAmount1 + creatorRevenue);
+      expect(creatorOutBalanceAfter - creatorOutBalanceBefore).to.equal(poolEvent?.args?.refundedAmount0);
 
       // Get price from the V2 pool
       const pool = await ethers.getContractAt("IUniswapV2Pair", poolEvent?.args?.poolAddress);
       const reserves = await pool.getReserves();
       const price = Number(reserves.reserve1) / Number(reserves.reserve0);
+
+      const poolRatio = 1 / 4;
+      const totalRevenue = subscriptionAmount
+      const revenueAfterExitFee = Number(totalRevenue) * (1 - Number(exitFeeRatio) / 1e6);
+      const poolInAmount = revenueAfterExitFee * poolRatio;
+      const expectedPrice = Number(poolInAmount) / Number(poolOutAmount);
+
 
       expect(price).to.be.closeTo(1.111, 0.001);
     });
@@ -489,8 +496,8 @@ describe("Stream Finalize", function () {
       const creatorOutBalanceAfter = await contracts.outSupplyToken.balanceOf(accounts.creator.address);
 
       // Verify balances
-      expect(creatorInBalanceAfter - creatorInBalanceBefore).to.equal(poolEvent?.args?.refundedAmount0 + creatorRevenue);
-      expect(creatorOutBalanceAfter - creatorOutBalanceBefore).to.equal(poolEvent?.args?.refundedAmount1);
+      expect(creatorInBalanceAfter - creatorInBalanceBefore).to.equal(poolEvent?.args?.refundedAmount1 + creatorRevenue);
+      expect(creatorOutBalanceAfter - creatorOutBalanceBefore).to.equal(poolEvent?.args?.refundedAmount0);
 
       // Get price from the v3 pool
       const pool = await ethers.getContractAt("IUniswapV3Pool", poolEvent?.args?.poolAddress);
@@ -498,7 +505,7 @@ describe("Stream Finalize", function () {
       const sqrtPriceX96 = slot0.sqrtPriceX96;
 
       // Convert sqrtPriceX96 to readable price
-      const price = (Number(sqrtPriceX96) / (2 ** 96)) ** 2;
+      const price = 1 / (Number(sqrtPriceX96) / (2 ** 96)) ** 2;
 
       expect(price).to.be.closeTo(1.111, 0.001);
 
@@ -792,7 +799,7 @@ describe("Stream Finalize", function () {
       expect(streamOutBalanceAfter).to.equal(0);
 
       // Verify status
-      expect(await contracts.stream.streamStatus()).to.equal(Status.FinalizedStreamed);
+      expect(await contracts.stream.getStreamStatus()).to.equal(Status.FinalizedStreamed);
     });
 
     it("Should handle finalize with no subscriptions and non-zero threshold", async function () {
@@ -822,7 +829,7 @@ describe("Stream Finalize", function () {
       expect(streamOutBalanceAfter).to.equal(0);
 
       // Verify status
-      expect(await contracts.stream.streamStatus()).to.equal(Status.FinalizedRefunded);
+      expect(await contracts.stream.getStreamStatus()).to.equal(Status.FinalizedRefunded);
     });
   });
 

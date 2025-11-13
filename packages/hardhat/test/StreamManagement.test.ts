@@ -17,8 +17,8 @@ describe("Stream Management", function () {
                 .withArgs(await contracts.stream.getAddress(), newMetadataHash);
 
             // Verify the metadata was updated
-            const streamMetadata = await contracts.stream.streamMetadata();
-            expect(streamMetadata).to.equal(newMetadataHash);
+            const streamMetadata = await contracts.stream.getStreamMetadata();
+            expect(streamMetadata.ipfsHash).to.equal(newMetadataHash);
         });
 
         it("should not allow non-creator to update stream metadata", async function () {
@@ -69,8 +69,8 @@ describe("Stream Management", function () {
                 .withArgs(await contracts.stream.getAddress(), thirdMetadataHash);
 
             // Verify the final metadata
-            const streamMetadata = await contracts.stream.streamMetadata();
-            expect(streamMetadata).to.equal(thirdMetadataHash);
+            const streamMetadata = await contracts.stream.getStreamMetadata();
+            expect(streamMetadata.ipfsHash).to.equal(thirdMetadataHash);
         });
 
         it("should allow creator to update metadata with empty string", async function () {
@@ -85,8 +85,8 @@ describe("Stream Management", function () {
                 .withArgs(await contracts.stream.getAddress(), emptyMetadataHash);
 
             // Verify the metadata was updated
-            const streamMetadata = await contracts.stream.streamMetadata();
-            expect(streamMetadata).to.equal(emptyMetadataHash);
+            const streamMetadata = await contracts.stream.getStreamMetadata();
+            expect(streamMetadata.ipfsHash).to.equal(emptyMetadataHash);
         });
 
         it("should allow creator to update metadata during different stream phases", async function () {
@@ -122,8 +122,8 @@ describe("Stream Management", function () {
             ).to.emit(contracts.stream, "StreamMetadataUpdated");
 
             // Verify the final metadata
-            const streamMetadata = await contracts.stream.streamMetadata();
-            expect(streamMetadata).to.equal(metadataHash3);
+            const streamMetadata = await contracts.stream.getStreamMetadata();
+            expect(streamMetadata.ipfsHash).to.equal(metadataHash3);
         });
     });
 }); 

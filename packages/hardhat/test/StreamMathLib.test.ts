@@ -1,6 +1,6 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
-import { PositionTypes, StreamTypes } from "../typechain-types/src/Stream";
+import { PositionTypes, StreamTypes } from "../typechain-types/src/StreamCore";
 
 describe("StreamMathLib", function () {
   let mockContract: any;

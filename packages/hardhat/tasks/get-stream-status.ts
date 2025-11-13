@@ -1,5 +1,5 @@
 import { task } from "hardhat/config";
-import { Stream } from "../typechain-types";
+import { IStream, StreamCore } from "../typechain-types";
 
 task("get-stream-status", "Gets the current status of a stream")
     .addParam("stream", "The address of the stream")
@@ -8,7 +8,7 @@ task("get-stream-status", "Gets the current status of a stream")
 
         try {
             // Get stream contract
-            const stream = (await ethers.getContractAt("Stream", taskArgs.stream)) as unknown as Stream;
+            const stream = (await ethers.getContractAt("IStream", taskArgs.stream)) as unknown as IStream;
             console.log(`Querying status for stream: ${taskArgs.stream}`);
 
             // Get stream status
@@ -17,7 +17,9 @@ task("get-stream-status", "Gets the current status of a stream")
 
             console.log(`\nStream Status: ${status} (${statusNames[Number(status)]})`);
 
-            const streamTimes = await stream.streamTimes();
+            // streamTimes is a public struct in StreamCore; fetch via StreamCore ABI
+            const core = (await ethers.getContractAt("StreamCore", taskArgs.stream)) as unknown as StreamCore;
+            const streamTimes = await core.streamTimes();
             console.log("\nStream Timing:");
             console.log(`  Bootstrapping Starts: ${new Date(Number(streamTimes.bootstrappingStartTime) * 1000)}`);
             console.log(`  Streaming Starts:     ${new Date(Number(streamTimes.streamStartTime) * 1000)}`);

@@ -1,6 +1,6 @@
 import { task } from "hardhat/config";
 import { ethers } from "hardhat";
-import { Stream } from "../typechain-types";
+import { IStream } from "../typechain-types";
 
 task("exit-stream", "Exits a stream")
   .addParam("stream", "The address of the stream to exit")
@@ -15,7 +15,7 @@ task("exit-stream", "Exits a stream")
       console.log(`Subscriber address: ${subscriberAddress}`);
 
       // Get stream contract
-      const stream = (await ethers.getContractAt("Stream", taskArgs.stream)) as unknown as Stream;
+      const stream = (await ethers.getContractAt("IStream", taskArgs.stream)) as unknown as IStream;
       console.log(`Stream address: ${taskArgs.stream}`);
 
       // Get stream status before exit

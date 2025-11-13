@@ -18,7 +18,7 @@ describe("Stream Threshold", function () {
         await tx.wait();
 
         // Check status
-        const status = await contracts.stream.streamStatus();
+        const status = await contracts.stream.getStreamStatus();
         expect(status).to.equal(3); // Ended phase
 
         // When finalized out tokens should be refunded first check current balance of the creator
@@ -46,7 +46,7 @@ describe("Stream Threshold", function () {
         await tx.wait();
 
         // Check status
-        const status = await contracts.stream.streamStatus();
+        const status = await contracts.stream.getStreamStatus();
         expect(status).to.equal(2); // Stream phase (Active)
 
         // Subscribe to the stream with amount which is less than half of the threshold
@@ -75,7 +75,7 @@ describe("Stream Threshold", function () {
         await tx2.wait();
 
         // Check status
-        const status2 = await contracts.stream.streamStatus();
+        const status2 = await contracts.stream.getStreamStatus();
         expect(status2).to.equal(3); // Ended phase
 
         // Check in supply token balance of subscriber1

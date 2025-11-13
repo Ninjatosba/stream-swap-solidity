@@ -70,6 +70,7 @@ library StreamTypes {
     struct PoolInfo {
         uint256 poolOutSupplyAmount;
         DexType dexType;
+        bytes extra; // abi-encoded dex-specific params (see PoolRouterTypes)
     }
 
  

@@ -3,8 +3,11 @@ pragma solidity ^0.8.24;
 
 import { StreamTypes } from "../types/StreamTypes.sol";
 import { PositionTypes } from "../types/PositionTypes.sol";
+import { IStreamEvents } from "./IStreamEvents.sol";
+import { IStreamErrors } from "./IStreamErrors.sol";
+import { IPermit2 } from "./IPermit2.sol";
 
-interface IStream {
+interface IStream is IStreamEvents, IStreamErrors {
     function initialize(
         StreamTypes.CreateStreamMessage memory createStreamMessage,
         address positionStorageAddress
@@ -13,6 +16,15 @@ interface IStream {
     function withdraw(uint256 cap) external;
 
     function subscribe(uint256 amountIn) external;
+
+    function subscribeWithNativeToken(uint256 amountIn) external payable;
+
+    function subscribeWithPermit(
+        uint256 amountIn,
+        address owner,
+        IPermit2.PermitSingle calldata permitSingle,
+        bytes calldata signature
+    ) external;
 
     function exitStream() external;
 
@@ -30,6 +42,10 @@ interface IStream {
     function getStreamStatus() external view returns (StreamTypes.Status);
 
     function getStreamState() external view returns (StreamTypes.StreamState memory);
+
+    function getStreamMetadata() external view returns (StreamTypes.StreamMetadata memory);
+
+    function getPostStreamActions() external view returns (StreamTypes.PostStreamActions memory);
 
     function getPosition(address user) external view returns (PositionTypes.Position memory);
 

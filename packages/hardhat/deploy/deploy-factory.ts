@@ -11,6 +11,7 @@ import {
 } from "./config/chain-config";
 import { StreamFactoryTypes } from "../typechain-types/src/StreamFactory";
 import { StreamFactory } from "../typechain-types/src/StreamFactory";
+import { ethers } from "hardhat";
 
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 
@@ -53,78 +54,108 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   console.log(`  Min Stream Duration: ${config.minStreamDuration}s (${Math.round(config.minStreamDuration / 86400 * 100) / 100}d)`);
   console.log(`  Exit Fee Ratio: ${Number(config.ExitFeeRatio.value) / 10000}%`);
 
-  // Deploy V2 Pool Wrapper (if enabled)
+  // Deploy PoolRouter and wrappers (if enabled)
+  let poolRouterAddress = ZERO_ADDRESS;
   let v2PoolWrapperAddress = ZERO_ADDRESS;
-  const v2Config = getV2Config(network);
-
-  if (chainConfig.poolWrappers.enableV2 && v2Config) {
-    console.log(`\n📦 Deploying V2 Pool Wrapper (${v2Config.type})...`);
-    console.log(`  Factory: ${v2Config.factory}`);
-    console.log(`  Router: ${v2Config.router}`);
-
-    const v2PoolWrapper = await deploy("V2PoolWrapper", {
-      from: deployer,
-      args: [v2Config.factory, v2Config.router],
-      log: true,
-      skipIfAlreadyDeployed: false,
-      deterministicDeployment: false,
-    });
-    v2PoolWrapperAddress = v2PoolWrapper.address;
-    console.log(`✅ V2 Pool Wrapper deployed at: ${v2PoolWrapperAddress}`);
-  } else {
-    console.log("\n⏭️  V2 Pool Wrapper disabled - skipping deployment");
-  }
-
-  // Deploy V3 Pool Wrapper (if enabled)
   let v3PoolWrapperAddress = ZERO_ADDRESS;
-  const v3Config = getV3Config(network);
-
-  if (chainConfig.poolWrappers.enableV3 && v3Config) {
-    console.log(`\n📦 Deploying V3 Pool Wrapper (${v3Config.type})...`);
-    console.log(`  Factory: ${v3Config.factory}`);
-    console.log(`  Position Manager: ${v3Config.positionManager}`);
-    console.log(`  Default Fee Tier: ${v3Config.defaultFee / 10000}%`);
-
-    const v3PoolWrapper = await deploy("V3PoolWrapper", {
-      from: deployer,
-      args: [v3Config.factory, v3Config.positionManager, v3Config.defaultFee],
-      log: true,
-      skipIfAlreadyDeployed: false,
-      deterministicDeployment: false,
-    });
-    v3PoolWrapperAddress = v3PoolWrapper.address;
-    console.log(`✅ V3 Pool Wrapper deployed at: ${v3PoolWrapperAddress}`);
-  } else {
-    console.log("\n⏭️  V3 Pool Wrapper disabled - skipping deployment");
-  }
-
-  // Deploy Aerodrome Pool Wrapper (if enabled)
   let aerodromePoolWrapperAddress = ZERO_ADDRESS;
-  const aerodromeConfig = getAerodromeConfig(network);
 
-  if (aerodromeConfig) {
-    console.log(`\n📦 Deploying Aerodrome Pool Wrapper (${aerodromeConfig.type})...`);
-    console.log(`  Factory: ${aerodromeConfig.factory}`);
-    console.log(`  Router: ${aerodromeConfig.router}`);
-    console.log(`  Pool Type: ${aerodromeConfig.stable ? "Stable" : "Volatile"}`);
-
-    const aerodromePoolWrapper = await deploy("AerodromePoolWrapper", {
+  if (isPoolCreationEnabled(network) || getAerodromeConfig(network)) {
+    console.log("\n📦 Deploying PoolRouter...");
+    const poolRouter = await deploy("PoolRouter", {
       from: deployer,
-      args: [aerodromeConfig.factory, aerodromeConfig.router, aerodromeConfig.stable],
       log: true,
       skipIfAlreadyDeployed: false,
       deterministicDeployment: false,
     });
-    aerodromePoolWrapperAddress = aerodromePoolWrapper.address;
-    console.log(`✅ Aerodrome Pool Wrapper deployed at: ${aerodromePoolWrapperAddress}`);
-  } else {
-    console.log("\n⏭️  Aerodrome Pool Wrapper disabled - skipping deployment");
-  }
+    poolRouterAddress = poolRouter.address;
+    console.log(`✅ PoolRouter deployed at: ${poolRouterAddress}`);
 
-  // Warning if no pool wrappers are enabled
-  if (!isPoolCreationEnabled(network)) {
-    console.log("\n⚠️  WARNING: No pool wrappers enabled. Pool creation will be disabled.");
-    console.log("   Streams can still be created but automatic pool creation after finalization will not be available.");
+    // Deploy V2 Pool Wrapper (if enabled)
+    const v2Config = getV2Config(network);
+    if (chainConfig.poolWrappers.enableV2 && v2Config) {
+      console.log(`\n📦 Deploying V2 Pool Wrapper (${v2Config.type})...`);
+      console.log(`  Factory: ${v2Config.factory}`);
+      console.log(`  Router: ${v2Config.router}`);
+
+      const v2PoolWrapper = await deploy("V2PoolWrapper", {
+        from: deployer,
+        args: [v2Config.factory, v2Config.router],
+        log: true,
+        skipIfAlreadyDeployed: false,
+        deterministicDeployment: false,
+      });
+      v2PoolWrapperAddress = v2PoolWrapper.address;
+      console.log(`✅ V2 Pool Wrapper deployed at: ${v2PoolWrapperAddress}`);
+    } else {
+      console.log("\n⏭️  V2 Pool Wrapper disabled - skipping deployment");
+    }
+
+    // Deploy V3 Pool Wrapper (if enabled)
+    const v3Config = getV3Config(network);
+    if (chainConfig.poolWrappers.enableV3 && v3Config) {
+      console.log(`\n📦 Deploying V3 Pool Wrapper (${v3Config.type})...`);
+      console.log(`  Factory: ${v3Config.factory}`);
+      console.log(`  Position Manager: ${v3Config.positionManager}`);
+      console.log(`  Default Fee Tier: ${v3Config.defaultFee / 10000}%`);
+
+      const v3PoolWrapper = await deploy("V3PoolWrapper", {
+        from: deployer,
+        args: [v3Config.factory, v3Config.positionManager, v3Config.defaultFee],
+        log: true,
+        skipIfAlreadyDeployed: false,
+        deterministicDeployment: false,
+      });
+      v3PoolWrapperAddress = v3PoolWrapper.address;
+      console.log(`✅ V3 Pool Wrapper deployed at: ${v3PoolWrapperAddress}`);
+    } else {
+      console.log("\n⏭️  V3 Pool Wrapper disabled - skipping deployment");
+    }
+
+    // Deploy Aerodrome Pool Wrapper (if configured)
+    const aerodromeConfig = getAerodromeConfig(network);
+    if (aerodromeConfig) {
+      console.log(`\n📦 Deploying Aerodrome Pool Wrapper (${aerodromeConfig.type})...`);
+      console.log(`  Factory: ${aerodromeConfig.factory}`);
+      console.log(`  Router: ${aerodromeConfig.router}`);
+      console.log(`  Pool Type: ${aerodromeConfig.stable ? "Stable" : "Volatile"}`);
+
+      const aWrapper = await deploy("AerodromePoolWrapper", {
+        from: deployer,
+        args: [aerodromeConfig.factory, aerodromeConfig.router, aerodromeConfig.stable],
+        log: true,
+        skipIfAlreadyDeployed: false,
+        deterministicDeployment: false,
+      });
+      aerodromePoolWrapperAddress = aWrapper.address;
+      console.log(`✅ Aerodrome Pool Wrapper deployed at: ${aerodromePoolWrapperAddress}`);
+    } else {
+      console.log("\n⏭️  Aerodrome Pool Wrapper disabled - skipping deployment");
+    }
+
+    // Configure PoolRouter wrappers
+    const poolRouterContract = await hre.ethers.getContractAt("PoolRouter", poolRouterAddress);
+    // DexType: 0=V2, 1=V3, 2=Aerodrome
+    if (v2PoolWrapperAddress !== ZERO_ADDRESS) {
+      const tx = await poolRouterContract.connect(await ethers.getSigner(deployer)).setWrapper(0, 0, v2PoolWrapperAddress);
+      await tx.wait();
+      console.log(`🔧 PoolRouter: set V2 wrapper key=0 -> ${v2PoolWrapperAddress}`);
+    }
+    if (v3PoolWrapperAddress !== ZERO_ADDRESS) {
+      const v3 = getV3Config(network)!;
+      const tx = await poolRouterContract.connect(await ethers.getSigner(deployer)).setWrapper(1, v3.defaultFee, v3PoolWrapperAddress);
+      await tx.wait();
+      console.log(`🔧 PoolRouter: set V3 wrapper key=${v3.defaultFee} -> ${v3PoolWrapperAddress}`);
+    }
+    if (aerodromePoolWrapperAddress !== ZERO_ADDRESS) {
+      const aero = getAerodromeConfig(network)!;
+      const key = aero.stable ? 1 : 0;
+      const tx = await poolRouterContract.connect(await ethers.getSigner(deployer)).setWrapper(2, key, aerodromePoolWrapperAddress);
+      await tx.wait();
+      console.log(`🔧 PoolRouter: set Aerodrome wrapper key=${key} -> ${aerodromePoolWrapperAddress}`);
+    }
+  } else {
+    console.log("\n⏭️  PoolRouter and pool wrappers disabled - skipping deployment");
   }
 
   try {
@@ -139,16 +170,24 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     });
     console.log(`✅ StreamFactory deployed at: ${streamFactory.address}`);
 
-    // Deploy Stream implementation (mother contract)
-    console.log("\n📦 Deploying Stream implementation...");
-    const streamImplementation = await deploy("Stream", {
+    // Deploy implementation variants
+    console.log("\n📦 Deploying StreamBasic implementation...");
+    const basicImpl = await deploy("StreamBasic", {
       from: deployer,
-      args: [streamFactory.address],
       log: true,
       skipIfAlreadyDeployed: false,
       deterministicDeployment: false,
     });
-    console.log(`✅ Stream implementation deployed at: ${streamImplementation.address}`);
+    console.log(`✅ StreamBasic deployed at: ${basicImpl.address}`);
+
+    console.log("\n📦 Deploying StreamPostActions implementation...");
+    const postImpl = await deploy("StreamPostActions", {
+      from: deployer,
+      log: true,
+      skipIfAlreadyDeployed: false,
+      deterministicDeployment: false,
+    });
+    console.log(`✅ StreamPostActions deployed at: ${postImpl.address}`);
 
     // Deploy TokenFactory
     console.log("\n📦 Deploying TokenFactory...");
@@ -172,19 +211,18 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
       feeCollector: config.feeCollector,
       protocolAdmin: config.protocolAdmin,
       tosVersion: config.tosVersion,
+      poolRouterAddress: poolRouterAddress,
+      // Variant implementations
+      basicImplementationAddress: basicImpl.address,
+      postActionsImplementationAddress: postImpl.address,
       acceptedInSupplyTokens: config.acceptedInTokens,
-      V2PoolWrapperAddress: v2PoolWrapperAddress,
-      V3PoolWrapperAddress: v3PoolWrapperAddress,
-      AerodromePoolWrapperAddress: aerodromePoolWrapperAddress,
-      streamImplementationAddress: streamImplementation.address,
       tokenFactoryAddress: tokenFactory.address,
     };
 
     console.log("\nInitialization Parameters:");
-    console.log(`  V2 Pool Wrapper: ${v2PoolWrapperAddress === ZERO_ADDRESS ? "DISABLED" : v2PoolWrapperAddress}`);
-    console.log(`  V3 Pool Wrapper: ${v3PoolWrapperAddress === ZERO_ADDRESS ? "DISABLED" : v3PoolWrapperAddress}`);
-    console.log(`  Aerodrome Pool Wrapper: ${aerodromePoolWrapperAddress === ZERO_ADDRESS ? "DISABLED" : aerodromePoolWrapperAddress}`);
-    console.log(`  Stream Implementation: ${streamImplementation.address}`);
+    console.log(`  Pool Router: ${poolRouterAddress === ZERO_ADDRESS ? "DISABLED" : poolRouterAddress}`);
+    console.log(`  Basic Impl: ${basicImpl.address}`);
+    console.log(`  PostActions Impl: ${postImpl.address}`);
     console.log(`  Token Factory: ${tokenFactory.address}`);
     console.log(`  Protocol Admin: ${config.protocolAdmin}`);
     console.log(`  Fee Collector: ${config.feeCollector}`);
@@ -210,10 +248,15 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     console.log("=".repeat(60));
     console.log(`Network: ${chainConfig.name} (${network})`);
     console.log(`StreamFactory: ${streamFactory.address}`);
-    console.log(`Stream Implementation: ${streamImplementation.address}`);
+    console.log(`Basic Impl: ${basicImpl.address}`);
+    console.log(`PostActions Impl: ${postImpl.address}`);
     console.log(`Token Factory: ${tokenFactory.address}`);
-    console.log(`V2 Pool Wrapper: ${v2PoolWrapperAddress === ZERO_ADDRESS ? "DISABLED" : v2PoolWrapperAddress}`);
-    console.log(`V3 Pool Wrapper: ${v3PoolWrapperAddress === ZERO_ADDRESS ? "DISABLED" : v3PoolWrapperAddress}`);
+    console.log(`Pool Router: ${poolRouterAddress === ZERO_ADDRESS ? "DISABLED" : poolRouterAddress}`);
+    if (poolRouterAddress !== ZERO_ADDRESS) {
+      console.log(`V2 Wrapper: ${v2PoolWrapperAddress === ZERO_ADDRESS ? "DISABLED" : v2PoolWrapperAddress}`);
+      console.log(`V3 Wrapper: ${v3PoolWrapperAddress === ZERO_ADDRESS ? "DISABLED" : v3PoolWrapperAddress}`);
+      console.log(`Aerodrome Wrapper: ${aerodromePoolWrapperAddress === ZERO_ADDRESS ? "DISABLED" : aerodromePoolWrapperAddress}`);
+    }
     console.log(`\nNote: VestingFactory is created automatically during StreamFactory initialization`);
 
     if (chainConfig.blockExplorer) {

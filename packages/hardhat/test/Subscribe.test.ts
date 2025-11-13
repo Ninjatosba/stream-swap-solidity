@@ -36,7 +36,8 @@ describe("Stream Subscribe", function () {
     });
 
     it("Should allow subscription with permit 2", async function () {
-      const { contracts, timeParams, accounts } = await loadFixture(stream().build());
+      // Enable vesting and pool to force StreamFull (which has subscribeWithPermit)
+      const { contracts, timeParams, accounts } = await loadFixture(stream().creatorVesting(100).poolOutSupply(ethers.parseEther("100")).enablePoolCreation(true).build());
 
       // Fast forward time to stream phase
       await ethers.provider.send("evm_setNextBlockTimestamp", [timeParams.streamStartTime + 1]);
@@ -125,7 +126,8 @@ describe("Stream Subscribe", function () {
     });
 
     it("Should not allow subscription without approval to permit2", async function () {
-      const { contracts, timeParams, accounts } = await loadFixture(stream().build());
+      // Enable vesting and pool to force StreamFull (which has subscribeWithPermit)
+      const { contracts, timeParams, accounts } = await loadFixture(stream().creatorVesting(100).poolOutSupply(ethers.parseEther("100")).enablePoolCreation(true).build());
 
       // move to active stream phase
       await ethers.provider.send("evm_setNextBlockTimestamp", [timeParams.streamStartTime + 1]);
@@ -181,7 +183,8 @@ describe("Stream Subscribe", function () {
     });
 
     it("Should not allow subscription with invalid signature", async function () {
-      const { contracts, timeParams, accounts } = await loadFixture(stream().build());
+      // Enable vesting and pool to force StreamFull (which has subscribeWithPermit)
+      const { contracts, timeParams, accounts } = await loadFixture(stream().creatorVesting(100).poolOutSupply(ethers.parseEther("100")).enablePoolCreation(true).build());
 
       await ethers.provider.send("evm_setNextBlockTimestamp", [timeParams.streamStartTime + 1]);
       await ethers.provider.send("evm_mine", []);
@@ -238,7 +241,8 @@ describe("Stream Subscribe", function () {
     });
 
     it("Should not allow subscription with expired permit", async function () {
-      const { contracts, timeParams, accounts } = await loadFixture(stream().build());
+      // Enable vesting and pool to force StreamFull (which has subscribeWithPermit)
+      const { contracts, timeParams, accounts } = await loadFixture(stream().creatorVesting(100).poolOutSupply(ethers.parseEther("100")).enablePoolCreation(true).build());
 
       await ethers.provider.send("evm_setNextBlockTimestamp", [timeParams.streamStartTime + 1]);
       await ethers.provider.send("evm_mine", []);
@@ -251,8 +255,9 @@ describe("Stream Subscribe", function () {
         .connect(accounts.subscriber1)
         .approve(contracts.permit2.getAddress(), ethers.MaxUint256);
 
-      const now = Math.floor(Date.now() / 1000);
-      const sigDeadline = now - 10; // already expired
+      // Get current block timestamp and set sigDeadline to be expired (in the past)
+      const currentBlockTimestamp = BigInt(await ethers.provider.getBlock("latest").then(b => b!.timestamp));
+      const sigDeadline = currentBlockTimestamp - 10n; // already expired
 
       const permitDetails = {
         token: await contracts.inSupplyToken.getAddress(),
