@@ -80,6 +80,19 @@ task("create-stream", "Creates a new stream using the deployed factory").setActi
 
   // Get factory params
   const factoryParams = await streamFactory.getParams();
+  console.log("\n--- factory params ---");
+  console.log(`protocolAdmin: ${factoryParams.protocolAdmin}`);
+  console.log(`feeCollector: ${factoryParams.feeCollector}`);
+  console.log(`streamCreationFeeToken: ${factoryParams.streamCreationFeeToken}`);
+  console.log(`streamCreationFee: ${factoryParams.streamCreationFee}`);
+  console.log(`minWaitingDuration: ${factoryParams.minWaitingDuration}`);
+  console.log(`minBootstrappingDuration: ${factoryParams.minBootstrappingDuration}`);
+  console.log(`minStreamDuration: ${factoryParams.minStreamDuration}`);
+  console.log(`tosVersion: ${factoryParams.tosVersion}`);
+  console.log(`poolRouterAddress: ${factoryParams.poolRouterAddress}`);
+  console.log(`tokenFactoryAddress: ${factoryParams.tokenFactoryAddress}`);
+  console.log(`vestingFactoryAddress: ${factoryParams.vestingFactoryAddress}`);
+  console.log("-----------------------\n");
   const streamCreationFee = factoryParams.streamCreationFee;
   const streamCreationFeeToken = factoryParams.streamCreationFeeToken;
   const zeroAddress = "0x0000000000000000000000000000000000000000";
@@ -112,9 +125,9 @@ task("create-stream", "Creates a new stream using the deployed factory").setActi
     beneficiaryVesting: defaultStreamConfig.beneficiaryVestingInfo,
     poolInfo: {
       poolOutSupplyAmount: ethers.parseEther("500"),
-      dexType: 1, // 0 = V2, 1 = V3
-      // For V2: "0x"; For V3: abi.encode(uint24 fee)
-      extra: ethers.AbiCoder.defaultAbiCoder().encode(["uint24"], [3000])
+      dexType: 0, // 0 = V2, 1 = V3
+      // For V2: must be empty bytes
+      extra: "0x"
     },
     salt,
   };
