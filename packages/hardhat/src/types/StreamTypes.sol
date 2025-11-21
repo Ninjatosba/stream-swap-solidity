@@ -70,6 +70,7 @@ library StreamTypes {
     struct PoolInfo {
         uint256 poolOutSupplyAmount;
         DexType dexType;
+        // TODO: Might be confusing to display disabled pool creation because we will still show a kind of pool even though amount is 0
         bytes extra; // abi-encoded dex-specific params (see PoolRouterTypes)
     }
 

@@ -11,7 +11,6 @@ pragma solidity ^0.8.24;
 
 import { IStreamFactoryEvents } from "./interfaces/IStreamFactoryEvents.sol";
 import { IStreamFactoryErrors } from "./interfaces/IStreamFactoryErrors.sol";
-import { VestingFactory } from "./VestingFactory.sol";
 import { StreamTypes } from "./types/StreamTypes.sol";
 import { IStream } from "./interfaces/IStream.sol";
 import { StreamFactoryTypes } from "./types/StreamFactoryTypes.sol";
@@ -63,9 +62,6 @@ contract StreamFactory is IStreamFactoryEvents, IStreamFactoryErrors {
             revert InvalidAcceptedInSupplyTokens();
         }
 
-        VestingFactory vestingFactory = new VestingFactory();
-        emit VestingContractDeployed(address(this), address(vestingFactory));
-
         params.streamCreationFee = initializeStreamFactoryMessage.streamCreationFee;
         params.streamCreationFeeToken = initializeStreamFactoryMessage.streamCreationFeeToken;
         params.exitFeeRatio = initializeStreamFactoryMessage.exitFeeRatio;
@@ -74,7 +70,7 @@ contract StreamFactory is IStreamFactoryEvents, IStreamFactoryErrors {
         params.minStreamDuration = initializeStreamFactoryMessage.minStreamDuration;
         params.feeCollector = initializeStreamFactoryMessage.feeCollector;
         params.tosVersion = initializeStreamFactoryMessage.tosVersion;
-        params.vestingFactoryAddress = address(vestingFactory);
+        params.vestingFactoryAddress = initializeStreamFactoryMessage.vestingFactoryAddress;
         params.poolRouterAddress = initializeStreamFactoryMessage.poolRouterAddress;
         params.tokenFactoryAddress = initializeStreamFactoryMessage.tokenFactoryAddress;
 
@@ -98,7 +94,7 @@ contract StreamFactory is IStreamFactoryEvents, IStreamFactoryErrors {
             initializeStreamFactoryMessage.minBootstrappingDuration,
             initializeStreamFactoryMessage.minStreamDuration,
             initializeStreamFactoryMessage.tosVersion,
-            address(vestingFactory)
+            initializeStreamFactoryMessage.vestingFactoryAddress
         );
     }
 
@@ -183,6 +179,12 @@ contract StreamFactory is IStreamFactoryEvents, IStreamFactoryErrors {
         emit PoolRouterUpdated(address(this), oldRouter, newPoolRouter);
     }
 
+    function updateVestingFactoryAddress(address newVestingFactory) external onlyAdmin {
+        address oldVestingFactory = params.vestingFactoryAddress;
+        params.vestingFactoryAddress = newVestingFactory;
+        emit VestingFactoryUpdated(address(this), oldVestingFactory, newVestingFactory);
+    }
+
     function updateExitFeeRatio(Decimal memory exitFeeRatio) external onlyAdmin {
         if (DecimalMath.gt(exitFeeRatio, DecimalMath.fromNumber(1))) {
             revert InvalidExitFeeRatio();
@@ -241,10 +243,14 @@ contract StreamFactory is IStreamFactoryEvents, IStreamFactoryErrors {
             if (params.poolRouterAddress == address(0)) revert PoolRouterNotSet();
             IPoolRouter(params.poolRouterAddress).validatePoolParams(msg_.poolInfo);
         }
-        _validateVesting(msg_.creatorVesting);
-        _validateVesting(msg_.beneficiaryVesting);
+
+        if (msg_.creatorVesting.isVestingEnabled || msg_.beneficiaryVesting.isVestingEnabled) {
+            if (params.vestingFactoryAddress == address(0)) revert VestingFactoryNotSet();
+            _validateVestingParams(msg_.creatorVesting);
+            _validateVestingParams(msg_.beneficiaryVesting);
+        }
+
         _validateStreamTimes(block.timestamp, msg_.bootstrappingStartTime, msg_.streamStartTime, msg_.streamEndTime);
-        
 
         StreamImplKind kind = _determineKind(msg_);
         address impl = implementations[kind];
@@ -290,6 +296,8 @@ contract StreamFactory is IStreamFactoryEvents, IStreamFactoryErrors {
     function _determineKind(StreamTypes.CreateStreamMessage memory msg_) internal pure returns (StreamImplKind) {
         bool hasVesting = msg_.creatorVesting.isVestingEnabled || msg_.beneficiaryVesting.isVestingEnabled;
         bool hasPool = msg_.poolInfo.poolOutSupplyAmount > 0;
+        // TODO: add extra check for poolInfo.dexType and if invalid dex type is provided should revert
+        // TODO: add extra check for poolInfo.extra and if invalid extra is provided should revert
         if (hasVesting || hasPool) return StreamImplKind.PostActions;
         return StreamImplKind.Basic;
     }
@@ -364,7 +372,7 @@ contract StreamFactory is IStreamFactoryEvents, IStreamFactoryErrors {
         if (bootstrappingStartTime - nowTime < params.minWaitingDuration) revert WaitingDurationTooShort();
     }
 
-    function _validateVesting(StreamTypes.VestingInfo memory vesting) internal pure {
+    function _validateVestingParams(StreamTypes.VestingInfo memory vesting) internal pure {
         if (vesting.isVestingEnabled && vesting.vestingDuration == 0) {
             revert InvalidVestingDuration();
         }

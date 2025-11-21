@@ -31,6 +31,9 @@ contract V3PoolWrapper is PoolWrapper {
     function _createPoolInternal(
         PoolWrapperTypes.CreatePoolMsg calldata createPoolMsg
     ) internal virtual override returns (address poolAddress, uint256 amount0, uint256 amount1, uint256 refundedAmount0, uint256 refundedAmount1) {
+
+        // TODO: add extra check for token0 and token1
+        // TODO: add extra check for fee tier and possibly if invalid fee is provided should fallback to default fee tier
         address token0 = createPoolMsg.token0;
         address token1 = createPoolMsg.token1;
         uint256 amount0Desired = createPoolMsg.amount0Desired;

@@ -35,5 +35,6 @@ library StreamFactoryTypes {
         address postActionsImplementationAddress;
         address[] acceptedInSupplyTokens;
         address tokenFactoryAddress;
+        address vestingFactoryAddress;
     }
 }
