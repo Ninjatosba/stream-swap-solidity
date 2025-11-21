@@ -199,6 +199,16 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     });
     console.log(`✅ TokenFactory deployed at: ${tokenFactory.address}`);
 
+    // Deploy VestingFactory (optional downstream usage)
+    console.log("\n📦 Deploying VestingFactory...");
+    const vestingFactory = await deploy("VestingFactory", {
+      from: deployer,
+      log: true,
+      skipIfAlreadyDeployed: false,
+      deterministicDeployment: false,
+    });
+    console.log(`✅ VestingFactory deployed at: ${vestingFactory.address}`);
+
     // Prepare initialization message
     console.log("\n🔧 Preparing initialization parameters...");
     const initMessage: StreamFactoryTypes.InitializeStreamFactoryMessageStruct = {
@@ -217,6 +227,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
       postActionsImplementationAddress: postImpl.address,
       acceptedInSupplyTokens: config.acceptedInTokens,
       tokenFactoryAddress: tokenFactory.address,
+      vestingFactoryAddress: vestingFactory.address,
     };
 
     console.log("\nInitialization Parameters:");
@@ -224,6 +235,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     console.log(`  Basic Impl: ${basicImpl.address}`);
     console.log(`  PostActions Impl: ${postImpl.address}`);
     console.log(`  Token Factory: ${tokenFactory.address}`);
+    console.log(`  Vesting Factory: ${vestingFactory.address}`);
     console.log(`  Protocol Admin: ${config.protocolAdmin}`);
     console.log(`  Fee Collector: ${config.feeCollector}`);
     console.log(`  TOS Version: ${config.tosVersion}`);
@@ -251,13 +263,14 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     console.log(`Basic Impl: ${basicImpl.address}`);
     console.log(`PostActions Impl: ${postImpl.address}`);
     console.log(`Token Factory: ${tokenFactory.address}`);
+    console.log(`Vesting Factory: ${vestingFactory.address}`);
     console.log(`Pool Router: ${poolRouterAddress === ZERO_ADDRESS ? "DISABLED" : poolRouterAddress}`);
     if (poolRouterAddress !== ZERO_ADDRESS) {
       console.log(`V2 Wrapper: ${v2PoolWrapperAddress === ZERO_ADDRESS ? "DISABLED" : v2PoolWrapperAddress}`);
       console.log(`V3 Wrapper: ${v3PoolWrapperAddress === ZERO_ADDRESS ? "DISABLED" : v3PoolWrapperAddress}`);
       console.log(`Aerodrome Wrapper: ${aerodromePoolWrapperAddress === ZERO_ADDRESS ? "DISABLED" : aerodromePoolWrapperAddress}`);
     }
-    console.log(`\nNote: VestingFactory is created automatically during StreamFactory initialization`);
+    console.log(`\nNote: Set vestingFactoryAddress to zero if vesting is not required on this network`);
 
     if (chainConfig.blockExplorer) {
       console.log(`\n🔍 Verify on Block Explorer:`);
