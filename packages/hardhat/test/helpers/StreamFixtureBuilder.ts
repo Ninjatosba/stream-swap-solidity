@@ -301,6 +301,11 @@ export class StreamFixtureBuilder {
         const tokenFactory = await TokenFactoryFactory.deploy();
         const tokenFactoryAddress = await tokenFactory.getAddress();
 
+        // Deploy VestingFactory
+        const VestingFactoryFactory = await ethers.getContractFactory("VestingFactory");
+        const vestingFactory = await VestingFactoryFactory.deploy();
+        const vestingFactoryAddress = await vestingFactory.getAddress();
+
         // Initialize Stream Factory (provide wrapper addresses only when pool creation enabled)
         const streamFactoryMessage: StreamFactoryTypes.InitializeStreamFactoryMessageStruct = {
           streamCreationFee: self.factoryConfig.streamCreationFee,
@@ -317,6 +322,7 @@ export class StreamFixtureBuilder {
           postActionsImplementationAddress: await streamPostActions.getAddress(),
           tokenFactoryAddress: tokenFactoryAddress,
           poolRouterAddress: poolRouterAddress,
+          vestingFactoryAddress: vestingFactoryAddress,
         };
 
         await (streamFactory as any).connect(protocolAdmin).initialize(streamFactoryMessage);

@@ -209,6 +209,11 @@ export class StreamFactoryFixtureBuilder {
         const tokenFactory = await TokenFactoryFactory.deploy();
         await tokenFactory.waitForDeployment();
 
+        // Deploy VestingFactory
+        const VestingFactoryFactory = await ethers.getContractFactory("VestingFactory");
+        const vestingFactory = await VestingFactoryFactory.deploy();
+        await vestingFactory.waitForDeployment();
+
         // Deploy Stream Implementations (variants)
         const StreamBasicFactory = await ethers.getContractFactory("StreamBasic");
         const StreamPostActionsFactory = await ethers.getContractFactory("StreamPostActions");
@@ -237,6 +242,7 @@ export class StreamFactoryFixtureBuilder {
           postActionsImplementationAddress: await streamPostActions.getAddress(),
           tokenFactoryAddress: await tokenFactory.getAddress(),
           poolRouterAddress: poolRouterAddress,
+          vestingFactoryAddress: await vestingFactory.getAddress(),
         };
 
         // Initialize with proper error handling

@@ -88,6 +88,6 @@ interface IStreamFactoryEvents {
     event FrozenStateUpdated(address indexed factory, bool frozen);
 
     event AcceptedTokensUpdated(address indexed factory, address[] tokensAdded, address[] tokensRemoved);
-
-    event VestingContractDeployed(address indexed factoryAddress, address vestingContract);
+    
+    event VestingFactoryUpdated(address indexed factory, address oldVestingFactory, address newVestingFactory);
 }

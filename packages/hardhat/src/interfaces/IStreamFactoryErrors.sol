@@ -40,4 +40,5 @@ interface IStreamFactoryErrors {
     error InvalidTokenSupply();
     error InvalidTokenTotalSupply();
     error InvalidDexType();
+    error VestingFactoryNotSet();
 }
