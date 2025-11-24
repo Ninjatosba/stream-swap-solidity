@@ -296,8 +296,6 @@ contract StreamFactory is IStreamFactoryEvents, IStreamFactoryErrors {
     function _determineKind(StreamTypes.CreateStreamMessage memory msg_) internal pure returns (StreamImplKind) {
         bool hasVesting = msg_.creatorVesting.isVestingEnabled || msg_.beneficiaryVesting.isVestingEnabled;
         bool hasPool = msg_.poolInfo.poolOutSupplyAmount > 0;
-        // TODO: add extra check for poolInfo.dexType and if invalid dex type is provided should revert
-        // TODO: add extra check for poolInfo.extra and if invalid extra is provided should revert
         if (hasVesting || hasPool) return StreamImplKind.PostActions;
         return StreamImplKind.Basic;
     }
