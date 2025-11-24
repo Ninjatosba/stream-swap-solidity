@@ -1,6 +1,6 @@
 // packages/hardhat/deploy-config/factory-config.ts
 
-import { AddressLike, BigNumberish } from "ethers";
+import { AddressLike, BigNumberish, parseEther } from "ethers";
 import { DecimalStruct } from "../../typechain-types/src/StreamCore";
 
 export interface FactoryConfig {
@@ -36,15 +36,17 @@ export const createFactoryConfig = (
 
 export const createProductionFactoryConfig = (
     deployer: string,
-    inToken: string,
+    inTokens: AddressLike[],
 ): FactoryConfig => ({
-    ...createFactoryConfig(deployer, [inToken]),
-    minWaitingDuration: 3600, // 1 hour
-    minBootstrappingDuration: 86400, // 1 day
-    minStreamDuration: 259200, // 3 days
+    ...createFactoryConfig(deployer, inTokens),
+    minWaitingDuration: 60, // 1 minute
+    minBootstrappingDuration: 60, // 1 minute
+    minStreamDuration: 120, // 2 minutes
     ExitFeeRatio: {
-        value: 20000, // 2% fee
+        value: 42000, // 4.2% fee
     },
+
+    streamCreationFee: parseEther("0.1"), // 0.1 native token
 });
 
 

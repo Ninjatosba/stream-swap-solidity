@@ -45,7 +45,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
 
   // Use configuration based on environment
   const config = chainConfig.isProduction
-    ? createProductionFactoryConfig(deployer, inTokenAddress)
+    ? createProductionFactoryConfig(deployer, [inTokenAddress, ZERO_ADDRESS])
     : createFactoryConfig(deployer, [inTokenAddress, ZERO_ADDRESS]);
 
   console.log(`\nUsing ${chainConfig.isProduction ? "PRODUCTION" : "DEVELOPMENT"} configuration:`);

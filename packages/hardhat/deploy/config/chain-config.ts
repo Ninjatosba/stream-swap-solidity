@@ -313,22 +313,47 @@ export const CHAIN_CONFIGS: Record<string, ChainConfig> = {
         },
     },
 
-    // ============ Monad Network ============
+    // // ============ Monad Network ============
+    // monadTestnet: {
+    //     name: "Monad Testnet",
+    //     chainId: 10143,
+    //     isProduction: false,
+    //     isTestnet: true,
+    //     nativeToken: "MONAD",
+    //     blockExplorer: "https://explorer.testnet.monad.xyz",
+    //     poolWrappers: {
+    //         enableV2: true,
+    //         v2Config: {
+    //             type: "uniswap-v2",
+    //             factory: "0x82438CE666d9403e488bA720c7424434e8Aa47CD",
+    //             router: "0x3a3eBAe0Eec80852FBC7B9E824C6756969cc8dc1",
+    //         },
+    //         enableV3: false, // No V3 on Monad yet
+    //     },
+    // },
+    // ============ Monad Pre-Production Testnet Network ============
     monadTestnet: {
         name: "Monad Testnet",
         chainId: 10143,
-        isProduction: false,
-        isTestnet: true,
+        isProduction: true,
+        isTestnet: false,
         nativeToken: "MONAD",
         blockExplorer: "https://explorer.testnet.monad.xyz",
         poolWrappers: {
-            enableV2: true,
-            v2Config: {
-                type: "uniswap-v2",
-                factory: "0x82438CE666d9403e488bA720c7424434e8Aa47CD",
-                router: "0x3a3eBAe0Eec80852FBC7B9E824C6756969cc8dc1",
-            },
+            enableV2: false,
             enableV3: false, // No V3 on Monad yet
+        },
+    },
+    monadMainnet: {
+        name: "Monad Mainnet",
+        chainId: 10143,
+        isProduction: true,
+        isTestnet: false,
+        nativeToken: "MONAD",
+        blockExplorer: "https://explorer.monad.xyz",
+        poolWrappers: {
+            enableV2: false,
+            enableV3: false,
         },
     },
 
