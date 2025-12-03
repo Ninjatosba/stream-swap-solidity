@@ -18,6 +18,7 @@
     "exit-stream": "yarn workspace @se-2/hardhat hardhat exit-stream",
     "withdraw": "yarn workspace @se-2/hardhat hardhat withdraw",
     "upgrade-stream-implementation": "yarn workspace @se-2/hardhat hardhat upgrade-stream-implementation",
+    "update-accepted-tokens": "yarn workspace @se-2/hardhat hardhat update-accepted-tokens",
     "deploy": "yarn hardhat:deploy",
     "fork": "yarn hardhat:fork",
     "format": "yarn hardhat:format",
