@@ -1,6 +1,6 @@
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { DeployFunction } from "hardhat-deploy/types";
-import { createFactoryConfig, createProductionFactoryConfig } from "../deploy/config/factory-config";
+import { createFactoryConfig, createProductionFactoryConfig } from "../config/factory-config";
 import {
   getV2Config,
   getV3Config,
@@ -8,11 +8,11 @@ import {
   isPoolCreationEnabled,
   printChainSummary,
   getNetworkConfig,
-} from "../deploy/config/scenarios";
-import { StreamFactoryTypes } from "../typechain-types/src/StreamFactory";
-import { StreamFactory } from "../typechain-types/src/StreamFactory";
+} from "../config/scenarios";
+import { StreamFactoryTypes } from "../../typechain-types/src/StreamFactory";
+import { StreamFactory } from "../../typechain-types/src/StreamFactory";
 import { ethers } from "hardhat";
-import { getScenarioConfig } from "../deploy/config/scenarios";
+import { getScenarioConfig } from "../config/scenarios";
 
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 const DEFAULT_USDC_ADDRESS = "0x754704Bc059F8C67012fEd69BC8A327a5aafb603";

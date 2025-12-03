@@ -1,7 +1,7 @@
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { DeployFunction } from "hardhat-deploy/types";
 import { parseEther } from "ethers";
-import { getScenarioConfig } from "../deploy/config/scenarios";
+import { getScenarioConfig } from "../config/scenarios";
 
 /**
  * Deploys the ERC20 tokens needed for the Stream contract.
