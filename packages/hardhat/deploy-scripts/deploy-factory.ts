@@ -1,19 +1,21 @@
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { DeployFunction } from "hardhat-deploy/types";
-import { createFactoryConfig, createProductionFactoryConfig } from "./config/factory-config";
+import { createFactoryConfig, createProductionFactoryConfig } from "../deploy/config/factory-config";
 import {
-  getChainConfig,
   getV2Config,
   getV3Config,
   getAerodromeConfig,
   isPoolCreationEnabled,
-  printChainSummary
-} from "./config/chain-config";
+  printChainSummary,
+  getNetworkConfig,
+} from "../deploy/config/scenarios";
 import { StreamFactoryTypes } from "../typechain-types/src/StreamFactory";
 import { StreamFactory } from "../typechain-types/src/StreamFactory";
 import { ethers } from "hardhat";
+import { getScenarioConfig } from "../deploy/config/scenarios";
 
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
+const DEFAULT_USDC_ADDRESS = "0x754704Bc059F8C67012fEd69BC8A327a5aafb603";
 
 const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const { deployer } = await hre.getNamedAccounts();
@@ -21,34 +23,62 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
 
   // Get network name
   const network = hre.network.name;
+  const chainConfig = getNetworkConfig(network);
+  const scenario = getScenarioConfig(network);
 
-  // Print chain configuration summary
+  // Print chain & scenario summary
   printChainSummary(network);
+  console.log(`Deployment Scenario: ${scenario.id} - ${scenario.title}`);
+  console.log(`  Description: ${scenario.description}`);
 
-  // Get chain configuration
-  const chainConfig = getChainConfig(network);
   const blockHeight = await hre.ethers.provider.getBlockNumber();
   console.log(`Block height: ${blockHeight}`);
   console.log(`Deployer: ${deployer}`);
   console.log(`Deployer balance: ${await hre.ethers.provider.getBalance(deployer)}\n`);
 
-  // Get in token address
-  let inTokenAddress: string;
-  try {
-    const inTokenDeployment = await get("InToken");
-    inTokenAddress = inTokenDeployment.address;
-    console.log(`Found in token at: ${inTokenAddress}`);
-  } catch {
-    console.error("⚠️  In token not found. Please deploy it first with: yarn deploy:tokens");
-    throw new Error("In token not deployed");
+  // Resolve accepted in-tokens and factory configuration based on scenario
+  let acceptedInTokens: string[] = [];
+
+  if (scenario.useProductionFactoryConfig) {
+    // For production-style scenarios, rely on pre-configured tokens if present,
+    // otherwise fall back to the previous behaviour (native + default USDC).
+    acceptedInTokens =
+      scenario.acceptedInTokens && scenario.acceptedInTokens.length > 0
+        ? scenario.acceptedInTokens
+        : [ZERO_ADDRESS, DEFAULT_USDC_ADDRESS];
+  } else if (scenario.requireDevInToken) {
+    // For dev/test scenarios we expect an "InToken" deployed by the tokens script.
+    let inTokenAddress: string;
+    try {
+      const inTokenDeployment = await get("InToken");
+      inTokenAddress = inTokenDeployment.address;
+      console.log(`Found InToken at: ${inTokenAddress}`);
+    } catch {
+      console.error(
+        "⚠️  InToken not found. Please deploy it first with: yarn deploy:tokens (or ensure the tokens script runs for this scenario).",
+      );
+      throw new Error("InToken not deployed");
+    }
+
+    acceptedInTokens = [inTokenAddress, ZERO_ADDRESS];
+  } else {
+    // Non-production scenario that does not require a dev InToken.
+    // Allow the scenario to specify a custom set of tokens, otherwise
+    // default to accepting only the native token.
+    acceptedInTokens =
+      scenario.acceptedInTokens && scenario.acceptedInTokens.length > 0
+        ? scenario.acceptedInTokens
+        : [ZERO_ADDRESS];
   }
 
-  // Use configuration based on environment
-  const config = chainConfig.isProduction
-    ? createProductionFactoryConfig(deployer, [inTokenAddress, ZERO_ADDRESS])
-    : createFactoryConfig(deployer, [inTokenAddress, ZERO_ADDRESS]);
+  // Use configuration based on scenario / environment
+  const config = scenario.useProductionFactoryConfig
+    ? createProductionFactoryConfig(deployer, acceptedInTokens)
+    : createFactoryConfig(deployer, acceptedInTokens);
 
-  console.log(`\nUsing ${chainConfig.isProduction ? "PRODUCTION" : "DEVELOPMENT"} configuration:`);
+  console.log(
+    `\nUsing ${scenario.useProductionFactoryConfig ? "PRODUCTION" : "DEVELOPMENT"} configuration:`,
+  );
   console.log(`  Min Waiting Duration: ${config.minWaitingDuration}s (${Math.round(config.minWaitingDuration / 3600 * 100) / 100}h)`);
   console.log(`  Min Bootstrapping Duration: ${config.minBootstrappingDuration}s (${Math.round(config.minBootstrappingDuration / 3600 * 100) / 100}h)`);
   console.log(`  Min Stream Duration: ${config.minStreamDuration}s (${Math.round(config.minStreamDuration / 86400 * 100) / 100}d)`);
@@ -59,7 +89,8 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   let v2PoolWrapperAddress = ZERO_ADDRESS;
   let v3PoolWrapperAddress = ZERO_ADDRESS;
   let aerodromePoolWrapperAddress = ZERO_ADDRESS;
-
+  let basicImplAddress = ZERO_ADDRESS;
+  let postImplAddress = ZERO_ADDRESS;
   if (isPoolCreationEnabled(network) || getAerodromeConfig(network)) {
     console.log("\n📦 Deploying PoolRouter...");
     const poolRouter = await deploy("PoolRouter", {
@@ -137,20 +168,26 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     const poolRouterContract = await hre.ethers.getContractAt("PoolRouter", poolRouterAddress);
     // DexType: 0=V2, 1=V3, 2=Aerodrome
     if (v2PoolWrapperAddress !== ZERO_ADDRESS) {
-      const tx = await poolRouterContract.connect(await ethers.getSigner(deployer)).setWrapper(0, 0, v2PoolWrapperAddress);
+      const tx = await poolRouterContract
+        .connect(await ethers.getSigner(deployer))
+        .setWrapper(0, 0, v2PoolWrapperAddress);
       await tx.wait();
       console.log(`🔧 PoolRouter: set V2 wrapper key=0 -> ${v2PoolWrapperAddress}`);
     }
     if (v3PoolWrapperAddress !== ZERO_ADDRESS) {
       const v3 = getV3Config(network)!;
-      const tx = await poolRouterContract.connect(await ethers.getSigner(deployer)).setWrapper(1, v3.defaultFee, v3PoolWrapperAddress);
+      const tx = await poolRouterContract
+        .connect(await ethers.getSigner(deployer))
+        .setWrapper(1, v3.defaultFee, v3PoolWrapperAddress);
       await tx.wait();
       console.log(`🔧 PoolRouter: set V3 wrapper key=${v3.defaultFee} -> ${v3PoolWrapperAddress}`);
     }
     if (aerodromePoolWrapperAddress !== ZERO_ADDRESS) {
       const aero = getAerodromeConfig(network)!;
       const key = aero.stable ? 1 : 0;
-      const tx = await poolRouterContract.connect(await ethers.getSigner(deployer)).setWrapper(2, key, aerodromePoolWrapperAddress);
+      const tx = await poolRouterContract
+        .connect(await ethers.getSigner(deployer))
+        .setWrapper(2, key, aerodromePoolWrapperAddress);
       await tx.wait();
       console.log(`🔧 PoolRouter: set Aerodrome wrapper key=${key} -> ${aerodromePoolWrapperAddress}`);
     }
@@ -171,23 +208,29 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     console.log(`✅ StreamFactory deployed at: ${streamFactory.address}`);
 
     // Deploy implementation variants
-    console.log("\n📦 Deploying StreamBasic implementation...");
-    const basicImpl = await deploy("StreamBasic", {
-      from: deployer,
-      log: true,
-      skipIfAlreadyDeployed: false,
-      deterministicDeployment: false,
-    });
-    console.log(`✅ StreamBasic deployed at: ${basicImpl.address}`);
+    if (chainConfig.streamImplementations.enableBasic) {
+      console.log("\n📦 Deploying StreamBasic implementation...");
+      const basicImpl = await deploy("StreamBasic", {
+        from: deployer,
+        log: true,
+        skipIfAlreadyDeployed: false,
+        deterministicDeployment: false,
+      });
+      console.log(`✅ StreamBasic deployed at: ${basicImpl.address}`);
+      basicImplAddress = basicImpl.address;
+    }
 
-    console.log("\n📦 Deploying StreamPostActions implementation...");
-    const postImpl = await deploy("StreamPostActions", {
-      from: deployer,
-      log: true,
-      skipIfAlreadyDeployed: false,
-      deterministicDeployment: false,
-    });
-    console.log(`✅ StreamPostActions deployed at: ${postImpl.address}`);
+    if (chainConfig.streamImplementations.enablePostActions) {
+      console.log("\n📦 Deploying StreamPostActions implementation...");
+      const postImpl = await deploy("StreamPostActions", {
+        from: deployer,
+        log: true,
+        skipIfAlreadyDeployed: false,
+        deterministicDeployment: false,
+      });
+      console.log(`✅ StreamPostActions deployed at: ${postImpl.address}`);
+      postImplAddress = postImpl.address;
+    }
 
     // Deploy TokenFactory
     console.log("\n📦 Deploying TokenFactory...");
@@ -199,15 +242,22 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     });
     console.log(`✅ TokenFactory deployed at: ${tokenFactory.address}`);
 
-    // Deploy VestingFactory (optional downstream usage)
-    console.log("\n📦 Deploying VestingFactory...");
-    const vestingFactory = await deploy("VestingFactory", {
-      from: deployer,
-      log: true,
-      skipIfAlreadyDeployed: false,
-      deterministicDeployment: false,
-    });
-    console.log(`✅ VestingFactory deployed at: ${vestingFactory.address}`);
+    // Deploy VestingFactory (if enabled)
+    let vestingFactoryAddress = ZERO_ADDRESS;
+    const enableVesting = chainConfig.enableVesting !== false; // Default to true if not specified
+    if (enableVesting) {
+      console.log("\n📦 Deploying VestingFactory...");
+      const vestingFactory = await deploy("VestingFactory", {
+        from: deployer,
+        log: true,
+        skipIfAlreadyDeployed: false,
+        deterministicDeployment: false,
+      });
+      vestingFactoryAddress = vestingFactory.address;
+      console.log(`✅ VestingFactory deployed at: ${vestingFactoryAddress}`);
+    } else {
+      console.log("\n⏭️  VestingFactory disabled - skipping deployment");
+    }
 
     // Prepare initialization message
     console.log("\n🔧 Preparing initialization parameters...");
@@ -223,19 +273,21 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
       tosVersion: config.tosVersion,
       poolRouterAddress: poolRouterAddress,
       // Variant implementations
-      basicImplementationAddress: basicImpl.address,
-      postActionsImplementationAddress: postImpl.address,
+      basicImplementationAddress: basicImplAddress,
+      postActionsImplementationAddress: postImplAddress,
       acceptedInSupplyTokens: config.acceptedInTokens,
       tokenFactoryAddress: tokenFactory.address,
-      vestingFactoryAddress: vestingFactory.address,
+      vestingFactoryAddress: vestingFactoryAddress,
     };
 
     console.log("\nInitialization Parameters:");
-    console.log(`  Pool Router: ${poolRouterAddress === ZERO_ADDRESS ? "DISABLED" : poolRouterAddress}`);
-    console.log(`  Basic Impl: ${basicImpl.address}`);
-    console.log(`  PostActions Impl: ${postImpl.address}`);
+    console.log(
+      `  Pool Router: ${poolRouterAddress === ZERO_ADDRESS ? "DISABLED" : poolRouterAddress}`,
+    );
+    console.log(`  Basic Impl: ${basicImplAddress}`);
+    console.log(`  PostActions Impl: ${postImplAddress}`);
     console.log(`  Token Factory: ${tokenFactory.address}`);
-    console.log(`  Vesting Factory: ${vestingFactory.address}`);
+    console.log(`  Vesting Factory: ${vestingFactoryAddress === ZERO_ADDRESS ? "DISABLED" : vestingFactoryAddress}`);
     console.log(`  Protocol Admin: ${config.protocolAdmin}`);
     console.log(`  Fee Collector: ${config.feeCollector}`);
     console.log(`  TOS Version: ${config.tosVersion}`);
@@ -247,7 +299,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
 
     const isInitialized = await factory.initialized();
     if (!isInitialized) {
-      const tx = await factory.initialize(initMessage);
+      const tx = await factory.initialize(initMessage, {});
       await tx.wait();
       console.log("✅ StreamFactory initialized successfully!");
     } else {
@@ -260,24 +312,33 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     console.log("=".repeat(60));
     console.log(`Network: ${chainConfig.name} (${network})`);
     console.log(`StreamFactory: ${streamFactory.address}`);
-    console.log(`Basic Impl: ${basicImpl.address}`);
-    console.log(`PostActions Impl: ${postImpl.address}`);
+    console.log(`Basic Impl: ${basicImplAddress}`);
+    console.log(`PostActions Impl: ${postImplAddress}`);
     console.log(`Token Factory: ${tokenFactory.address}`);
-    console.log(`Vesting Factory: ${vestingFactory.address}`);
-    console.log(`Pool Router: ${poolRouterAddress === ZERO_ADDRESS ? "DISABLED" : poolRouterAddress}`);
+    console.log(`Vesting Factory: ${vestingFactoryAddress === ZERO_ADDRESS ? "DISABLED" : vestingFactoryAddress}`);
+    console.log(
+      `Pool Router: ${poolRouterAddress === ZERO_ADDRESS ? "DISABLED" : poolRouterAddress}`,
+    );
     if (poolRouterAddress !== ZERO_ADDRESS) {
-      console.log(`V2 Wrapper: ${v2PoolWrapperAddress === ZERO_ADDRESS ? "DISABLED" : v2PoolWrapperAddress}`);
-      console.log(`V3 Wrapper: ${v3PoolWrapperAddress === ZERO_ADDRESS ? "DISABLED" : v3PoolWrapperAddress}`);
-      console.log(`Aerodrome Wrapper: ${aerodromePoolWrapperAddress === ZERO_ADDRESS ? "DISABLED" : aerodromePoolWrapperAddress}`);
+      console.log(
+        `V2 Wrapper: ${v2PoolWrapperAddress === ZERO_ADDRESS ? "DISABLED" : v2PoolWrapperAddress
+        }`,
+      );
+      console.log(
+        `V3 Wrapper: ${v3PoolWrapperAddress === ZERO_ADDRESS ? "DISABLED" : v3PoolWrapperAddress
+        }`,
+      );
+      console.log(
+        `Aerodrome Wrapper: ${aerodromePoolWrapperAddress === ZERO_ADDRESS ? "DISABLED" : aerodromePoolWrapperAddress
+        }`,
+      );
     }
-    console.log(`\nNote: Set vestingFactoryAddress to zero if vesting is not required on this network`);
 
     if (chainConfig.blockExplorer) {
       console.log(`\n🔍 Verify on Block Explorer:`);
       console.log(`${chainConfig.blockExplorer}/address/${streamFactory.address}`);
     }
     console.log("=".repeat(60) + "\n");
-
   } catch (error: unknown) {
     console.error("\n❌ Deployment failed:", error instanceof Error ? error.message : error);
     throw error;
@@ -287,3 +348,5 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
 export default func;
 func.tags = ["stream-factory"];
 func.dependencies = ["tokens"];
+
+

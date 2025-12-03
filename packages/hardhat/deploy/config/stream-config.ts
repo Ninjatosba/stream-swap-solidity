@@ -26,7 +26,10 @@ export interface StreamConfig {
   beneficiaryVestingInfo: StreamTypes.VestingInfoStruct;
 }
 
-// Default configuration
+/**
+ * Default stream configuration used by Hardhat tasks and examples.
+ * This is intentionally generic and network-agnostic.
+ */
 export const defaultStreamConfig: StreamConfig = {
   // Token configuration
   streamOutAmount: parseEther("10000"),
@@ -52,45 +55,3 @@ export const defaultStreamConfig: StreamConfig = {
     isVestingEnabled: false,
   },
 };
-
-// Predefined configurations for different scenarios
-export const testnetStreamConfig: StreamConfig = {
-  ...defaultStreamConfig,
-  waitSeconds: 300, // 5 minutes
-  bootstrappingDuration: 1800, // 30 minutes
-  streamDuration: 3600, // 1 hour
-  threshold: parseEther("500"),
-  streamName: "Testnet Stream",
-};
-
-export const productionStreamConfig: StreamConfig = {
-  ...defaultStreamConfig,
-  waitSeconds: 86400, // 1 day
-  bootstrappingDuration: 259200, // 3 days
-  streamDuration: 604800, // 7 days
-  threshold: parseEther("10000"),
-  streamName: "Production Stream",
-};
-
-// Helper function to calculate timestamps
-export function calculateTimestamps(
-  config: StreamConfig,
-  nowSeconds?: number,
-): {
-  bootstrappingStartTime: number;
-  streamStartTime: number;
-  streamEndTime: number;
-} {
-  const now = nowSeconds || Math.floor(Date.now() / 1000);
-
-  // Use custom times if provided, otherwise calculate from durations
-  const bootstrappingStartTime = config.customBootstrappingStartTime || now + config.waitSeconds;
-  const streamStartTime = config.customStreamStartTime || bootstrappingStartTime + config.bootstrappingDuration;
-  const streamEndTime = config.customStreamEndTime || streamStartTime + config.streamDuration;
-
-  return {
-    bootstrappingStartTime,
-    streamStartTime,
-    streamEndTime,
-  };
-}

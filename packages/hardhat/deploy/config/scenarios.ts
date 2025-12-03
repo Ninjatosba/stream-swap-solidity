@@ -1,8 +1,6 @@
-/**
- * Chain-specific configuration for StreamSwap deployments
- * This file centralizes all chain-specific settings including DEX providers,
- * pool wrapper configurations, and feature flags
- */
+export type ScenarioId = "core-mainnet" | "core-testnet" | "full-dev";
+
+// ===== DEX / Pool wrapper types (inlined from old chain-config for single-file config) =====
 
 export type DexType = "uniswap-v2" | "uniswap-v3" | "pancakeswap-v2" | "sushiswap" | "aerodrome" | "none";
 
@@ -45,7 +43,13 @@ export interface PoolWrapperConfig {
     aerodromeConfig?: DexConfigAerodrome;
 }
 
-export interface ChainConfig {
+/** Stream implementation configuration */
+export interface StreamImplementationConfig {
+    enableBasic: boolean;
+    enablePostActions: boolean;
+}
+
+export interface NetworkConfig {
     /** Chain name */
     name: string;
     /** Chain ID */
@@ -56,16 +60,110 @@ export interface ChainConfig {
     isTestnet: boolean;
     /** Pool wrapper configuration */
     poolWrappers: PoolWrapperConfig;
+    /** Stream implementation configuration */
+    streamImplementations: StreamImplementationConfig;
+    /** Whether to deploy and enable VestingFactory */
+    enableVesting?: boolean;
     /** Native token symbol (for logging) */
     nativeToken: string;
     /** Block explorer URL (optional) */
     blockExplorer?: string;
+    /** Which deployment scenario this network should use by default */
+    scenario: ScenarioId;
+    /** Optional accepted in-tokens override for this network */
+    acceptedInTokens?: string[];
 }
 
+export interface ScenarioConfig {
+    /** Scenario identifier */
+    id: ScenarioId;
+    /** Human readable name */
+    title: string;
+    /** Description for logs / docs */
+    description: string;
+
+    /**
+     * Whether this scenario should deploy local/test tokens.
+     * On production networks this should normally be false.
+     */
+    deployTokens: boolean;
+
+    /**
+     * Whether to mint large test balances to named accounts.
+     * Only meaningful when deployTokens = true.
+     */
+    mintTestBalances: boolean;
+
+    /**
+     * Whether StreamFactory should use the production-tuned configuration
+     * (longer durations, higher fees etc.).
+     */
+    useProductionFactoryConfig: boolean;
+
+    /**
+     * Whether the StreamFactory configuration expects a locally deployed
+     * "InToken" (dev/test token) and will fail if it is missing.
+     */
+    requireDevInToken: boolean;
+
+    /**
+     * Optional list of accepted in-tokens for the factory.
+     * If undefined, the deploy script will fall back to a sensible default.
+     *
+     * NOTE: This list should already include the zero-address when the native
+     * token should be accepted.
+     */
+    acceptedInTokens?: string[];
+}
+
+const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
+
+// Monad USDC-like token used in existing deployments.
+// This preserves the previous behaviour where a single hard-coded address
+// was used for production-style configurations.
+const MONAD_USDC = "0x754704Bc059F8C67012fEd69BC8A327a5aafb603";
+
 /**
- * Comprehensive chain configuration database
+ * Base scenario definitions that are network agnostic.
+ * Per-network overrides (like acceptedInTokens) are applied on top.
  */
-export const CHAIN_CONFIGS: Record<string, ChainConfig> = {
+const SCENARIOS_BASE: Record<ScenarioId, Omit<ScenarioConfig, "id">> = {
+    "core-mainnet": {
+        title: "Core Mainnet",
+        description:
+            "Production-style deployment using existing tokens and infrastructure. " +
+            "No local token deployments or test balances.",
+        deployTokens: false,
+        mintTestBalances: false,
+        useProductionFactoryConfig: true,
+        requireDevInToken: false,
+    },
+    "core-testnet": {
+        title: "Core Testnet",
+        description:
+            "Deploy core contracts and a minimal environment suitable for public testnets.",
+        deployTokens: true,
+        mintTestBalances: true,
+        useProductionFactoryConfig: false,
+        requireDevInToken: true,
+    },
+    "full-dev": {
+        title: "Full Development Environment",
+        description:
+            "Deploy all supporting contracts and test tokens for local development or forks.",
+        deployTokens: true,
+        mintTestBalances: true,
+        useProductionFactoryConfig: false,
+        requireDevInToken: true,
+    },
+};
+
+/**
+ * Unified per-network configuration.
+ * This replaces the old chain-config + scattered mappings so that
+ * everything relevant to a network lives in a single place.
+ */
+export const NETWORK_CONFIGS: Record<string, NetworkConfig> = {
     // ============ Ethereum Networks ============
     mainnet: {
         name: "Ethereum Mainnet",
@@ -74,6 +172,7 @@ export const CHAIN_CONFIGS: Record<string, ChainConfig> = {
         isTestnet: false,
         nativeToken: "ETH",
         blockExplorer: "https://etherscan.io",
+        scenario: "core-mainnet",
         poolWrappers: {
             enableV2: true,
             v2Config: {
@@ -89,8 +188,11 @@ export const CHAIN_CONFIGS: Record<string, ChainConfig> = {
                 defaultFee: 3000, // 0.3%
             },
         },
+        streamImplementations: {
+            enableBasic: true,
+            enablePostActions: false,
+        },
     },
-
     sepolia: {
         name: "Sepolia Testnet",
         chainId: 11155111,
@@ -98,6 +200,7 @@ export const CHAIN_CONFIGS: Record<string, ChainConfig> = {
         isTestnet: true,
         nativeToken: "ETH",
         blockExplorer: "https://sepolia.etherscan.io",
+        scenario: "core-testnet",
         poolWrappers: {
             enableV2: false, // V2 not officially deployed on Sepolia
             enableV3: true,
@@ -107,6 +210,10 @@ export const CHAIN_CONFIGS: Record<string, ChainConfig> = {
                 positionManager: "0x1238536071E1c677A632429e3655c799b22cDA52", // Official Sepolia NFPM
                 defaultFee: 3000, // 0.3%
             },
+        },
+        streamImplementations: {
+            enableBasic: true,
+            enablePostActions: false,
         },
     },
 
@@ -118,6 +225,7 @@ export const CHAIN_CONFIGS: Record<string, ChainConfig> = {
         isTestnet: false,
         nativeToken: "ETH",
         blockExplorer: "https://basescan.org",
+        scenario: "core-mainnet",
         poolWrappers: {
             enableV2: true,
             v2Config: {
@@ -133,9 +241,11 @@ export const CHAIN_CONFIGS: Record<string, ChainConfig> = {
                 defaultFee: 3000,
             },
         },
+        streamImplementations: {
+            enableBasic: true,
+            enablePostActions: false,
+        },
     },
-
-
     baseSepolia: {
         name: "Base Sepolia Testnet",
         chainId: 84532,
@@ -143,9 +253,10 @@ export const CHAIN_CONFIGS: Record<string, ChainConfig> = {
         isTestnet: true,
         nativeToken: "ETH",
         blockExplorer: "https://sepolia.basescan.org",
+        scenario: "core-testnet",
         poolWrappers: {
             enableV2: false, // V2 not deployed on Base Sepolia
-            enableV3: true,
+            enableV3: false,
             v3Config: {
                 type: "uniswap-v3",
                 factory: "0x4752ba5DBc23f44D87826276BF6Fd6b1C372aD24", // Official Base Sepolia V3 Factory
@@ -153,185 +264,14 @@ export const CHAIN_CONFIGS: Record<string, ChainConfig> = {
                 defaultFee: 3000, // 0.3%
             },
         },
-    },
-
-
-    // ============ Arbitrum Networks ============
-    arbitrum: {
-        name: "Arbitrum One",
-        chainId: 42161,
-        isProduction: true,
-        isTestnet: false,
-        nativeToken: "ETH",
-        blockExplorer: "https://arbiscan.io",
-        poolWrappers: {
-            enableV2: true,
-            v2Config: {
-                type: "sushiswap",
-                factory: "0xc35DADB65012eC5796536bD9864eD8773aBc74C4", // SushiSwap on Arbitrum
-                router: "0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506",
-            },
-            enableV3: true,
-            v3Config: {
-                type: "uniswap-v3",
-                factory: "0x1F98431c8ad98523631AE4a59f267346ea31F984",
-                positionManager: "0xC36442b4a4522E871399CD717aBDD847Ab11FE88",
-                defaultFee: 3000,
-            },
+        streamImplementations: {
+            enableBasic: true,
+            enablePostActions: false,
         },
+        enableVesting: false, // Vesting not required on this network
     },
 
-    arbitrumSepolia: {
-        name: "Arbitrum Sepolia",
-        chainId: 421614,
-        isProduction: false,
-        isTestnet: true,
-        nativeToken: "ETH",
-        blockExplorer: "https://sepolia.arbiscan.io",
-        poolWrappers: {
-            enableV2: false, // No DEX on testnet
-            enableV3: false,
-        },
-    },
-
-    // ============ Optimism Networks ============
-    optimism: {
-        name: "Optimism Mainnet",
-        chainId: 10,
-        isProduction: true,
-        isTestnet: false,
-        nativeToken: "ETH",
-        blockExplorer: "https://optimistic.etherscan.io",
-        poolWrappers: {
-            enableV2: true,
-            v2Config: {
-                type: "uniswap-v2",
-                factory: "0x0c3c1c532F1e39EdF36BE9Fe0bE1410313E074Bf",
-                router: "0x4A7b5Da61326A6379179b40d00F57E5bbDC962c2",
-            },
-            enableV3: true,
-            v3Config: {
-                type: "uniswap-v3",
-                factory: "0x1F98431c8ad98523631AE4a59f267346ea31F984",
-                positionManager: "0xC36442b4a4522E871399CD717aBDD847Ab11FE88",
-                defaultFee: 3000,
-            },
-        },
-    },
-
-    optimismSepolia: {
-        name: "Optimism Sepolia",
-        chainId: 11155420,
-        isProduction: false,
-        isTestnet: true,
-        nativeToken: "ETH",
-        blockExplorer: "https://sepolia-optimism.etherscan.io",
-        poolWrappers: {
-            enableV2: false,
-            enableV3: false,
-        },
-    },
-
-    // ============ Polygon Networks ============
-    polygon: {
-        name: "Polygon Mainnet",
-        chainId: 137,
-        isProduction: true,
-        isTestnet: false,
-        nativeToken: "MATIC",
-        blockExplorer: "https://polygonscan.com",
-        poolWrappers: {
-            enableV2: true,
-            v2Config: {
-                type: "uniswap-v2",
-                factory: "0x5757371414417b8C6CAad45bAeF941aBc7d3Ab32", // QuickSwap
-                router: "0xa5E0829CaCEd8fFDD4De3c43696c57F7D7A678ff",
-            },
-            enableV3: true,
-            v3Config: {
-                type: "uniswap-v3",
-                factory: "0x1F98431c8ad98523631AE4a59f267346ea31F984",
-                positionManager: "0xC36442b4a4522E871399CD717aBDD847Ab11FE88",
-                defaultFee: 3000,
-            },
-        },
-    },
-
-    polygonMumbai: {
-        name: "Polygon Mumbai",
-        chainId: 80001,
-        isProduction: false,
-        isTestnet: true,
-        nativeToken: "MATIC",
-        blockExplorer: "https://mumbai.polygonscan.com",
-        poolWrappers: {
-            enableV2: false,
-            enableV3: false,
-        },
-    },
-
-    // ============ BNB Chain Networks ============
-    bsc: {
-        name: "BNB Smart Chain",
-        chainId: 56,
-        isProduction: true,
-        isTestnet: false,
-        nativeToken: "BNB",
-        blockExplorer: "https://bscscan.com",
-        poolWrappers: {
-            enableV2: true,
-            v2Config: {
-                type: "pancakeswap-v2",
-                factory: "0xcA143Ce32Fe78f1f7019d7d551a6402fC5350c73",
-                router: "0x10ED43C718714eb63d5aA57B78B54704E256024E",
-            },
-            enableV3: true,
-            v3Config: {
-                type: "uniswap-v3",
-                factory: "0x0BFbCF9fa4f9C56B0F40a671Ad40E0805A091865", // PancakeSwap V3
-                positionManager: "0x46A15B0b27311cedF172AB29E4f4766fbE7F4364",
-                defaultFee: 2500, // 0.25% - PancakeSwap's most common fee
-            },
-        },
-    },
-
-    bscTestnet: {
-        name: "BNB Chain Testnet",
-        chainId: 97,
-        isProduction: false,
-        isTestnet: true,
-        nativeToken: "BNB",
-        blockExplorer: "https://testnet.bscscan.com",
-        poolWrappers: {
-            enableV2: true,
-            v2Config: {
-                type: "pancakeswap-v2",
-                factory: "0x6725F303b657a9451d8BA641348b6761A6CC7a17",
-                router: "0xD99D1c33F9fC3444f8101754aBC46c52416550D1",
-            },
-            enableV3: false,
-        },
-    },
-
-    // // ============ Monad Network ============
-    // monadTestnet: {
-    //     name: "Monad Testnet",
-    //     chainId: 10143,
-    //     isProduction: false,
-    //     isTestnet: true,
-    //     nativeToken: "MONAD",
-    //     blockExplorer: "https://explorer.testnet.monad.xyz",
-    //     poolWrappers: {
-    //         enableV2: true,
-    //         v2Config: {
-    //             type: "uniswap-v2",
-    //             factory: "0x82438CE666d9403e488bA720c7424434e8Aa47CD",
-    //             router: "0x3a3eBAe0Eec80852FBC7B9E824C6756969cc8dc1",
-    //         },
-    //         enableV3: false, // No V3 on Monad yet
-    //     },
-    // },
-    // ============ Monad Pre-Production Testnet Network ============
+    // ============ Monad Networks ============
     monadTestnet: {
         name: "Monad Testnet",
         chainId: 10143,
@@ -339,10 +279,16 @@ export const CHAIN_CONFIGS: Record<string, ChainConfig> = {
         isTestnet: false,
         nativeToken: "MONAD",
         blockExplorer: "https://explorer.testnet.monad.xyz",
+        scenario: "core-mainnet", // treated as pre-production
         poolWrappers: {
             enableV2: false,
             enableV3: false, // No V3 on Monad yet
         },
+        streamImplementations: {
+            enableBasic: true,
+            enablePostActions: false,
+        },
+        acceptedInTokens: [ZERO_ADDRESS, MONAD_USDC],
     },
     monadMainnet: {
         name: "Monad Mainnet",
@@ -351,10 +297,16 @@ export const CHAIN_CONFIGS: Record<string, ChainConfig> = {
         isTestnet: false,
         nativeToken: "MONAD",
         blockExplorer: "https://explorer.monad.xyz",
+        scenario: "core-mainnet",
         poolWrappers: {
             enableV2: false,
             enableV3: false,
         },
+        streamImplementations: {
+            enableBasic: true,
+            enablePostActions: false,
+        },
+        acceptedInTokens: [ZERO_ADDRESS, MONAD_USDC],
     },
 
     // ============ Hyperliquid Network ============
@@ -365,23 +317,16 @@ export const CHAIN_CONFIGS: Record<string, ChainConfig> = {
         isTestnet: true,
         nativeToken: "HYPE",
         blockExplorer: "https://explorer.hyperliquid-testnet.xyz",
+        scenario: "core-testnet",
         poolWrappers: {
             enableV2: false, // No DEX deployed yet
             enableV3: false,
         },
-    },
-
-    // ============ Cosmos EVM Networks ============
-    cosmosEvmDevnet: {
-        name: "Cosmos EVM Devnet",
-        chainId: 9000,
-        isProduction: false,
-        isTestnet: true,
-        nativeToken: "ATOM",
-        poolWrappers: {
-            enableV2: false, // Development network - no public DEX
-            enableV3: false,
+        streamImplementations: {
+            enableBasic: true, // Required for stream creation
+            enablePostActions: false,
         },
+        enableVesting: false, // Vesting not required on this network
     },
 
     // ============ Local Development Networks ============
@@ -391,116 +336,140 @@ export const CHAIN_CONFIGS: Record<string, ChainConfig> = {
         isProduction: false,
         isTestnet: true,
         nativeToken: "ETH",
+        scenario: "full-dev",
         poolWrappers: {
             enableV2: false, // Pools deployed via fork in tests
             enableV3: false,
         },
+        streamImplementations: {
+            enableBasic: true,
+            enablePostActions: false,
+        },
     },
-
     localhost: {
         name: "Localhost",
         chainId: 31337,
         isProduction: false,
         isTestnet: true,
         nativeToken: "ETH",
+        scenario: "full-dev",
         poolWrappers: {
             enableV2: false, // Pools deployed manually
             enableV3: false,
         },
+        streamImplementations: {
+            enableBasic: true,
+            enablePostActions: false,
+        },
     },
-
     localCevm: {
         name: "Local CEVM",
         chainId: 7001,
         isProduction: false,
         isTestnet: true,
         nativeToken: "ETH",
+        scenario: "full-dev",
         poolWrappers: {
             enableV2: false,
             enableV3: false,
         },
+        streamImplementations: {
+            enableBasic: true,
+            enablePostActions: false,
+        },
     },
 };
 
-/**
- * Get chain configuration for a given network
- * @param network - Network name (e.g., "mainnet", "sepolia", "base")
- * @returns Chain configuration
- * @throws Error if network is not found
- */
-export function getChainConfig(network: string): ChainConfig {
+export function getNetworkConfig(network: string): NetworkConfig {
     // Handle default network
     if (network === "default") {
-        return CHAIN_CONFIGS.hardhat;
+        return NETWORK_CONFIGS.hardhat;
     }
 
-    const config = CHAIN_CONFIGS[network];
+    const config = NETWORK_CONFIGS[network];
     if (!config) {
         throw new Error(
-            `Chain configuration not found for network: ${network}. ` +
-            `Available networks: ${Object.keys(CHAIN_CONFIGS).join(", ")}`
+            `Network configuration not found for: ${network}. ` +
+            `Available networks: ${Object.keys(NETWORK_CONFIGS).join(", ")}`,
         );
     }
-
     return config;
 }
 
 /**
- * Check if pool creation is enabled for a network
- * @param network - Network name
- * @returns true if any pool wrapper is enabled
+ * Resolve the scenario id for the given network. If no explicit mapping
+ * exists, fall back based on the chain configuration flags.
  */
+export function getScenarioId(network: string): ScenarioId {
+    // 1) Optional explicit override via --scenario CLI flag (set via Hardhat task parameter).
+    const override = process.env.DEPLOY_SCENARIO as ScenarioId | undefined;
+    if (override) {
+        if (override === "core-mainnet" || override === "core-testnet" || override === "full-dev") {
+            return override;
+        }
+        console.warn(`⚠️  Invalid scenario "${override}". Valid options: core-mainnet, core-testnet, full-dev. Using network default.`);
+    }
+
+    // 2) Use the network configuration as the single source of truth.
+    return getNetworkConfig(network).scenario;
+}
+
+/**
+ * Get the resolved scenario configuration for a network.
+ */
+export function getScenarioConfig(network: string): ScenarioConfig {
+    const id = getScenarioId(network);
+    const base = SCENARIOS_BASE[id];
+    const networkConfig = getNetworkConfig(network);
+    const acceptedInTokens = networkConfig.acceptedInTokens;
+
+    return {
+        id,
+        ...base,
+        ...(acceptedInTokens ? { acceptedInTokens } : {}),
+    };
+}
+
+// ===== Helper views used by deployment scripts (previously in chain-config) =====
+
 export function isPoolCreationEnabled(network: string): boolean {
-    const config = getChainConfig(network);
+    const config = getNetworkConfig(network);
     return config.poolWrappers.enableV2 || config.poolWrappers.enableV3;
 }
 
-/**
- * Get V2 pool wrapper address or zero address if disabled
- * @param network - Network name
- * @returns V2 config or undefined if disabled
- */
 export function getV2Config(network: string): DexConfigV2 | undefined {
-    const config = getChainConfig(network);
+    const config = getNetworkConfig(network);
     return config.poolWrappers.enableV2 ? config.poolWrappers.v2Config : undefined;
 }
 
-/**
- * Get V3 pool wrapper address or zero address if disabled
- * @param network - Network name
- * @returns V3 config or undefined if disabled
- */
 export function getV3Config(network: string): DexConfigV3 | undefined {
-    const config = getChainConfig(network);
+    const config = getNetworkConfig(network);
     return config.poolWrappers.enableV3 ? config.poolWrappers.v3Config : undefined;
 }
 
-/**
- * Get Aerodrome pool wrapper address or zero address if disabled
- * @param network - Network name
- * @returns Aerodrome config or undefined if disabled
- */
 export function getAerodromeConfig(network: string): DexConfigAerodrome | undefined {
-    // For now, we'll use hardcoded Aerodrome addresses for Base networks
-    // In the future, this could be expanded to support multiple Aerodrome deployments
+    const config = getNetworkConfig(network);
+
+    // If a specific Aerodrome config is provided, use it directly.
+    if (config.poolWrappers.aerodromeConfig) {
+        return config.poolWrappers.aerodromeConfig;
+    }
+
+    // Backwards-compatible default: Aerodrome on Base mainnet only.
     if (network === "base" || network === "baseAerodrome") {
         return {
             type: "aerodrome",
             factory: "0x420DD381b31aEf6683db6B902084cB0FFECe40DaB", // Aerodrome Factory on Base
             router: "0xBA12222222228d8Ba445958a75a0704d566BF2C8",  // Aerodrome Router on Base
-            stable: false // Default to volatile pools
+            stable: false, // Default to volatile pools
         };
     }
-    // Base Sepolia Aerodrome deployment removed - using Uniswap V3 instead
+
     return undefined;
 }
 
-/**
- * Print deployment summary for a network
- * @param network - Network name
- */
 export function printChainSummary(network: string): void {
-    const config = getChainConfig(network);
+    const config = getNetworkConfig(network);
     console.log("\n" + "=".repeat(60));
     console.log(`Chain: ${config.name} (${network})`);
     console.log(`Chain ID: ${config.chainId}`);
@@ -526,4 +495,5 @@ export function printChainSummary(network: string): void {
     }
     console.log("=".repeat(60) + "\n");
 }
+
 

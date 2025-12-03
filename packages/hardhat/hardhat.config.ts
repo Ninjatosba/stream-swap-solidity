@@ -17,6 +17,7 @@ import "./tasks/finalize-stream";
 import "./tasks/exit-stream";
 import "./tasks/withdraw";
 import "./tasks/get-stream-status";
+import "./tasks/update-accepted-tokens";
 
 // Optional Alchemy API key. Tests or networks that need it will check at runtime.
 const providerApiKey = process.env.ALCHEMY_API_KEY || "";
@@ -51,7 +52,7 @@ const config: HardhatUserConfig = {
   },
   paths: {
     sources: "./src",
-    deploy: "deploy",
+    deploy: "deploy-scripts",
     cache: "./cache",
     artifacts: "./artifacts",
   },
@@ -95,6 +96,13 @@ const config: HardhatUserConfig = {
         (account): account is string => !!account,
       ),
       chainId: 10143,
+    },
+    monadMainnet: {
+      url: "https://rpc.monad.xyz",
+      accounts: [deployerPrivateKey, creatorPrivateKey, subscriber1PrivateKey, subscriber2PrivateKey].filter(
+        (account): account is string => !!account,
+      ),
+      chainId: 143,
     },
     localhost: {
       url: "http://127.0.0.1:8545",
@@ -303,11 +311,17 @@ const config: HardhatUserConfig = {
   },
 };
 
-// Extend the deploy task
-task("deploy").setAction(async (args, hre, runSuper) => {
-  // Run the original deploy task
-  await runSuper(args);
-});
+// Extend the deploy task to accept --scenario parameter
+task("deploy", "Deploy contracts")
+  .addOptionalParam("scenario", "Deployment scenario: core-mainnet, core-testnet, or full-dev")
+  .setAction(async (args, hre, runSuper) => {
+    // Store scenario in environment so deploy scripts can access it
+    if (args.scenario) {
+      process.env.DEPLOY_SCENARIO = args.scenario;
+    }
+    // Run the original deploy task
+    await runSuper(args);
+  });
 
 // This is a sample Hardhat task. To learn how to create your own go to
 // https://hardhat.org/guides/create-task.html
