@@ -20,6 +20,8 @@
     "lint:sol": "npx solhint --config ../../.solhint.json 'src/**/*.sol'",
     "lint-staged": "eslint --config ../../.eslintrc.json --ignore-path ../../.eslintignore",
     "test": "REPORT_GAS=true hardhat test",
+    "test:fast": "REPORT_GAS=true npx hardhat test test/unit/*.test.ts test/stream/*.test.ts test/factory/*.test.ts test/vesting/*.test.ts",
+    "test:fork": "REPORT_GAS=true npx hardhat test test/fork/*.test.ts",
     "coverage": "hardhat coverage",
     "verify": "hardhat etherscan-verify",
     "mint-tokens": "hardhat mint-tokens",
@@ -32,6 +34,7 @@
     "@openzeppelin/contracts-upgradeable": "^5.4.0",
     "@uniswap/v2-core": "^1.0.1",
     "@uniswap/v2-periphery": "^1.1.0-beta.0",
+    "merkletreejs": "^0.6.0",
     "permit2": "github:Uniswap/permit2#main"
   }
 }

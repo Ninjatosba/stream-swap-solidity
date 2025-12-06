@@ -289,6 +289,7 @@ contract StreamFactory is IStreamFactoryEvents, IStreamFactoryErrors {
             msg_.threshold,
             msg_.metadata.ipfsHash,
             params.tosVersion,
+            msg_.whitelistRoot,
             streamId
         );
     }

@@ -97,9 +97,9 @@ task("subscribe", "Subscribe to a stream")
         console.log("Approved tokens for stream");
       }
 
-      // Subscribe
+      // Subscribe (with empty merkle proof for public streams)
       console.log("Attempting to subscribe...");
-      const subscribeTx = await stream.connect(await ethers.getSigner(subscriberAddress)).subscribe(amount);
+      const subscribeTx = await stream.connect(await ethers.getSigner(subscriberAddress)).subscribe(amount, []);
       console.log(`Subscribe transaction: ${subscribeTx.hash}`);
       const receipt = await subscribeTx.wait();
       console.log(`Subscribe transaction confirmed in block: ${receipt?.blockNumber}`);

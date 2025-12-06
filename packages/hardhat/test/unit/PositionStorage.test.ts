@@ -1,7 +1,7 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
-import { PositionStorage } from "../typechain-types";
-import { DecimalMath } from "../typechain-types";
+import { PositionStorage } from "../../typechain-types";
+import { DecimalMath } from "../../typechain-types";
 
 describe("PositionStorage", function () {
     let positionStorage: PositionStorage;

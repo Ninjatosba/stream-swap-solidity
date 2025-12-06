@@ -129,6 +129,7 @@ task("create-stream", "Creates a new stream using the deployed factory").setActi
       // For V2: must be empty bytes
       extra: "0x"
     },
+    whitelistRoot: ethers.ZeroHash, // bytes32(0) = no whitelist (public stream)
     salt,
   };
 

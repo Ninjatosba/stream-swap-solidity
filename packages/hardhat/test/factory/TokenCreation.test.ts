@@ -1,8 +1,9 @@
 import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { expect } from "chai";
 import { ethers } from "hardhat";
-import { streamFactory } from "./helpers/StreamFactoryFixtureBuilder";
-import { StreamTypes } from "../typechain-types/src/StreamCore";
+import { streamFactory } from "../helpers/StreamFactoryFixtureBuilder";
+import { StreamTypes } from "../../typechain-types/src/StreamCore";
+import { Errors, Durations } from "../types";
 
 describe("TokenCreationWithStream", function () {
     describe("Happy Path", function () {
@@ -29,6 +30,7 @@ describe("TokenCreationWithStream", function () {
                 beneficiaryVesting: { isVestingEnabled: false, vestingDuration: 0 },
                 poolInfo: { poolOutSupplyAmount: poolOutSupply, dexType: 0, extra: "0x" },
                 tosVersion: "1.0",
+                whitelistRoot: ethers.ZeroHash,
             };
 
             const tokenCreationInfo = {
@@ -113,6 +115,7 @@ describe("TokenCreationWithStream", function () {
                 beneficiaryVesting: { isVestingEnabled: false, vestingDuration: 0 },
                 poolInfo: { poolOutSupplyAmount: poolOutSupply, dexType: 0, extra: "0x" },
                 tosVersion: "1.0",
+                whitelistRoot: ethers.ZeroHash,
             };
 
             const tokenCreationInfo = {
@@ -169,6 +172,7 @@ describe("TokenCreationWithStream", function () {
                 beneficiaryVesting: { isVestingEnabled: false, vestingDuration: 0 },
                 poolInfo: { poolOutSupplyAmount: ethers.parseEther("0"), dexType: 0, extra: "0x" },
                 tosVersion: "1.0",
+                whitelistRoot: ethers.ZeroHash,
             };
 
             const tokenCreationInfo = {
@@ -220,6 +224,7 @@ describe("TokenCreationWithStream", function () {
                 beneficiaryVesting: { isVestingEnabled: false, vestingDuration: 0 },
                 poolInfo: { poolOutSupplyAmount: poolOutSupply, dexType: 0, extra: "0x" },
                 tosVersion: "1.0",
+                whitelistRoot: ethers.ZeroHash,
             };
 
             const tokenCreationInfo = {
@@ -261,6 +266,7 @@ describe("TokenCreationWithStream", function () {
                 beneficiaryVesting: { isVestingEnabled: false, vestingDuration: 0 },
                 poolInfo: { poolOutSupplyAmount: poolOutSupply, dexType: 0, extra: "0x" },
                 tosVersion: "1.0",
+                whitelistRoot: ethers.ZeroHash,
             };
 
             const tokenCreationInfo = {
@@ -301,6 +307,7 @@ describe("TokenCreationWithStream", function () {
                 beneficiaryVesting: { isVestingEnabled: false, vestingDuration: 0 },
                 poolInfo: { poolOutSupplyAmount: ethers.parseEther("100"), dexType: 0, extra: "0x" },
                 tosVersion: "1.0",
+                whitelistRoot: ethers.ZeroHash,
             };
 
             const tokenCreationInfo = {
@@ -340,6 +347,7 @@ describe("TokenCreationWithStream", function () {
                 beneficiaryVesting: { isVestingEnabled: false, vestingDuration: 0 },
                 poolInfo: { poolOutSupplyAmount: ethers.parseEther("100"), dexType: 0, extra: "0x" },
                 tosVersion: "1.0",
+                whitelistRoot: ethers.ZeroHash,
             };
 
             const tokenCreationInfo = {
@@ -385,6 +393,7 @@ describe("TokenCreationWithStream", function () {
                 beneficiaryVesting: { isVestingEnabled: false, vestingDuration: 0 },
                 poolInfo: { poolOutSupplyAmount: ethers.parseEther("100"), dexType: 0, extra: "0x" },
                 tosVersion: "1.0",
+                whitelistRoot: ethers.ZeroHash,
             };
 
             const tokenCreationInfo = {
@@ -424,6 +433,7 @@ describe("TokenCreationWithStream", function () {
                 beneficiaryVesting: { isVestingEnabled: false, vestingDuration: 0 },
                 poolInfo: { poolOutSupplyAmount: ethers.parseEther("100"), dexType: 0, extra: "0x" },
                 tosVersion: "2.0", // Wrong version
+                whitelistRoot: ethers.ZeroHash,
             };
 
             const tokenCreationInfo = {
@@ -463,6 +473,7 @@ describe("TokenCreationWithStream", function () {
                 beneficiaryVesting: { isVestingEnabled: false, vestingDuration: 0 },
                 poolInfo: { poolOutSupplyAmount: ethers.parseEther("0"), dexType: 0, extra: "0x" },
                 tosVersion: "1.0",
+                whitelistRoot: ethers.ZeroHash,
             };
 
             const tokenCreationInfo = {

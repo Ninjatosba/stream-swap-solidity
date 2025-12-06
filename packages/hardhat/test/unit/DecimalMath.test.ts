@@ -1,6 +1,6 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
-import { DecimalMathMock } from "../typechain-types";
+import { DecimalMathMock } from "../../typechain-types";
 
 describe("DecimalMath", function () {
     let mock: DecimalMathMock;

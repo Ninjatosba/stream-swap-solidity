@@ -52,7 +52,7 @@ const config: HardhatUserConfig = {
   },
   paths: {
     sources: "./src",
-    deploy: "deploy-scripts",
+    deploy: "deploy/deploy-scripts",
     cache: "./cache",
     artifacts: "./artifacts",
   },
@@ -88,6 +88,10 @@ const config: HardhatUserConfig = {
       mining: {
         auto: true,
         interval: 0, // Add a 1 second interval between blocks
+      },
+      accounts: {
+        // Higher balance for coverage runs (instrumented contracts are expensive)
+        accountsBalance: "1000000000000000000000000", // 1M ETH
       },
     },
     monadTestnet: {

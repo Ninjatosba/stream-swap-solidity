@@ -15,15 +15,16 @@ interface IStream is IStreamEvents, IStreamErrors {
 
     function withdraw(uint256 cap) external;
 
-    function subscribe(uint256 amountIn) external;
+    function subscribe(uint256 amountIn, bytes32[] calldata merkleProof) external;
 
-    function subscribeWithNativeToken(uint256 amountIn) external payable;
+    function subscribeWithNativeToken(uint256 amountIn, bytes32[] calldata merkleProof) external payable;
 
     function subscribeWithPermit(
         uint256 amountIn,
         address owner,
         IPermit2.PermitSingle calldata permitSingle,
-        bytes calldata signature
+        bytes calldata signature,
+        bytes32[] calldata merkleProof
     ) external;
 
     function exitStream() external;
@@ -57,4 +58,7 @@ interface IStream is IStreamEvents, IStreamErrors {
     function streamFactoryAddress() external view returns (address);
 
     function updateStreamMetadata(string memory metadataIpfsHash) external;
+
+    /// @notice Returns the optional whitelist root for this stream; zero means no whitelist
+    function whitelistRoot() external view returns (bytes32);
 }

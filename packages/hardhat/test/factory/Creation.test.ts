@@ -1,8 +1,9 @@
 import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { expect } from "chai";
 import { ethers } from "hardhat";
-import { streamFactory } from "./helpers/StreamFactoryFixtureBuilder";
-import { StreamTypes } from "../typechain-types/src/StreamCore";
+import { streamFactory } from "../helpers/StreamFactoryFixtureBuilder";
+import { StreamTypes } from "../../typechain-types/src/StreamCore";
+import { Errors, Durations } from "../types";
 
 describe("StreamCreation", function () {
     describe("createStream", function () {
@@ -11,7 +12,7 @@ describe("StreamCreation", function () {
 
             // Create a valid stream creation message
             const now = Math.floor(Date.now() / 1000);
-            const createStreamMessage: any = {
+            const createStreamMessage: StreamTypes.CreateStreamMessageStruct = {
                 creator: fixture.accounts.creator.address,
                 streamOutAmount: ethers.parseEther("1000"),
                 inSupplyToken: await fixture.contracts.inSupplyToken.getAddress(),
@@ -37,6 +38,7 @@ describe("StreamCreation", function () {
                     extra: "0x",
                 },
                 tosVersion: "1.0",
+                whitelistRoot: ethers.ZeroHash,
             };
 
             // Approve tokens for the factory - need to approve more than the amount
@@ -65,7 +67,7 @@ describe("StreamCreation", function () {
 
             // Create a valid stream creation message
             const now = Math.floor(Date.now() / 1000);
-            const createStreamMessage: any = {
+            const createStreamMessage: StreamTypes.CreateStreamMessageStruct = {
                 creator: fixture.accounts.creator.address,
                 streamOutAmount: ethers.parseEther("1000"),
                 inSupplyToken: await fixture.contracts.inSupplyToken.getAddress(),
@@ -91,6 +93,7 @@ describe("StreamCreation", function () {
                     extra: "0x",
                 },
                 tosVersion: "1.0",
+                whitelistRoot: ethers.ZeroHash,
             };
 
             // Check creator balance
@@ -114,7 +117,7 @@ describe("StreamCreation", function () {
 
             // Create a valid stream creation message
             const now = Math.floor(Date.now() / 1000);
-            const createStreamMessage: any = {
+            const createStreamMessage: StreamTypes.CreateStreamMessageStruct = {
                 creator: fixture.accounts.creator.address,
                 streamOutAmount: ethers.parseEther("1000"),
                 inSupplyToken: await fixture.contracts.inSupplyToken.getAddress(),
@@ -140,6 +143,7 @@ describe("StreamCreation", function () {
                     extra: "0x",
                 },
                 tosVersion: "1.0",
+                whitelistRoot: ethers.ZeroHash,
             };
 
             // Approve tokens for the factory
@@ -150,7 +154,7 @@ describe("StreamCreation", function () {
             // Attempt to create stream should fail with ContractFrozen error
             await expect(
                 fixture.contracts.streamFactory.connect(fixture.accounts.creator).createStream(createStreamMessage)
-            ).to.be.revertedWithCustomError(fixture.contracts.streamFactory, "ContractFrozen");
+            ).to.be.revertedWithCustomError(fixture.contracts.streamFactory, Errors.ContractFrozen);
         });
 
         it("should revert if inSupplyToken is not accepted", async function () {
@@ -162,7 +166,7 @@ describe("StreamCreation", function () {
             await unacceptedToken.waitForDeployment();
 
             const now = Math.floor(Date.now() / 1000);
-            const createStreamMessage: any = {
+            const createStreamMessage: StreamTypes.CreateStreamMessageStruct = {
                 creator: fixture.accounts.creator.address,
                 streamOutAmount: ethers.parseEther("1000"),
                 inSupplyToken: await unacceptedToken.getAddress(), // Use unaccepted token
@@ -188,6 +192,7 @@ describe("StreamCreation", function () {
                     extra: "0x",
                 },
                 tosVersion: "1.0",
+                whitelistRoot: ethers.ZeroHash,
             };
 
             // Approve tokens for the factory
@@ -197,14 +202,14 @@ describe("StreamCreation", function () {
 
             await expect(
                 fixture.contracts.streamFactory.connect(fixture.accounts.creator).createStream(createStreamMessage)
-            ).to.be.revertedWithCustomError(fixture.contracts.streamFactory, "StreamInputTokenNotAccepted");
+            ).to.be.revertedWithCustomError(fixture.contracts.streamFactory, Errors.StreamInputTokenNotAccepted);
         });
 
         it("should revert if streamOutAmount is zero", async function () {
             const fixture = await loadFixture(streamFactory().build());
 
             const now = Math.floor(Date.now() / 1000);
-            const createStreamMessage: any = {
+            const createStreamMessage: StreamTypes.CreateStreamMessageStruct = {
                 creator: fixture.accounts.creator.address,
                 streamOutAmount: 0, // Zero amount
                 inSupplyToken: await fixture.contracts.inSupplyToken.getAddress(),
@@ -230,6 +235,7 @@ describe("StreamCreation", function () {
                     extra: "0x",
                 },
                 tosVersion: "1.0",
+                whitelistRoot: ethers.ZeroHash,
             };
 
             // Approve tokens for the factory
@@ -239,14 +245,14 @@ describe("StreamCreation", function () {
 
             await expect(
                 fixture.contracts.streamFactory.connect(fixture.accounts.creator).createStream(createStreamMessage)
-            ).to.be.revertedWithCustomError(fixture.contracts.streamFactory, "ZeroOutSupplyNotAllowed");
+            ).to.be.revertedWithCustomError(fixture.contracts.streamFactory, Errors.ZeroOutSupplyNotAllowed);
         });
 
         it("should revert if bootstrappingStartTime is in the past", async function () {
             const fixture = await loadFixture(streamFactory().build());
 
             const now = Math.floor(Date.now() / 1000);
-            const createStreamMessage: any = {
+            const createStreamMessage: StreamTypes.CreateStreamMessageStruct = {
                 creator: fixture.accounts.creator.address,
                 streamOutAmount: ethers.parseEther("1000"),
                 inSupplyToken: await fixture.contracts.inSupplyToken.getAddress(),
@@ -272,6 +278,7 @@ describe("StreamCreation", function () {
                     extra: "0x",
                 },
                 tosVersion: "1.0",
+                whitelistRoot: ethers.ZeroHash,
             };
 
             // Approve tokens for the factory
@@ -281,14 +288,14 @@ describe("StreamCreation", function () {
 
             await expect(
                 fixture.contracts.streamFactory.connect(fixture.accounts.creator).createStream(createStreamMessage)
-            ).to.be.revertedWithCustomError(fixture.contracts.streamFactory, "InvalidBootstrappingStartTime");
+            ).to.be.revertedWithCustomError(fixture.contracts.streamFactory, Errors.InvalidBootstrappingStartTime);
         });
 
         it("should revert if stream timing is invalid", async function () {
             const fixture = await loadFixture(streamFactory().build());
 
             const now = Math.floor(Date.now() / 1000);
-            const createStreamMessage: any = {
+            const createStreamMessage: StreamTypes.CreateStreamMessageStruct = {
                 creator: fixture.accounts.creator.address,
                 streamOutAmount: ethers.parseEther("1000"),
                 inSupplyToken: await fixture.contracts.inSupplyToken.getAddress(),
@@ -314,6 +321,7 @@ describe("StreamCreation", function () {
                     extra: "0x",
                 },
                 tosVersion: "1.0",
+                whitelistRoot: ethers.ZeroHash,
             };
 
             // Approve tokens for the factory
@@ -330,7 +338,7 @@ describe("StreamCreation", function () {
             const fixture = await loadFixture(streamFactory().build());
 
             const now = Math.floor(Date.now() / 1000);
-            const createStreamMessage: any = {
+            const createStreamMessage: StreamTypes.CreateStreamMessageStruct = {
                 creator: fixture.accounts.creator.address,
                 streamOutAmount: ethers.parseEther("1000"),
                 inSupplyToken: await fixture.contracts.inSupplyToken.getAddress(),
@@ -356,6 +364,7 @@ describe("StreamCreation", function () {
                     extra: "0x",
                 },
                 tosVersion: "", // Empty TOS version
+                whitelistRoot: ethers.ZeroHash,
             };
 
             // Approve tokens for the factory
@@ -371,7 +380,7 @@ describe("StreamCreation", function () {
             const fixture = await loadFixture(streamFactory().build());
 
             const now = Math.floor(Date.now() / 1000);
-            const createStreamMessage: any = {
+            const createStreamMessage: StreamTypes.CreateStreamMessageStruct = {
                 creator: fixture.accounts.creator.address,
                 streamOutAmount: ethers.parseEther("1000"),
                 inSupplyToken: await fixture.contracts.inSupplyToken.getAddress(),
@@ -397,6 +406,7 @@ describe("StreamCreation", function () {
                     extra: "0x",
                 },
                 tosVersion: "1.0",
+                whitelistRoot: ethers.ZeroHash,
             };
 
             await expect(
@@ -412,7 +422,7 @@ describe("StreamCreation", function () {
                 .approve(await fixture.contracts.streamFactory.getAddress(), ethers.parseEther("1000"));
 
             const now = Math.floor(Date.now() / 1000);
-            const createStreamMessage: any = {
+            const createStreamMessage: StreamTypes.CreateStreamMessageStruct = {
                 creator: fixture.accounts.creator.address,
                 streamOutAmount: ethers.parseEther("1000"),
                 inSupplyToken: await fixture.contracts.inSupplyToken.getAddress(),
@@ -438,6 +448,7 @@ describe("StreamCreation", function () {
                     extra: "0x",
                 },
                 tosVersion: "1.0",
+                whitelistRoot: ethers.ZeroHash,
             };
 
             await expect(
@@ -449,7 +460,7 @@ describe("StreamCreation", function () {
             const fixture = await loadFixture(streamFactory().build());
 
             const now = Math.floor(Date.now() / 1000);
-            const createStreamMessage: any = {
+            const createStreamMessage: StreamTypes.CreateStreamMessageStruct = {
                 creator: ethers.ZeroAddress, // Zero address
                 streamOutAmount: ethers.parseEther("1000"),
                 inSupplyToken: await fixture.contracts.inSupplyToken.getAddress(),
@@ -475,6 +486,7 @@ describe("StreamCreation", function () {
                     extra: "0x",
                 },
                 tosVersion: "1.0",
+                whitelistRoot: ethers.ZeroHash,
             };
 
             // Approve tokens for the factory
@@ -491,7 +503,7 @@ describe("StreamCreation", function () {
             const fixture = await loadFixture(streamFactory().build());
 
             const now = Math.floor(Date.now() / 1000);
-            const createStreamMessage: any = {
+            const createStreamMessage: StreamTypes.CreateStreamMessageStruct = {
                 creator: fixture.accounts.creator.address,
                 streamOutAmount: ethers.parseEther("1000"),
                 inSupplyToken: await fixture.contracts.inSupplyToken.getAddress(),
@@ -517,6 +529,7 @@ describe("StreamCreation", function () {
                     extra: "0x",
                 },
                 tosVersion: "1.0",
+                whitelistRoot: ethers.ZeroHash,
             };
 
             await expect(
@@ -528,7 +541,7 @@ describe("StreamCreation", function () {
             const fixture = await loadFixture(streamFactory().build());
 
             const now = Math.floor(Date.now() / 1000);
-            const createStreamMessage: any = {
+            const createStreamMessage: StreamTypes.CreateStreamMessageStruct = {
                 creator: fixture.accounts.creator.address,
                 streamOutAmount: ethers.parseEther("1000"),
                 inSupplyToken: await fixture.contracts.inSupplyToken.getAddress(),
@@ -554,6 +567,7 @@ describe("StreamCreation", function () {
                     extra: "0x",
                 },
                 tosVersion: "1.0",
+                whitelistRoot: ethers.ZeroHash,
             };
 
             // Approve tokens for the factory
@@ -570,7 +584,7 @@ describe("StreamCreation", function () {
             const fixture = await loadFixture(streamFactory().enablePoolCreation(true).build());
 
             const now = Math.floor(Date.now() / 1000);
-            const createStreamMessage: any = {
+            const createStreamMessage: StreamTypes.CreateStreamMessageStruct = {
                 creator: fixture.accounts.creator.address,
                 streamOutAmount: ethers.parseEther("1000"),
                 inSupplyToken: await fixture.contracts.inSupplyToken.getAddress(),
@@ -596,6 +610,7 @@ describe("StreamCreation", function () {
                     extra: "0x",
                 },
                 tosVersion: "1.0",
+                whitelistRoot: ethers.ZeroHash,
             };
 
             // Approve tokens for the factory
@@ -612,7 +627,7 @@ describe("StreamCreation", function () {
             const fixture = await loadFixture(streamFactory().build());
 
             const now = Math.floor(Date.now() / 1000);
-            const createStreamMessage: any = {
+            const createStreamMessage: StreamTypes.CreateStreamMessageStruct = {
                 creator: fixture.accounts.creator.address,
                 streamOutAmount: ethers.parseEther("1000"),
                 inSupplyToken: await fixture.contracts.inSupplyToken.getAddress(),
@@ -638,6 +653,7 @@ describe("StreamCreation", function () {
                     extra: "0x",
                 },
                 tosVersion: "1.0",
+                whitelistRoot: ethers.ZeroHash,
             };
 
             // Approve tokens for the factory
@@ -659,7 +675,7 @@ describe("StreamCreation", function () {
                 .approve(await fixture.contracts.streamFactory.getAddress(), ethers.parseEther("1000"));
 
             const now = Math.floor(Date.now() / 1000);
-            const createStreamMessage: any = {
+            const createStreamMessage: StreamTypes.CreateStreamMessageStruct = {
                 creator: fixture.accounts.creator.address,
                 streamOutAmount: ethers.parseEther("1000"),
                 inSupplyToken: await fixture.contracts.inSupplyToken.getAddress(),
@@ -685,6 +701,7 @@ describe("StreamCreation", function () {
                     extra: "0x",
                 },
                 tosVersion: "1.0",
+                whitelistRoot: ethers.ZeroHash,
             };
 
             await expect(
@@ -701,7 +718,7 @@ describe("StreamCreation", function () {
                 .approve(await fixture.contracts.streamFactory.getAddress(), ethers.parseEther("1100"));
 
             const now = Math.floor(Date.now() / 1000);
-            const createStreamMessage: any = {
+            const createStreamMessage: StreamTypes.CreateStreamMessageStruct = {
                 creator: fixture.accounts.creator.address,
                 streamOutAmount: ethers.parseEther("1000"),
                 inSupplyToken: await fixture.contracts.inSupplyToken.getAddress(),
@@ -727,6 +744,7 @@ describe("StreamCreation", function () {
                     extra: "0x",
                 },
                 tosVersion: "1.0",
+                whitelistRoot: ethers.ZeroHash,
             };
 
             // Get current stream ID before creation
@@ -737,7 +755,7 @@ describe("StreamCreation", function () {
             expect(receipt).to.not.be.null;
 
             // Find the StreamCreated event
-            const streamCreatedEvent = receipt!.logs.find((log: any) => {
+            const streamCreatedEvent = receipt!.logs.find((log: StreamTypes.CreateStreamMessageStruct) => {
                 try {
                     const parsed = fixture.contracts.streamFactory.interface.parseLog(log);
                     return parsed?.name === "StreamCreated";
@@ -782,7 +800,7 @@ describe("StreamCreation", function () {
                 .approve(await fixture.contracts.streamFactory.getAddress(), ethers.parseEther("2000"));
 
             const now = Math.floor(Date.now() / 1000);
-            const createStreamMessage: any = {
+            const createStreamMessage: StreamTypes.CreateStreamMessageStruct = {
                 creator: fixture.accounts.creator.address,
                 streamOutAmount: ethers.parseEther("1000"),
                 inSupplyToken: await fixture.contracts.inSupplyToken.getAddress(),
@@ -808,6 +826,7 @@ describe("StreamCreation", function () {
                     extra: "0x",
                 },
                 tosVersion: "1.0",
+                whitelistRoot: ethers.ZeroHash,
             };
 
             // Get initial stream ID
@@ -841,7 +860,7 @@ describe("StreamCreation", function () {
                 .approve(await fixture.contracts.streamFactory.getAddress(), veryLargeAmount);
 
             const now = Math.floor(Date.now() / 1000);
-            const createStreamMessage: any = {
+            const createStreamMessage: StreamTypes.CreateStreamMessageStruct = {
                 creator: fixture.accounts.creator.address,
                 streamOutAmount: veryLargeAmount,
                 inSupplyToken: await fixture.contracts.inSupplyToken.getAddress(),
@@ -867,6 +886,7 @@ describe("StreamCreation", function () {
                     extra: "0x",
                 },
                 tosVersion: "1.0",
+                whitelistRoot: ethers.ZeroHash,
             };
 
             await expect(
@@ -889,7 +909,7 @@ describe("StreamCreation", function () {
             const now = currentBlock.timestamp;
 
             // 1. Waiting duration below minimum (others valid)
-            let createStreamMessage: any = {
+            let createStreamMessage: StreamTypes.CreateStreamMessageStruct = {
                 creator: fixture.accounts.creator.address,
                 streamOutAmount: ethers.parseEther("1000"),
                 inSupplyToken: await fixture.contracts.inSupplyToken.getAddress(),
@@ -903,6 +923,7 @@ describe("StreamCreation", function () {
                 beneficiaryVesting: { isVestingEnabled: false, vestingDuration: 0 },
                 poolInfo: { poolOutSupplyAmount: ethers.parseEther("0"), dexType: 0, extra: "0x" },
                 tosVersion: "1.0",
+                whitelistRoot: ethers.ZeroHash,
             };
             await expect(
                 fixture.contracts.streamFactory.connect(fixture.accounts.creator).createStream(createStreamMessage)
@@ -943,7 +964,7 @@ describe("StreamCreation", function () {
             const feeCollectorBalanceBefore = await ethers.provider.getBalance(fixture.accounts.feeCollector.address);
 
             const now = Math.floor(Date.now() / 1000);
-            const createStreamMessage: any = {
+            const createStreamMessage: StreamTypes.CreateStreamMessageStruct = {
                 creator: fixture.accounts.creator.address,
                 streamOutAmount: ethers.parseEther("1000"),
                 inSupplyToken: await fixture.contracts.inSupplyToken.getAddress(),
@@ -969,6 +990,7 @@ describe("StreamCreation", function () {
                     extra: "0x",
                 },
                 tosVersion: "1.0",
+                whitelistRoot: ethers.ZeroHash,
             };
 
             // Create stream with native token fee
@@ -993,7 +1015,7 @@ describe("StreamCreation", function () {
                 .approve(await fixture.contracts.streamFactory.getAddress(), ethers.parseEther("1100"));
 
             const now = Math.floor(Date.now() / 1000);
-            const createStreamMessage: any = {
+            const createStreamMessage: StreamTypes.CreateStreamMessageStruct = {
                 creator: fixture.accounts.creator.address,
                 streamOutAmount: ethers.parseEther("1000"),
                 inSupplyToken: await fixture.contracts.inSupplyToken.getAddress(),
@@ -1019,6 +1041,7 @@ describe("StreamCreation", function () {
                     extra: "0x",
                 },
                 tosVersion: "1.0",
+                whitelistRoot: ethers.ZeroHash,
             };
 
             // Try to create stream with insufficient native token
@@ -1039,7 +1062,7 @@ describe("StreamCreation", function () {
                 .approve(await fixture.contracts.streamFactory.getAddress(), ethers.parseEther("1100"));
 
             const now = Math.floor(Date.now() / 1000);
-            const createStreamMessage: any = {
+            const createStreamMessage: StreamTypes.CreateStreamMessageStruct = {
                 creator: fixture.accounts.creator.address,
                 streamOutAmount: ethers.parseEther("1000"),
                 inSupplyToken: await fixture.contracts.inSupplyToken.getAddress(),
@@ -1065,6 +1088,7 @@ describe("StreamCreation", function () {
                     extra: "0x",
                 },
                 tosVersion: "1.0",
+                whitelistRoot: ethers.ZeroHash,
             };
 
             // Create stream with zero native token fee
@@ -1085,7 +1109,7 @@ describe("StreamCreation", function () {
                 .approve(await fixture.contracts.streamFactory.getAddress(), ethers.parseEther("1100"));
 
             const now = Math.floor(Date.now() / 1000);
-            const createStreamMessage: any = {
+            const createStreamMessage: StreamTypes.CreateStreamMessageStruct = {
                 creator: fixture.accounts.creator.address,
                 streamOutAmount: ethers.parseEther("1000"),
                 inSupplyToken: ethers.ZeroAddress, // Native token as input supply
@@ -1111,6 +1135,7 @@ describe("StreamCreation", function () {
                     extra: "0x",
                 },
                 tosVersion: "1.0",
+                whitelistRoot: ethers.ZeroHash,
             };
 
             // Create stream with native token as input supply and fee
@@ -1128,7 +1153,7 @@ describe("StreamCreation", function () {
             const fixture = await loadFixture(streamFactory().build());
 
             const now = Math.floor(Date.now() / 1000);
-            const createStreamMessage: any = {
+            const createStreamMessage: StreamTypes.CreateStreamMessageStruct = {
                 creator: fixture.accounts.creator.address,
                 streamOutAmount: ethers.parseEther("1000"),
                 inSupplyToken: await fixture.contracts.inSupplyToken.getAddress(),
@@ -1146,6 +1171,7 @@ describe("StreamCreation", function () {
                     extra: "0x",
                 },
                 tosVersion: "1.0",
+                whitelistRoot: ethers.ZeroHash,
             };
 
             // Approve out supply + pool amount just to avoid allowance-related reverts
@@ -1166,7 +1192,7 @@ describe("StreamCreation", function () {
             const fixture = await loadFixture(streamFactory().build());
 
             const now = Math.floor(Date.now() / 1000);
-            const createStreamMessage: any = {
+            const createStreamMessage: StreamTypes.CreateStreamMessageStruct = {
                 creator: fixture.accounts.creator.address,
                 streamOutAmount: ethers.parseEther("1000"),
                 inSupplyToken: await fixture.contracts.inSupplyToken.getAddress(),
@@ -1184,6 +1210,7 @@ describe("StreamCreation", function () {
                     extra: ethers.AbiCoder.defaultAbiCoder().encode(["uint24"], [3000]),
                 },
                 tosVersion: "1.0",
+                whitelistRoot: ethers.ZeroHash,
             };
 
             // Approve out supply + pool amount just to avoid allowance-related reverts
@@ -1203,7 +1230,7 @@ describe("StreamCreation", function () {
             const fixture = await loadFixture(streamFactory().enablePoolCreation(true).build());
 
             const now = Math.floor(Date.now() / 1000);
-            const createStreamMessage: any = {
+            const createStreamMessage: StreamTypes.CreateStreamMessageStruct = {
                 creator: fixture.accounts.creator.address,
                 streamOutAmount: ethers.parseEther("1000"),
                 inSupplyToken: await fixture.contracts.inSupplyToken.getAddress(),
@@ -1229,6 +1256,7 @@ describe("StreamCreation", function () {
                     extra: "0x",
                 },
                 tosVersion: "1.0",
+                whitelistRoot: ethers.ZeroHash,
             };
 
             // Approve only stream out amount
@@ -1245,7 +1273,7 @@ describe("StreamCreation", function () {
             const fixture = await loadFixture(streamFactory().enablePoolCreation(true).build());
 
             const now = Math.floor(Date.now() / 1000);
-            const createStreamMessage: any = {
+            const createStreamMessage: StreamTypes.CreateStreamMessageStruct = {
                 creator: fixture.accounts.creator.address,
                 streamOutAmount: ethers.parseEther("1000"),
                 inSupplyToken: await fixture.contracts.inSupplyToken.getAddress(),
@@ -1271,6 +1299,7 @@ describe("StreamCreation", function () {
                     extra: "0x",
                 },
                 tosVersion: "1.0",
+                whitelistRoot: ethers.ZeroHash,
             };
 
             // Approve out supply token for the factory

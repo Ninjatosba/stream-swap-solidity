@@ -7,6 +7,7 @@ import { DecimalStruct, StreamTypes } from "../../typechain-types/src/StreamCore
 import { disableFork, enableMainnetFork } from "./fork";
 import { deployAerodromePoolWrapperFork, deployV2PoolWrapperFork, deployV3PoolWrapperFork } from "./poolWrappers";
 import { StreamFactoryTypes } from "../../typechain-types/src/StreamFactory";
+import { buildMerkleWhitelist } from "./merkle";
 
 // Configuration interfaces
 interface StreamTimeConfig {
@@ -94,6 +95,9 @@ export class StreamFixtureBuilder {
   private selectedDexType: 0 | 1 = 0; // 0: V2, 1: V3
   private forkBlock?: number;
   private network?: string;
+  private whitelistAddresses?: string[];
+  private whitelistRoot?: string;
+  private whitelistProofGetter?: (address: string) => string[];
   // Time configuration methods
   public timeParams(waitSeconds: number, bootstrappingDuration: number, streamDuration: number): StreamFixtureBuilder {
     this.timeConfig = { waitSeconds, bootstrappingDuration, streamDuration };
@@ -175,6 +179,17 @@ export class StreamFixtureBuilder {
   // Convenience method for native token
   public nativeToken(): StreamFixtureBuilder {
     return this.tokens(ethers.ZeroAddress);
+  }
+
+  public whitelist(...addresses: string[]): StreamFixtureBuilder {
+    if (addresses.length === 0) {
+      throw new Error("Whitelist must contain at least one address");
+    }
+    this.whitelistAddresses = addresses;
+    const merkleTree = buildMerkleWhitelist(addresses);
+    this.whitelistRoot = merkleTree.root;
+    this.whitelistProofGetter = merkleTree.getProof;
+    return this;
   }
 
   // Time manipulation method
@@ -397,7 +412,8 @@ export class StreamFixtureBuilder {
                 : ethers.AbiCoder.defaultAbiCoder().encode(["uint24"], [3000]),
             },
             tosVersion: self.metadataConfig.tosVersion,
-          } as any,
+            whitelistRoot: self.whitelistRoot ?? ethers.ZeroHash,
+          } as StreamTypes.CreateStreamMessageStruct,
           txOptions,
         );
 
@@ -484,6 +500,11 @@ export class StreamFixtureBuilder {
             minBootstrappingDuration: self.factoryConfig.minBootstrappingDuration,
             minStreamDuration: self.factoryConfig.minStreamDuration,
             tosVersion: self.metadataConfig.tosVersion,
+          },
+          whitelist: {
+            root: self.whitelistRoot,
+            addresses: self.whitelistAddresses,
+            getProof: self.whitelistProofGetter,
           },
           uniswapV2Factory: undefined as any,
           uniswapV2Router: undefined as any,
