@@ -5,6 +5,7 @@ import { stream } from "../helpers/StreamFixtureBuilder";
 import { Status, Amounts, Errors } from "../types";
 import { advanceStreamToPhase, subscribeAndSync } from "../helpers/stream";
 import { getBalance } from "../helpers/balances";
+import { advanceToMidPhase, timeTravel } from "../helpers/time";
 
 describe("Stream Finalize", function () {
   describe("Finalize with Threshold Reached", function () {
@@ -144,6 +145,67 @@ describe("Stream Finalize", function () {
       await expect(finalizeTx)
         .to.emit(contracts.stream, "FinalizedRefunded")
         .withArgs(contracts.stream.getAddress(), accounts.creator.address, config.streamOutAmount);
+    });
+  });
+
+  describe("Finalize with StreamPostActions", function () {
+    it("Should transfer remaining output tokens to creator when outRemaining > 0", async function () {
+      const exitFeeRatio = 20000;
+      const { contracts, timeParams, accounts, config } = await loadFixture(
+        stream()
+          .exitRatio(exitFeeRatio)
+          .creatorVesting(3600) // Enable creator vesting to use StreamPostActions
+          .build()
+      );
+
+      // Advance to active phase and sync
+      await advanceStreamToPhase(contracts.stream, "active", timeParams);
+
+      // Subscribe with 100 tokens early in the stream
+      await subscribeAndSync(contracts.stream, accounts.subscriber1, 100n, contracts.inSupplyToken);
+
+      // Advance time to half of the stream duration
+      await advanceToMidPhase("active", timeParams);
+
+      // Do a full withdrawal before stream ends. This will leave some outRemaining tokens.
+      await contracts.stream.connect(accounts.subscriber1).withdraw(0n);
+
+      // Advance to ended phase - stream ends with remaining output tokens
+      await advanceStreamToPhase(contracts.stream, "ended", timeParams);
+
+      // Get stream state to check outRemaining
+      const streamState = await contracts.stream.getStreamState();
+      const outRemaining = streamState.outRemaining;
+      // Ensure we actually have outRemaining > 0
+      expect(outRemaining).to.be.gt(0);
+
+      // Get balances before finalization
+      const creatorOutBalanceBefore = await getBalance(contracts.outSupplyToken, accounts.creator);
+
+      // Finalize the stream
+      const finalizeTx = await contracts.stream.connect(accounts.creator).finalizeStream();
+      const receipt = await finalizeTx.wait();
+
+      // Get balances after finalization
+      const creatorOutBalanceAfter = await getBalance(contracts.outSupplyToken, accounts.creator);
+      const streamOutBalanceAfter = await getBalance(contracts.outSupplyToken, await contracts.stream.getAddress());
+
+      // Verify remaining output tokens were transferred to creator
+      expect(creatorOutBalanceAfter - creatorOutBalanceBefore).to.equal(outRemaining);
+
+      // Verify event shows outRemaining > 0
+      const event = receipt?.logs.find(
+        (log: any) => log.topics[0] === contracts.stream.interface.getEvent("FinalizedStreamed").topicHash
+      );
+      expect(event).to.not.be.undefined;
+      if (event) {
+        const parsedEvent = contracts.stream.interface.parseLog({
+          topics: event.topics,
+          data: event.data,
+        });
+        expect(parsedEvent?.args[4]).to.be.gt(0);
+        expect(parsedEvent?.args[4]).to.equal(outRemaining);
+      }
     });
   });
 
