@@ -99,6 +99,7 @@ describe("StreamFactoryCore", function () {
                 streamCreationFee: 100,
                 streamCreationFeeToken: await mockToken.getAddress(),
                 exitFeeRatio: { value: 100000n },
+                subscriptionFeeRatio: { value: 0n },
                 minWaitingDuration: Durations.ONE_HOUR,
                 minBootstrappingDuration: Durations.ONE_HOUR,
                 minStreamDuration: Durations.ONE_HOUR,
@@ -143,6 +144,18 @@ describe("StreamFactoryCore", function () {
             await expect(streamFactory.connect(protocolAdmin).initialize(invalidInitMessage)).to.be.revertedWithCustomError(
                 streamFactory,
                 "InvalidExitFeeRatio",
+            );
+        });
+
+        it("should revert if subscription fee ratio is greater than 100%", async function () {
+            const invalidInitMessage = {
+                ...validInitMessage,
+                subscriptionFeeRatio: { value: 1500000n }, // 150%
+            };
+
+            await expect(streamFactory.connect(protocolAdmin).initialize(invalidInitMessage)).to.be.revertedWithCustomError(
+                streamFactory,
+                "InvalidSubscriptionFeeRatio",
             );
         });
 
@@ -235,11 +248,12 @@ describe("StreamFactoryCore", function () {
             expect(parsedEvent.args[7]).to.deep.equal(validInitMessage.acceptedInSupplyTokens);
             expect(parsedEvent.args[8]).to.equal(validInitMessage.streamCreationFee);
             expect(parsedEvent.args[9]).to.equal(validInitMessage.exitFeeRatio.value);
-            expect(parsedEvent.args[10]).to.equal(validInitMessage.minWaitingDuration);
-            expect(parsedEvent.args[11]).to.equal(validInitMessage.minBootstrappingDuration);
-            expect(parsedEvent.args[12]).to.equal(validInitMessage.minStreamDuration);
-            expect(parsedEvent.args[13]).to.equal(validInitMessage.tosVersion);
-            expect(parsedEvent.args[14]).to.equal(validInitMessage.vestingFactoryAddress);
+            expect(parsedEvent.args[10]).to.equal(validInitMessage.subscriptionFeeRatio.value);
+            expect(parsedEvent.args[11]).to.equal(validInitMessage.minWaitingDuration);
+            expect(parsedEvent.args[12]).to.equal(validInitMessage.minBootstrappingDuration);
+            expect(parsedEvent.args[13]).to.equal(validInitMessage.minStreamDuration);
+            expect(parsedEvent.args[14]).to.equal(validInitMessage.tosVersion);
+            expect(parsedEvent.args[15]).to.equal(validInitMessage.vestingFactoryAddress);
         });
 
         it("should correctly set all parameters after initialization", async function () {
@@ -249,6 +263,7 @@ describe("StreamFactoryCore", function () {
             expect(params.streamCreationFee).to.equal(validInitMessage.streamCreationFee);
             expect(params.streamCreationFeeToken).to.equal(validInitMessage.streamCreationFeeToken);
             expect(params.exitFeeRatio.value).to.equal(validInitMessage.exitFeeRatio.value);
+            expect(params.subscriptionFeeRatio.value).to.equal(validInitMessage.subscriptionFeeRatio.value);
             expect(params.minWaitingDuration).to.equal(validInitMessage.minWaitingDuration);
             expect(params.minBootstrappingDuration).to.equal(validInitMessage.minBootstrappingDuration);
             expect(params.minStreamDuration).to.equal(validInitMessage.minStreamDuration);
@@ -329,6 +344,7 @@ describe("StreamFactoryCore", function () {
             const adminFunctions = [
                 () => fixture.contracts.streamFactory.connect(nonAdmin).updateStreamFeeParameters(100, dummyAddress),
                 () => fixture.contracts.streamFactory.connect(nonAdmin).updateExitFeeRatio({ value: 100000n }),
+                () => fixture.contracts.streamFactory.connect(nonAdmin).updateSubscriptionFeeRatio({ value: 100000n }),
                 () => fixture.contracts.streamFactory.connect(nonAdmin).updateTimingParameters(3600, 3600, 3600),
                 () => fixture.contracts.streamFactory.connect(nonAdmin).updateTosVersion("2.0"),
                 () => fixture.contracts.streamFactory.connect(nonAdmin).updateFeeCollector(dummyAddress),

@@ -63,6 +63,10 @@ abstract contract StreamCore is IStreamErrors, IStreamEvents, UUPSUpgradeable {
     /// @notice Optional Merkle whitelist root; zero means no whitelist (public stream)
     bytes32 public whitelistRoot;
 
+    /// @notice Snapshot of factory parameters at stream creation time
+    /// @dev This ensures factory parameter updates don't affect ongoing streams
+    StreamFactoryTypes.Params public factoryParamsSnapshot;
+
     /// @notice Address of the Permit2 contract
     address public constant PERMIT2 = 0x000000000022D473030F116dDEE9F6B43aC78BA3;
 
@@ -100,9 +104,7 @@ abstract contract StreamCore is IStreamErrors, IStreamEvents, UUPSUpgradeable {
      * @dev Ensures only the protocol admin can call the function
      */
     modifier onlyProtocolAdmin() {
-        IStreamFactoryParams factoryContract = IStreamFactoryParams(STREAM_FACTORY_ADDRESS);
-        address protocolAdmin = factoryContract.getParams().protocolAdmin;
-        if (msg.sender != protocolAdmin) revert Unauthorized();
+        if (msg.sender != factoryParamsSnapshot.protocolAdmin) revert Unauthorized();
         _;
     }
 
@@ -125,6 +127,10 @@ abstract contract StreamCore is IStreamErrors, IStreamEvents, UUPSUpgradeable {
         
         // Save position storage address
         positionStorageAddress = storageAddress;
+        
+        // Get and store factory parameters snapshot from the factory
+        IStreamFactoryParams factoryContract = IStreamFactoryParams(STREAM_FACTORY_ADDRESS);
+        factoryParamsSnapshot = factoryContract.getParams();
         
         // Set creator
         creator = createStreamMessage.creator;
@@ -270,18 +276,29 @@ abstract contract StreamCore is IStreamErrors, IStreamEvents, UUPSUpgradeable {
             }
         }
 
+        // Calculate and collect subscription fee
+        uint256 subscriptionAmount = amountIn;
+        
+        if (factoryParamsSnapshot.subscriptionFeeRatio.value > 0) {
+            (uint256 feeAmount, uint256 remainingAmount) = StreamMathLib.calculateExitFee(amountIn, factoryParamsSnapshot.subscriptionFeeRatio);
+            if (feeAmount > 0) {
+                TransferLib.transferFunds(streamTokens.inSupplyToken, address(this), factoryParamsSnapshot.feeCollector, feeAmount);
+            }
+            subscriptionAmount = remainingAmount;
+        }
+
         // Sync position with latest stream state
         position = StreamMathLib.syncPosition(position, state.distIndex, state.shares, state.inSupply, block.timestamp);
 
-        // Calculate shares before any state changes
-        uint256 newShares = StreamMathLib.computeSharesAmount(amountIn, false, state.inSupply, state.shares);
+        // Calculate shares before any state changes (using subscriptionAmount after fee deduction)
+        uint256 newShares = StreamMathLib.computeSharesAmount(subscriptionAmount, false, state.inSupply, state.shares);
 
-        // Update position
-        position.inBalance += amountIn;
+        // Update position (using subscriptionAmount after fee deduction)
+        position.inBalance += subscriptionAmount;
         position.shares += newShares;
 
-        // Update stream state
-        state.inSupply += amountIn;
+        // Update stream state (using subscriptionAmount after fee deduction)
+        state.inSupply += subscriptionAmount;
         state.shares += newShares;
 
         // Save all states
@@ -491,10 +508,6 @@ abstract contract StreamCore is IStreamErrors, IStreamEvents, UUPSUpgradeable {
      * @dev Allows the creator to finalize the stream after it has ended
      */
     function finalizeStream() external onlyCreator {
-        // Get factory params
-        IStreamFactoryParams factoryContract = IStreamFactoryParams(STREAM_FACTORY_ADDRESS);
-        StreamFactoryTypes.Params memory params = factoryContract.getParams();
-
         // Load and update status
         StreamTypes.Status status = loadStreamStatus();
         StreamTypes.StreamTimes memory times = loadStreamTimes();
@@ -517,8 +530,8 @@ abstract contract StreamCore is IStreamErrors, IStreamEvents, UUPSUpgradeable {
         uint256 spentIn = state.spentIn;
 
         if (thresholdReached) {
-            address feeCollector = params.feeCollector;
-            Decimal memory exitFeeRatio = params.exitFeeRatio;
+            address feeCollector = factoryParamsSnapshot.feeCollector;
+            Decimal memory exitFeeRatio = factoryParamsSnapshot.exitFeeRatio;
             // Calculate exit fee
             (uint256 feeAmount, uint256 creatorRevenue) = StreamMathLib.calculateExitFee(spentIn, exitFeeRatio);
 

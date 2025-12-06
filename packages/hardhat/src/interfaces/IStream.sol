@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import { StreamTypes } from "../types/StreamTypes.sol";
 import { PositionTypes } from "../types/PositionTypes.sol";
+import { StreamFactoryTypes } from "../types/StreamFactoryTypes.sol";
 import { IStreamEvents } from "./IStreamEvents.sol";
 import { IStreamErrors } from "./IStreamErrors.sol";
 import { IPermit2 } from "./IPermit2.sol";

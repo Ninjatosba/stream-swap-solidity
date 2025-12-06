@@ -8,6 +8,7 @@ library StreamFactoryTypes {
         uint256 streamCreationFee;
         address streamCreationFeeToken;
         Decimal exitFeeRatio;
+        Decimal subscriptionFeeRatio;
         uint256 minWaitingDuration;
         uint256 minBootstrappingDuration;
         uint256 minStreamDuration;
@@ -23,6 +24,7 @@ library StreamFactoryTypes {
         uint256 streamCreationFee;
         address streamCreationFeeToken;
         Decimal exitFeeRatio;
+        Decimal subscriptionFeeRatio;
         uint256 minWaitingDuration;
         uint256 minBootstrappingDuration;
         uint256 minStreamDuration;

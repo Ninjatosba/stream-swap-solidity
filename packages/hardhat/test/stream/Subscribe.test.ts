@@ -774,4 +774,146 @@ describe("Stream Subscribe", function () {
       expect(position.shares).to.be.gt(0);
     });
   });
+
+  describe("Subscription fee", function () {
+    it("Should collect subscription fee when subscriptionFeeRatio is set", async function () {
+      // Set subscription fee ratio to 2% (20000 in decimal format with 1e6 precision)
+      const subscriptionFeeRatio = 20000n; // 2% = 0.02 * 1e6
+      const { contracts, timeParams, accounts } = await loadFixture(
+        stream()
+          .subscriptionFeeRatio(subscriptionFeeRatio)
+          .build()
+      );
+
+      // Advance to active phase
+      await advanceStreamToPhase(contracts.stream, "active", timeParams);
+
+      // Subscribe with 100 tokens
+      const subscriptionAmount = Amounts.DEFAULT_SUBSCRIPTION;
+      const tokenForBalance = contracts.inSupplyToken || "native";
+      const feeCollectorBalanceBefore = await getBalance(tokenForBalance, accounts.feeCollector);
+      const streamAddress = await contracts.stream.getAddress();
+      const streamBalanceBefore = await getBalance(tokenForBalance, streamAddress);
+
+      await subscribeAndSync(contracts.stream, accounts.subscriber1, subscriptionAmount, contracts.inSupplyToken);
+
+      // Calculate expected fee (2% of 100 = 2 tokens)
+      // Using the same calculation as calculateExitFee: floor(amount * ratio)
+      const expectedFee = (subscriptionAmount * subscriptionFeeRatio) / 1000000n;
+      const expectedSubscriptionAmount = subscriptionAmount - expectedFee;
+
+      // Verify fee collector received the fee
+      const feeCollectorBalanceAfter = await getBalance(tokenForBalance, accounts.feeCollector);
+      expect(feeCollectorBalanceAfter - feeCollectorBalanceBefore).to.equal(expectedFee);
+
+      // Verify stream received the remaining amount (after fee)
+      const streamBalanceAfter = await getBalance(tokenForBalance, streamAddress);
+      expect(streamBalanceAfter - streamBalanceBefore).to.equal(expectedSubscriptionAmount);
+
+      // Verify position was created with the subscription amount (after fee)
+      const positionStorage = await getPositionStorage(contracts.stream) as PositionStorage;
+      const position = await positionStorage.getPosition(accounts.subscriber1.address);
+      expect(position.inBalance).to.equal(expectedSubscriptionAmount);
+      expect(position.shares).to.be.gt(0);
+    });
+
+    it("Should not collect fee when subscriptionFeeRatio is zero", async function () {
+      const { contracts, timeParams, accounts } = await loadFixture(stream().build());
+
+      // Ensure subscription fee ratio is zero (default)
+      const factoryParams = await contracts.streamFactory.getParams();
+      expect(factoryParams.subscriptionFeeRatio.value).to.equal(0n);
+
+      // Advance to active phase
+      await advanceStreamToPhase(contracts.stream, "active", timeParams);
+
+      // Subscribe with 100 tokens
+      const subscriptionAmount = Amounts.DEFAULT_SUBSCRIPTION;
+      const tokenForBalance = contracts.inSupplyToken || "native";
+      const feeCollectorBalanceBefore = await getBalance(tokenForBalance, accounts.feeCollector);
+      const streamAddress = await contracts.stream.getAddress();
+      const streamBalanceBefore = await getBalance(tokenForBalance, streamAddress);
+
+      await subscribeAndSync(contracts.stream, accounts.subscriber1, subscriptionAmount, contracts.inSupplyToken);
+
+      // Verify fee collector did not receive any fee
+      const feeCollectorBalanceAfter = await getBalance(tokenForBalance, accounts.feeCollector);
+      expect(feeCollectorBalanceAfter - feeCollectorBalanceBefore).to.equal(0n);
+
+      // Verify stream received the full amount
+      const streamBalanceAfter = await getBalance(tokenForBalance, streamAddress);
+      expect(streamBalanceAfter - streamBalanceBefore).to.equal(subscriptionAmount);
+
+      // Verify position was created with the full subscription amount
+      const positionStorage = await getPositionStorage(contracts.stream) as PositionStorage;
+      const position = await positionStorage.getPosition(accounts.subscriber1.address);
+      expect(position.inBalance).to.equal(subscriptionAmount);
+    });
+
+    it("Should collect correct fee for multiple subscriptions", async function () {
+      // Set subscription fee ratio to 1% (10000 in decimal format with 1e6 precision)
+      const subscriptionFeeRatio = 10000n; // 1% = 0.01 * 1e6
+      const { contracts, timeParams, accounts } = await loadFixture(
+        stream()
+          .subscriptionFeeRatio(subscriptionFeeRatio)
+          .build()
+      );
+
+      // Advance to active phase
+      await advanceStreamToPhase(contracts.stream, "active", timeParams);
+
+      // First subscription: 100 tokens
+      const subscriptionAmount1 = Amounts.DEFAULT_SUBSCRIPTION;
+      const expectedFee1 = (subscriptionAmount1 * subscriptionFeeRatio) / 1000000n;
+      const expectedSubscriptionAmount1 = subscriptionAmount1 - expectedFee1;
+
+      await subscribeAndSync(contracts.stream, accounts.subscriber1, subscriptionAmount1, contracts.inSupplyToken);
+
+      // Second subscription: 200 tokens
+      const subscriptionAmount2 = ethers.parseEther("200");
+      const expectedFee2 = (subscriptionAmount2 * subscriptionFeeRatio) / 1000000n;
+      const expectedSubscriptionAmount2 = subscriptionAmount2 - expectedFee2;
+
+      const tokenForBalance = contracts.inSupplyToken || "native";
+      const feeCollectorBalanceBefore = await getBalance(tokenForBalance, accounts.feeCollector);
+      await subscribeAndSync(contracts.stream, accounts.subscriber2, subscriptionAmount2, contracts.inSupplyToken);
+
+      // Verify fee collector received the second fee
+      const feeCollectorBalanceAfter = await getBalance(tokenForBalance, accounts.feeCollector);
+      expect(feeCollectorBalanceAfter - feeCollectorBalanceBefore).to.equal(expectedFee2);
+
+      // Verify positions
+      const positionStorage = await getPositionStorage(contracts.stream) as PositionStorage;
+      const position1 = await positionStorage.getPosition(accounts.subscriber1.address);
+      const position2 = await positionStorage.getPosition(accounts.subscriber2.address);
+
+      expect(position1.inBalance).to.equal(expectedSubscriptionAmount1);
+      expect(position2.inBalance).to.equal(expectedSubscriptionAmount2);
+    });
+
+    it("Should emit SubscriptionFeeRatioUpdated event when updated", async function () {
+      const { contracts, accounts } = await loadFixture(stream().build());
+
+      const newSubscriptionFeeRatio = { value: 15000n }; // 1.5%
+
+      const tx = await contracts.streamFactory
+        .connect(accounts.protocolAdmin)
+        .updateSubscriptionFeeRatio(newSubscriptionFeeRatio);
+
+      const receipt = await tx.wait();
+      const event = receipt?.logs.find(
+        (log: any) => log.topics[0] === contracts.streamFactory.interface.getEvent("SubscriptionFeeRatioUpdated").topicHash,
+      );
+
+      expect(event).to.not.be.undefined;
+      if (!event) throw new Error("Event not found");
+      const parsedEvent = contracts.streamFactory.interface.parseLog({
+        topics: event.topics,
+        data: event.data,
+      });
+
+      expect(parsedEvent?.args.oldRatio).to.equal(0n);
+      expect(parsedEvent?.args.newRatio).to.equal(newSubscriptionFeeRatio.value);
+    });
+  });
 });

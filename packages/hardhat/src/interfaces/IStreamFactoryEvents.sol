@@ -39,6 +39,7 @@ interface IStreamFactoryEvents {
         address[] acceptedInSupplyTokens,
         uint256 streamCreationFee,
         uint256 exitFeeRatio,
+        uint256 subscriptionFeeRatio,
         uint256 minWaitingDuration,
         uint256 minBootstrappingDuration,
         uint256 minStreamDuration,
@@ -83,6 +84,8 @@ interface IStreamFactoryEvents {
     );
 
     event ExitFeeRatioUpdated(address indexed factory, uint256 oldRatio, uint256 newRatio);
+
+    event SubscriptionFeeRatioUpdated(address indexed factory, uint256 oldRatio, uint256 newRatio);
 
     event TosVersionUpdated(address indexed factory, string oldVersion, string newVersion);
 

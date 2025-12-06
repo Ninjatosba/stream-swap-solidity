@@ -137,9 +137,7 @@ contract StreamPostActions is StreamCore {
         StreamTypes.DexType dexType,
         address streamCreator
     ) internal {
-        IStreamFactoryParams factoryContract = IStreamFactoryParams(STREAM_FACTORY_ADDRESS);
-        StreamFactoryTypes.Params memory params = factoryContract.getParams();
-        address router = params.poolRouterAddress;
+        address router = factoryParamsSnapshot.poolRouterAddress;
         if (router == address(0)) revert InvalidDexType();
 
         // Pre-fund router
@@ -170,10 +168,8 @@ contract StreamPostActions is StreamCore {
     }
 
     function _createBeneficiaryVesting(address beneficiary, uint256 amount) internal {
-        IStreamFactoryParams factoryContract = IStreamFactoryParams(STREAM_FACTORY_ADDRESS);
-        StreamFactoryTypes.Params memory params = factoryContract.getParams();
-        IVestingFactory vestingFactory = IVestingFactory(params.vestingFactoryAddress);
-        IERC20(streamTokens.outSupplyToken).approve(params.vestingFactoryAddress, amount);
+        IVestingFactory vestingFactory = IVestingFactory(factoryParamsSnapshot.vestingFactoryAddress);
+        IERC20(streamTokens.outSupplyToken).approve(factoryParamsSnapshot.vestingFactoryAddress, amount);
         address vestingAddress = vestingFactory.createVestingWalletWithTokens(
             beneficiary, uint64(block.timestamp), postStreamActions.beneficiaryVesting.vestingDuration, streamTokens.outSupplyToken, amount
         );
@@ -181,10 +177,8 @@ contract StreamPostActions is StreamCore {
     }
 
     function _createCreatorVesting(uint256 amount) internal {
-        IStreamFactoryParams factoryContract = IStreamFactoryParams(STREAM_FACTORY_ADDRESS);
-        StreamFactoryTypes.Params memory params = factoryContract.getParams();
-        IVestingFactory vestingFactory = IVestingFactory(params.vestingFactoryAddress);
-        IERC20(streamTokens.inSupplyToken).approve(params.vestingFactoryAddress, amount);
+        IVestingFactory vestingFactory = IVestingFactory(factoryParamsSnapshot.vestingFactoryAddress);
+        IERC20(streamTokens.inSupplyToken).approve(factoryParamsSnapshot.vestingFactoryAddress, amount);
         address vestingAddress = vestingFactory.createVestingWalletWithTokens(
             creator, uint64(block.timestamp), postStreamActions.creatorVesting.vestingDuration, streamTokens.inSupplyToken, amount
         );

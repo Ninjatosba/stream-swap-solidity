@@ -12,6 +12,7 @@ interface IStreamFactoryErrors {
     error WaitingDurationTooShort();
     error ContractFrozen();
     error InvalidExitFeeRatio();
+    error InvalidSubscriptionFeeRatio();
     error ZeroOutSupplyNotAllowed();
     error StreamInputTokenNotAccepted();
     error InvalidBootstrappingTime();

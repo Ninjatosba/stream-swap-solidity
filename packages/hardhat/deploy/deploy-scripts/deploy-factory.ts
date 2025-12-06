@@ -83,6 +83,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   console.log(`  Min Bootstrapping Duration: ${config.minBootstrappingDuration}s (${Math.round(config.minBootstrappingDuration / 3600 * 100) / 100}h)`);
   console.log(`  Min Stream Duration: ${config.minStreamDuration}s (${Math.round(config.minStreamDuration / 86400 * 100) / 100}d)`);
   console.log(`  Exit Fee Ratio: ${Number(config.ExitFeeRatio.value) / 10000}%`);
+  console.log(`  Subscription Fee Ratio: ${Number(config.SubscriptionFeeRatio.value) / 10000}%`);
 
   // Deploy PoolRouter and wrappers (if enabled)
   let poolRouterAddress = ZERO_ADDRESS;
@@ -265,6 +266,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
       streamCreationFee: config.streamCreationFee,
       streamCreationFeeToken: config.streamCreationFeeToken,
       exitFeeRatio: config.ExitFeeRatio,
+      subscriptionFeeRatio: config.SubscriptionFeeRatio,
       minWaitingDuration: config.minWaitingDuration,
       minBootstrappingDuration: config.minBootstrappingDuration,
       minStreamDuration: config.minStreamDuration,

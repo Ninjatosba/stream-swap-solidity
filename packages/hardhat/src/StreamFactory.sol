@@ -58,6 +58,9 @@ contract StreamFactory is IStreamFactoryEvents, IStreamFactoryErrors {
         if (DecimalMath.gt(initializeStreamFactoryMessage.exitFeeRatio, DecimalMath.fromNumber(1))) {
             revert InvalidExitFeeRatio();
         }
+        if (DecimalMath.gt(initializeStreamFactoryMessage.subscriptionFeeRatio, DecimalMath.fromNumber(1))) {
+            revert InvalidSubscriptionFeeRatio();
+        }
         if (initializeStreamFactoryMessage.acceptedInSupplyTokens.length == 0) {
             revert InvalidAcceptedInSupplyTokens();
         }
@@ -65,6 +68,7 @@ contract StreamFactory is IStreamFactoryEvents, IStreamFactoryErrors {
         params.streamCreationFee = initializeStreamFactoryMessage.streamCreationFee;
         params.streamCreationFeeToken = initializeStreamFactoryMessage.streamCreationFeeToken;
         params.exitFeeRatio = initializeStreamFactoryMessage.exitFeeRatio;
+        params.subscriptionFeeRatio = initializeStreamFactoryMessage.subscriptionFeeRatio;
         params.minWaitingDuration = initializeStreamFactoryMessage.minWaitingDuration;
         params.minBootstrappingDuration = initializeStreamFactoryMessage.minBootstrappingDuration;
         params.minStreamDuration = initializeStreamFactoryMessage.minStreamDuration;
@@ -90,6 +94,7 @@ contract StreamFactory is IStreamFactoryEvents, IStreamFactoryErrors {
             initializeStreamFactoryMessage.acceptedInSupplyTokens,
             initializeStreamFactoryMessage.streamCreationFee,
             initializeStreamFactoryMessage.exitFeeRatio.value,
+            initializeStreamFactoryMessage.subscriptionFeeRatio.value,
             initializeStreamFactoryMessage.minWaitingDuration,
             initializeStreamFactoryMessage.minBootstrappingDuration,
             initializeStreamFactoryMessage.minStreamDuration,
@@ -192,6 +197,15 @@ contract StreamFactory is IStreamFactoryEvents, IStreamFactoryErrors {
         uint256 oldRatio = params.exitFeeRatio.value;
         params.exitFeeRatio = exitFeeRatio;
         emit ExitFeeRatioUpdated(address(this), oldRatio, exitFeeRatio.value);
+    }
+
+    function updateSubscriptionFeeRatio(Decimal memory subscriptionFeeRatio) external onlyAdmin {
+        if (DecimalMath.gt(subscriptionFeeRatio, DecimalMath.fromNumber(1))) {
+            revert InvalidSubscriptionFeeRatio();
+        }
+        uint256 oldRatio = params.subscriptionFeeRatio.value;
+        params.subscriptionFeeRatio = subscriptionFeeRatio;
+        emit SubscriptionFeeRatioUpdated(address(this), oldRatio, subscriptionFeeRatio.value);
     }
 
     function updateTosVersion(string memory tosVersion) external onlyAdmin {
