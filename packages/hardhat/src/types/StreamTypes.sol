@@ -34,6 +34,8 @@ library StreamTypes {
         VestingInfo beneficiaryVesting;
         PoolInfo poolInfo;
         string tosVersion;
+        // Optional Merkle whitelist root; zero value means no whitelist (public stream)
+        bytes32 whitelistRoot;
     }
     struct StreamTimes {
         uint256 bootstrappingStartTime;

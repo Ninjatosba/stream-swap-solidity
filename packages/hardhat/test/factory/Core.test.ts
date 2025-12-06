@@ -2,14 +2,15 @@ import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { expect } from "chai";
 import { ethers } from "hardhat";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
-import { streamFactory } from "./helpers/StreamFactoryFixtureBuilder";
-import { StreamFactory, StreamFactoryTypes } from "../typechain-types/src/StreamFactory";
-import { ERC20Mock } from "../typechain-types";
-import { StreamBasic } from "../typechain-types/src/StreamBasic";
-import { StreamPostActions } from "../typechain-types/src/StreamPostActions";
-import { TokenFactory } from "../typechain-types/src/TokenFactory";
-import { VestingFactory } from "../typechain-types/src/VestingFactory";
-import { PoolRouter } from "../typechain-types/src/PoolRouter";
+import { streamFactory } from "../helpers/StreamFactoryFixtureBuilder";
+import { StreamFactory, StreamFactoryTypes } from "../../typechain-types/src/StreamFactory";
+import { ERC20Mock } from "../../typechain-types";
+import { StreamBasic } from "../../typechain-types/src/StreamBasic";
+import { StreamPostActions } from "../../typechain-types/src/StreamPostActions";
+import { TokenFactory } from "../../typechain-types/src/TokenFactory";
+import { VestingFactory } from "../../typechain-types/src/VestingFactory";
+import { PoolRouter } from "../../typechain-types/src/PoolRouter";
+import { Durations } from "../types";
 
 describe("StreamFactoryCore", function () {
     const defaultFixture = streamFactory().build();
@@ -98,9 +99,9 @@ describe("StreamFactoryCore", function () {
                 streamCreationFee: 100,
                 streamCreationFeeToken: await mockToken.getAddress(),
                 exitFeeRatio: { value: 100000n },
-                minWaitingDuration: 3600,
-                minBootstrappingDuration: 3600,
-                minStreamDuration: 3600,
+                minWaitingDuration: Durations.ONE_HOUR,
+                minBootstrappingDuration: Durations.ONE_HOUR,
+                minStreamDuration: Durations.ONE_HOUR,
                 feeCollector: feeCollector.address,
                 protocolAdmin: protocolAdmin.address,
                 tosVersion: "1.0",

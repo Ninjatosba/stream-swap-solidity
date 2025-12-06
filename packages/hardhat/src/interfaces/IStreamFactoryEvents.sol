@@ -22,6 +22,7 @@ interface IStreamFactoryEvents {
         uint256 threshold,
         string metadataIpfsHash,
         string tosVersion,
+        bytes32 whitelistRoot,
         uint16 streamId
     );
 

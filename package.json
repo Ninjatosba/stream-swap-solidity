@@ -43,6 +43,9 @@
     "precommit": "lint-staged",
     "subscribe": "yarn workspace @se-2/hardhat hardhat subscribe",
     "test": "yarn hardhat:test",
+    "test:fast": "yarn workspace @se-2/hardhat test:fast",
+    "test:fork": "yarn workspace @se-2/hardhat test:fork",
+    "coverage": "yarn workspace @se-2/hardhat coverage",
     "verify": "yarn hardhat:verify",
     "compile:sync": "yarn workspace @se-2/hardhat compile && yarn workspace @se-2/hardhat sync-abis && yarn workspace @se-2/hardhat generate-indexer-types"
   },

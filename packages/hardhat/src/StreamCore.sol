@@ -24,6 +24,7 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { TransferLib } from "./lib/TransferLib.sol";
 import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import { IPermit2 } from "./interfaces/IPermit2.sol";
+import { MerkleProof } from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 
 import "hardhat/console.sol";
 
@@ -59,12 +60,14 @@ abstract contract StreamCore is IStreamErrors, IStreamEvents, UUPSUpgradeable {
     /// @notice Timing information for the stream phases
     StreamTypes.StreamTimes public streamTimes;
     
+    /// @notice Optional Merkle whitelist root; zero means no whitelist (public stream)
+    bytes32 public whitelistRoot;
 
     /// @notice Address of the Permit2 contract
     address public constant PERMIT2 = 0x000000000022D473030F116dDEE9F6B43aC78BA3;
 
     /// @notice Storage gap for future upgrades
-    uint256[40] private __gap;
+    uint256[39] private __gap;
 
     // ============ Modifiers ============
 
@@ -158,6 +161,9 @@ abstract contract StreamCore is IStreamErrors, IStreamEvents, UUPSUpgradeable {
             streamEndTime: createStreamMessage.streamEndTime
         });
         
+        // Initialize whitelist root
+        whitelistRoot = createStreamMessage.whitelistRoot;
+        
         // Call initialization hook for extensions
         _onInitialize(createStreamMessage);
     }
@@ -235,7 +241,7 @@ abstract contract StreamCore is IStreamErrors, IStreamEvents, UUPSUpgradeable {
      * @dev Internal function containing the core subscription logic
      * @param amountIn Amount of input tokens to subscribe with
      */
-    function _subscribeCore(uint256 amountIn) internal {
+    function _subscribeCore(uint256 amountIn, bytes32[] calldata merkleProof) internal {
         if (amountIn == 0) revert InvalidAmount();
 
         // Load and validate stream state
@@ -252,8 +258,19 @@ abstract contract StreamCore is IStreamErrors, IStreamEvents, UUPSUpgradeable {
         StreamTypes.StreamState memory state = loadStream();
         state = syncStream(state);
 
-        // Load and sync position
+        // Load position once
         PositionTypes.Position memory position = loadPosition(msg.sender);
+
+        // If whitelist is enabled and user has no existing position, require a valid Merkle proof
+        if (whitelistRoot != bytes32(0) && position.shares == 0) {
+            bytes32 leaf = keccak256(abi.encodePacked(msg.sender));
+            bool valid = MerkleProof.verify(merkleProof, whitelistRoot, leaf);
+            if (!valid) {
+                revert Unauthorized();
+            }
+        }
+
+        // Sync position with latest stream state
         position = StreamMathLib.syncPosition(position, state.distIndex, state.shares, state.inSupply, block.timestamp);
 
         // Calculate shares before any state changes
@@ -293,22 +310,22 @@ abstract contract StreamCore is IStreamErrors, IStreamEvents, UUPSUpgradeable {
      * @dev Allows users to subscribe to the stream by providing input tokens
      * @param amountIn Amount of input tokens to subscribe with
      */
-    function subscribe(uint256 amountIn) external {
+    function subscribe(uint256 amountIn, bytes32[] calldata merkleProof) external {
         if (streamTokens.inSupplyToken == address(0)) revert InvalidInputToken();
         // Pull funds (ERC20)
         TransferLib.transferFunds(streamTokens.inSupplyToken, msg.sender, address(this), amountIn);
-        _subscribeCore(amountIn);
+        _subscribeCore(amountIn, merkleProof);
     }
 
     /**
      * @dev Allows users to subscribe with native tokens
      * @param amountIn Amount of native tokens to subscribe with
      */
-    function subscribeWithNativeToken(uint256 amountIn) external payable {
+    function subscribeWithNativeToken(uint256 amountIn, bytes32[] calldata merkleProof) external payable {
         if (streamTokens.inSupplyToken != address(0)) revert InvalidInputToken();
         // Pull funds (native)
         TransferLib.transferFunds(address(0), msg.sender, address(this), amountIn);
-        _subscribeCore(amountIn);
+        _subscribeCore(amountIn, merkleProof);
     }
 
     /**
@@ -322,7 +339,8 @@ abstract contract StreamCore is IStreamErrors, IStreamEvents, UUPSUpgradeable {
         uint256 amountIn,
         address owner,
         IPermit2.PermitSingle calldata permitSingle,
-        bytes calldata signature
+        bytes calldata signature,
+        bytes32[] calldata merkleProof
     ) external {
         if (streamTokens.inSupplyToken == address(0)) revert InvalidInputToken();
         if (permitSingle.details.token != streamTokens.inSupplyToken) revert InvalidAmount();
@@ -333,7 +351,7 @@ abstract contract StreamCore is IStreamErrors, IStreamEvents, UUPSUpgradeable {
         IPermit2 permit2 = IPermit2(PERMIT2);
         permit2.permit(owner, permitSingle, signature);
         permit2.transferFrom(owner, address(this), uint160(amountIn), streamTokens.inSupplyToken);
-        _subscribeCore(amountIn);
+        _subscribeCore(amountIn, merkleProof);
     }
 
     /**

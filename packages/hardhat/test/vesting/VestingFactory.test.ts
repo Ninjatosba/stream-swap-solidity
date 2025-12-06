@@ -1,6 +1,7 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
 import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
+import { Durations } from "../types";
 
 describe("VestingFactory", function () {
     async function deployVestingFactoryFixture() {
@@ -280,4 +281,5 @@ describe("VestingFactory", function () {
             ).to.be.revertedWithCustomError(vestingFactory, "InvalidStartTime");
         });
     });
-}); 
+});
+

@@ -1,0 +1,4 @@
+# Fork tests folder
+# Tests that require forking mainnet/other networks (DEX integrations, etc.)
+# These tests are slower and may be skipped in quick test runs.
+

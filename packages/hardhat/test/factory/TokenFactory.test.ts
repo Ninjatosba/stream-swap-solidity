@@ -1,7 +1,7 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
-import { TokenFactory } from "../typechain-types";
-import { StandardERC20 } from "../typechain-types";
+import { TokenFactory } from "../../typechain-types";
+import { StandardERC20 } from "../../typechain-types";
 
 describe("TokenFactory", function () {
     let tokenFactory: TokenFactory;

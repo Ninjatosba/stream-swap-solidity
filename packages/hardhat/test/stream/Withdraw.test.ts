@@ -1,31 +1,31 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
 import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
-import { PositionStorage } from "../typechain-types";
-import { stream } from "./helpers/StreamFixtureBuilder";
+import { PositionStorage } from "../../typechain-types";
+import { stream } from "../helpers/StreamFixtureBuilder";
+import { Amounts, Errors } from "../types";
+import { advanceToPhase, timeTravel } from "../helpers/time";
+import {
+  advanceStreamToPhase,
+  subscribeAndSync,
+  getPositionStorage,
+} from "../helpers/stream";
+import { getBalance } from "../helpers/balances";
 
 describe("Stream Withdraw", function () {
   describe("Basic withdrawal", function () {
     it("Should allow withdrawal during stream phase", async function () {
       const { contracts, timeParams, accounts } = await loadFixture(stream().build());
 
-      // Fast forward time to stream phase
-      await ethers.provider.send("evm_setNextBlockTimestamp", [timeParams.streamStartTime + 1]);
-      await ethers.provider.send("evm_mine", []);
-
-      // Sync the stream to update status
-      await contracts.stream.syncStreamExternal();
+      // Advance to active phase and sync
+      await advanceStreamToPhase(contracts.stream, "active", timeParams);
 
       // Subscribe with 100 tokens
-      const subscriptionAmount = 100;
-      await contracts.inSupplyToken
-        .connect(accounts.subscriber1)
-        .approve(contracts.stream.getAddress(), subscriptionAmount);
-      await contracts.stream.connect(accounts.subscriber1).subscribe(subscriptionAmount);
+      const subscriptionAmount = 100n;
+      await subscribeAndSync(contracts.stream, accounts.subscriber1, subscriptionAmount, contracts.inSupplyToken);
 
       // Get PositionStorage contract instance
-      const positionStorageAddr = await contracts.stream.positionStorageAddress();
-      const positionStorage = (await ethers.getContractAt("PositionStorage", positionStorageAddr)) as PositionStorage;
+      const positionStorage = await getPositionStorage(contracts.stream) as PositionStorage;
 
       // Verify position was created correctly
       const position = await positionStorage.getPosition(accounts.subscriber1.address);
@@ -33,10 +33,10 @@ describe("Stream Withdraw", function () {
       expect(position.shares).to.be.gt(0);
 
       // Withdraw 50 tokens
-      const withdrawAmount = 50;
-      const inBalanceBefore = await contracts.inSupplyToken.balanceOf(accounts.subscriber1.address);
+      const withdrawAmount = 50n;
+      const inBalanceBefore = await getBalance(contracts.inSupplyToken, accounts.subscriber1);
       await contracts.stream.connect(accounts.subscriber1).withdraw(withdrawAmount);
-      const inBalanceAfter = await contracts.inSupplyToken.balanceOf(accounts.subscriber1.address);
+      const inBalanceAfter = await getBalance(contracts.inSupplyToken, accounts.subscriber1);
       expect(inBalanceAfter - inBalanceBefore).to.equal(withdrawAmount);
 
       // Sync the position
@@ -54,32 +54,21 @@ describe("Stream Withdraw", function () {
     it("Should fail withdrawal during ended phase", async function () {
       const { contracts, timeParams, accounts } = await loadFixture(stream().build());
 
-      // Fast forward time to stream phase
-      await ethers.provider.send("evm_setNextBlockTimestamp", [timeParams.streamStartTime + 1]);
-      await ethers.provider.send("evm_mine", []);
-
-      // Sync the stream to update status
-      await contracts.stream.syncStreamExternal();
+      // Advance to active phase and sync
+      await advanceStreamToPhase(contracts.stream, "active", timeParams);
 
       // Subscribe with 100 tokens
-      const subscriptionAmount = 100;
-      await contracts.inSupplyToken
-        .connect(accounts.subscriber1)
-        .approve(contracts.stream.getAddress(), subscriptionAmount);
-      await contracts.stream.connect(accounts.subscriber1).subscribe(subscriptionAmount);
+      const subscriptionAmount = 100n;
+      await subscribeAndSync(contracts.stream, accounts.subscriber1, subscriptionAmount, contracts.inSupplyToken);
 
-      // Fast forward time to ended phase
-      await ethers.provider.send("evm_setNextBlockTimestamp", [timeParams.streamEndTime + 1]);
-      await ethers.provider.send("evm_mine", []);
-
-      // Sync the stream to update status
-      await contracts.stream.syncStreamExternal();
+      // Advance to ended phase and sync
+      await advanceStreamToPhase(contracts.stream, "ended", timeParams);
 
       // Try to withdraw during ended phase
-      const withdrawAmount = 50;
+      const withdrawAmount = 50n;
       await expect(
         contracts.stream.connect(accounts.subscriber1).withdraw(withdrawAmount),
-      ).to.be.revertedWithCustomError(contracts.stream, "OperationNotAllowed");
+      ).to.be.revertedWithCustomError(contracts.stream, Errors.OperationNotAllowed);
     });
   });
 
@@ -87,22 +76,15 @@ describe("Stream Withdraw", function () {
     it("Should allow multiple withdrawals from same user", async function () {
       const { contracts, timeParams, accounts } = await loadFixture(stream().build());
 
-      // Fast forward time to stream phase
-      await ethers.provider.send("evm_setNextBlockTimestamp", [timeParams.streamStartTime + 1]);
-      await ethers.provider.send("evm_mine", []);
-
-      // Sync the stream to update status
-      await contracts.stream.syncStreamExternal();
+      // Advance to active phase and sync
+      await advanceStreamToPhase(contracts.stream, "active", timeParams);
 
       // Subscribe with 100 tokens
-      const subscriptionAmount = ethers.parseEther("100");
-      await contracts.inSupplyToken
-        .connect(accounts.subscriber1)
-        .approve(contracts.stream.getAddress(), subscriptionAmount);
-      await contracts.stream.connect(accounts.subscriber1).subscribe(subscriptionAmount);
+      const subscriptionAmount = Amounts.DEFAULT_SUBSCRIPTION;
+      await subscribeAndSync(contracts.stream, accounts.subscriber1, subscriptionAmount, contracts.inSupplyToken);
 
       // Query in balance of subscriber1
-      const inBalanceBefore = await contracts.inSupplyToken.balanceOf(accounts.subscriber1.address);
+      const inBalanceBefore = await getBalance(contracts.inSupplyToken, accounts.subscriber1);
 
       // First withdrawal
       const withdrawAmount1 = ethers.parseEther("30");
@@ -113,8 +95,7 @@ describe("Stream Withdraw", function () {
       await contracts.stream.connect(accounts.subscriber1).withdraw(withdrawAmount2);
 
       // Get PositionStorage contract instance
-      const positionStorageAddr = await contracts.stream.positionStorageAddress();
-      const positionStorage = (await ethers.getContractAt("PositionStorage", positionStorageAddr)) as PositionStorage;
+      const positionStorage = await getPositionStorage(contracts.stream) as PositionStorage;
 
       // Verify position was updated correctly
       const position = await positionStorage.getPosition(accounts.subscriber1.address);
@@ -124,7 +105,7 @@ describe("Stream Withdraw", function () {
       expect(position.purchased).to.be.gt(0);
 
       // Verify in balance of subscriber1
-      const inBalanceAfter = await contracts.inSupplyToken.balanceOf(accounts.subscriber1.address);
+      const inBalanceAfter = await getBalance(contracts.inSupplyToken, accounts.subscriber1);
       expect(inBalanceAfter - inBalanceBefore).to.equal(withdrawAmount1 + withdrawAmount2);
     });
   });
@@ -133,28 +114,21 @@ describe("Stream Withdraw", function () {
     it("Should allow full withdrawal with zero amount", async function () {
       const { contracts, timeParams, accounts } = await loadFixture(stream().build());
 
-      // Fast forward time to bootstrapping phase (not active phase to avoid token spending)
-      await ethers.provider.send("evm_setNextBlockTimestamp", [timeParams.bootstrappingStartTime + 1]);
-      await ethers.provider.send("evm_mine", []);
-
-      // Sync the stream to update status
-      await contracts.stream.syncStreamExternal();
+      // Advance to bootstrapping phase (not active phase to avoid token spending)
+      await advanceStreamToPhase(contracts.stream, "bootstrapping", timeParams);
 
       // Subscribe with 100 tokens
-      const subscriptionAmount = ethers.parseEther("100");
-      await contracts.inSupplyToken
-        .connect(accounts.subscriber1)
-        .approve(contracts.stream.getAddress(), subscriptionAmount);
-      await contracts.stream.connect(accounts.subscriber1).subscribe(subscriptionAmount);
+      const subscriptionAmount = Amounts.DEFAULT_SUBSCRIPTION;
+      await subscribeAndSync(contracts.stream, accounts.subscriber1, subscriptionAmount, contracts.inSupplyToken);
 
       // Get balance before withdrawal
-      const balanceBefore = await contracts.inSupplyToken.balanceOf(accounts.subscriber1.address);
+      const balanceBefore = await getBalance(contracts.inSupplyToken, accounts.subscriber1);
 
       // Withdraw all tokens by passing 0
       await contracts.stream.connect(accounts.subscriber1).withdraw(0);
 
       // Verify all tokens were withdrawn
-      const balanceAfter = await contracts.inSupplyToken.balanceOf(accounts.subscriber1.address);
+      const balanceAfter = await getBalance(contracts.inSupplyToken, accounts.subscriber1);
       expect(balanceAfter - balanceBefore).to.equal(subscriptionAmount);
 
       // Verify position is now empty
@@ -166,12 +140,8 @@ describe("Stream Withdraw", function () {
     it("Should handle full withdrawal when balance is zero", async function () {
       const { contracts, timeParams, accounts } = await loadFixture(stream().build());
 
-      // Fast forward time to stream phase
-      await ethers.provider.send("evm_setNextBlockTimestamp", [timeParams.streamStartTime + 1]);
-      await ethers.provider.send("evm_mine", []);
-
-      // Sync the stream to update status
-      await contracts.stream.syncStreamExternal();
+      // Advance to active phase and sync
+      await advanceStreamToPhase(contracts.stream, "active", timeParams);
 
       // Try to withdraw 0 when user has no position
       await expect(
@@ -182,19 +152,12 @@ describe("Stream Withdraw", function () {
     it("Should fail with withdrawal amount exceeding balance", async function () {
       const { contracts, timeParams, accounts } = await loadFixture(stream().build());
 
-      // Fast forward time to stream phase
-      await ethers.provider.send("evm_setNextBlockTimestamp", [timeParams.streamStartTime + 1]);
-      await ethers.provider.send("evm_mine", []);
-
-      // Sync the stream to update status
-      await contracts.stream.syncStreamExternal();
+      // Advance to active phase and sync
+      await advanceStreamToPhase(contracts.stream, "active", timeParams);
 
       // Subscribe with 100 tokens
-      const subscriptionAmount = ethers.parseEther("100");
-      await contracts.inSupplyToken
-        .connect(accounts.subscriber1)
-        .approve(contracts.stream.getAddress(), subscriptionAmount);
-      await contracts.stream.connect(accounts.subscriber1).subscribe(subscriptionAmount);
+      const subscriptionAmount = Amounts.DEFAULT_SUBSCRIPTION;
+      await subscribeAndSync(contracts.stream, accounts.subscriber1, subscriptionAmount, contracts.inSupplyToken);
 
       // Try to withdraw more than subscribed
       const withdrawAmount = subscriptionAmount + ethers.parseEther("1");
@@ -206,12 +169,8 @@ describe("Stream Withdraw", function () {
     it("Should fail withdrawal with invalid position", async function () {
       const { contracts, timeParams, accounts } = await loadFixture(stream().build());
 
-      // Fast forward time to stream phase
-      await ethers.provider.send("evm_setNextBlockTimestamp", [timeParams.streamStartTime + 1]);
-      await ethers.provider.send("evm_mine", []);
-
-      // Sync the stream to update status
-      await contracts.stream.syncStreamExternal();
+      // Advance to active phase and sync
+      await advanceStreamToPhase(contracts.stream, "active", timeParams);
 
       // Try to withdraw without subscribing
       const withdrawAmount = ethers.parseEther("50");
@@ -225,23 +184,15 @@ describe("Stream Withdraw", function () {
     it("Should allow withdrawal in bootstrapping phase", async function () {
       const { contracts, timeParams, accounts } = await loadFixture(stream().build());
 
-      // Fast forward time to bootstrapping phase
-      await ethers.provider.send("evm_setNextBlockTimestamp", [timeParams.bootstrappingStartTime + 1]);
-      await ethers.provider.send("evm_mine", []);
-
-      // Sync the stream to update status
-      await contracts.stream.syncStreamExternal();
+      // Advance to bootstrapping phase and sync
+      await advanceStreamToPhase(contracts.stream, "bootstrapping", timeParams);
 
       // Subscribe with 100 tokens
-      const subscriptionAmount = ethers.parseEther("100");
-      await contracts.inSupplyToken
-        .connect(accounts.subscriber1)
-        .approve(contracts.stream.getAddress(), subscriptionAmount);
-      await contracts.stream.connect(accounts.subscriber1).subscribe(subscriptionAmount);
+      const subscriptionAmount = Amounts.DEFAULT_SUBSCRIPTION;
+      await subscribeAndSync(contracts.stream, accounts.subscriber1, subscriptionAmount, contracts.inSupplyToken);
 
       // Get PositionStorage contract instance
-      const positionStorageAddr = await contracts.stream.positionStorageAddress();
-      const positionStorage = (await ethers.getContractAt("PositionStorage", positionStorageAddr)) as PositionStorage;
+      const positionStorage = await getPositionStorage(contracts.stream) as PositionStorage;
 
       // Verify position was created correctly
       const position = await positionStorage.getPosition(accounts.subscriber1.address);
@@ -260,23 +211,15 @@ describe("Stream Withdraw", function () {
     it("Full withdrawal in bootstrapping phase", async function () {
       const { contracts, timeParams, accounts } = await loadFixture(stream().build());
 
-      // Fast forward time to bootstrapping phase
-      await ethers.provider.send("evm_setNextBlockTimestamp", [timeParams.bootstrappingStartTime + 1]);
-      await ethers.provider.send("evm_mine", []);
-
-      // Sync the stream to update status
-      await contracts.stream.syncStreamExternal();
+      // Advance to bootstrapping phase and sync
+      await advanceStreamToPhase(contracts.stream, "bootstrapping", timeParams);
 
       // Subscribe with 100 tokens
-      const subscriptionAmount = ethers.parseEther("100");
-      await contracts.inSupplyToken
-        .connect(accounts.subscriber1)
-        .approve(contracts.stream.getAddress(), subscriptionAmount);
-      await contracts.stream.connect(accounts.subscriber1).subscribe(subscriptionAmount);
+      const subscriptionAmount = Amounts.DEFAULT_SUBSCRIPTION;
+      await subscribeAndSync(contracts.stream, accounts.subscriber1, subscriptionAmount, contracts.inSupplyToken);
 
       // Get PositionStorage contract instance
-      const positionStorageAddr = await contracts.stream.positionStorageAddress();
-      const positionStorage = (await ethers.getContractAt("PositionStorage", positionStorageAddr)) as PositionStorage;
+      const positionStorage = await getPositionStorage(contracts.stream) as PositionStorage;
 
       // Verify position was created correctly
       const position = await positionStorage.getPosition(accounts.subscriber1.address);
@@ -297,23 +240,15 @@ describe("Stream Withdraw", function () {
     it("Should emit Withdrawn event with correct parameters", async function () {
       const { contracts, timeParams, accounts } = await loadFixture(stream().build());
 
-      // Fast forward time to stream phase
-      await ethers.provider.send("evm_setNextBlockTimestamp", [timeParams.streamStartTime + 1]);
-      await ethers.provider.send("evm_mine", []);
-
-      // Sync the stream to update status
-      await contracts.stream.syncStreamExternal();
+      // Advance to active phase and sync
+      await advanceStreamToPhase(contracts.stream, "active", timeParams);
 
       // Subscribe with 100 tokens
-      const subscriptionAmount = ethers.parseEther("100");
-      await contracts.inSupplyToken
-        .connect(accounts.subscriber1)
-        .approve(contracts.stream.getAddress(), subscriptionAmount);
-      await contracts.stream.connect(accounts.subscriber1).subscribe(subscriptionAmount);
+      const subscriptionAmount = Amounts.DEFAULT_SUBSCRIPTION;
+      await subscribeAndSync(contracts.stream, accounts.subscriber1, subscriptionAmount, contracts.inSupplyToken);
 
       // Get PositionStorage contract instance
-      const positionStorageAddr = await contracts.stream.positionStorageAddress();
-      const positionStorage = (await ethers.getContractAt("PositionStorage", positionStorageAddr)) as PositionStorage;
+      const positionStorage = await getPositionStorage(contracts.stream) as PositionStorage;
 
       // Verify position was created correctly
       const position = await positionStorage.getPosition(accounts.subscriber1.address);
@@ -357,27 +292,26 @@ describe("Stream Withdraw", function () {
         stream().nativeToken().setThreshold(0n).build()
       );
 
-      // Fast forward time to stream phase and subscribe first
-      await ethers.provider.send("evm_setNextBlockTimestamp", [timeParams.streamStartTime + 1]);
-      await ethers.provider.send("evm_mine", []);
+      // Advance to active phase and sync
+      await advanceStreamToPhase(contracts.stream, "active", timeParams);
 
+      // Subscribe with native tokens
       const subscriptionAmount = ethers.parseEther("2");
       await contracts.stream
         .connect(accounts.subscriber1)
-        .subscribeWithNativeToken(subscriptionAmount, { value: subscriptionAmount });
+        .subscribeWithNativeToken(subscriptionAmount, [], { value: subscriptionAmount });
 
       // Fast forward a bit more to allow some streaming
-      await ethers.provider.send("evm_setNextBlockTimestamp", [timeParams.streamStartTime + 5]);
-      await ethers.provider.send("evm_mine", []);
+      await timeTravel(timeParams.streamStartTime + 5);
 
       const withdrawAmount = ethers.parseEther("0.5");
-      const initialBalance = await ethers.provider.getBalance(accounts.subscriber1.address);
+      const initialBalance = await getBalance("native", accounts.subscriber1);
 
       // Withdraw native tokens
       const tx = await contracts.stream.connect(accounts.subscriber1).withdraw(withdrawAmount);
       const receipt = await tx.wait();
       const gasUsed = receipt!.gasUsed * receipt!.gasPrice;
-      const finalBalance = await ethers.provider.getBalance(accounts.subscriber1.address);
+      const finalBalance = await getBalance("native", accounts.subscriber1);
 
       // Verify native token withdrawal happened (balance should increase, accounting for gas)
       expect(finalBalance).to.be.greaterThan(initialBalance - gasUsed);
@@ -388,6 +322,4 @@ describe("Stream Withdraw", function () {
       expect(position.inBalance).to.be.greaterThan(0);
     });
   });
-
-
 });

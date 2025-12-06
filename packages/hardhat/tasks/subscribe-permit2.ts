@@ -240,13 +240,14 @@ task("subscribe-permit2", "Subscribe to a stream using Permit2")
             console.log(`Expected address: ${subscriberAddress}`);
             console.log(`Signature valid: ${recoveredAddress.toLowerCase() === subscriberAddress.toLowerCase()}`);
 
-            // Subscribe with permit2
+            // Subscribe with permit2 (with empty merkle proof for public streams)
             console.log("\nAttempting to subscribe with Permit2...");
             const subscribeTx = await stream.connect(subscriberSigner).subscribeWithPermit(
                 amount,
                 subscriberAddress,
                 permitSingle,
-                signature
+                signature,
+                [] // merkleProof - empty array for public streams
             );
             console.log(`Subscribe transaction: ${subscribeTx.hash}`);
 

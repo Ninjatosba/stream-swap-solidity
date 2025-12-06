@@ -1,9 +1,9 @@
 import { assert, expect } from "chai";
 import { ethers } from "hardhat";
 import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
-import { enableMainnetFork } from "./helpers/fork";
-import { deployAerodromePoolWrapperFork, deployV2PoolWrapperFork, deployV3PoolWrapperFork } from "./helpers/poolWrappers";
-import { PoolWrapperTypes } from "../typechain-types/src/PoolWrapper";
+import { enableMainnetFork } from "../helpers/fork";
+import { deployAerodromePoolWrapperFork, deployV2PoolWrapperFork, deployV3PoolWrapperFork } from "../helpers/poolWrappers";
+import { PoolWrapperTypes } from "../../typechain-types/src/PoolWrapper";
 import { EventLog } from "ethers";
 
 describe("PoolWrapper (fork)", function () {
