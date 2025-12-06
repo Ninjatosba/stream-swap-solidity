@@ -777,13 +777,13 @@ describe("Stream Subscribe", function () {
 
   describe("Subscription fee", function () {
     it("Should collect subscription fee when subscriptionFeeRatio is set", async function () {
-      const { contracts, timeParams, accounts } = await loadFixture(stream().build());
-
       // Set subscription fee ratio to 2% (20000 in decimal format with 1e6 precision)
-      const subscriptionFeeRatio = { value: 20000n }; // 2% = 0.02 * 1e6
-      await contracts.streamFactory
-        .connect(accounts.protocolAdmin)
-        .updateSubscriptionFeeRatio(subscriptionFeeRatio);
+      const subscriptionFeeRatio = 20000n; // 2% = 0.02 * 1e6
+      const { contracts, timeParams, accounts } = await loadFixture(
+        stream()
+          .subscriptionFeeRatio(subscriptionFeeRatio)
+          .build()
+      );
 
       // Advance to active phase
       await advanceStreamToPhase(contracts.stream, "active", timeParams);
@@ -799,7 +799,7 @@ describe("Stream Subscribe", function () {
 
       // Calculate expected fee (2% of 100 = 2 tokens)
       // Using the same calculation as calculateExitFee: floor(amount * ratio)
-      const expectedFee = (subscriptionAmount * subscriptionFeeRatio.value) / 1000000n;
+      const expectedFee = (subscriptionAmount * subscriptionFeeRatio) / 1000000n;
       const expectedSubscriptionAmount = subscriptionAmount - expectedFee;
 
       // Verify fee collector received the fee
@@ -851,27 +851,27 @@ describe("Stream Subscribe", function () {
     });
 
     it("Should collect correct fee for multiple subscriptions", async function () {
-      const { contracts, timeParams, accounts } = await loadFixture(stream().build());
-
       // Set subscription fee ratio to 1% (10000 in decimal format with 1e6 precision)
-      const subscriptionFeeRatio = { value: 10000n }; // 1% = 0.01 * 1e6
-      await contracts.streamFactory
-        .connect(accounts.protocolAdmin)
-        .updateSubscriptionFeeRatio(subscriptionFeeRatio);
+      const subscriptionFeeRatio = 10000n; // 1% = 0.01 * 1e6
+      const { contracts, timeParams, accounts } = await loadFixture(
+        stream()
+          .subscriptionFeeRatio(subscriptionFeeRatio)
+          .build()
+      );
 
       // Advance to active phase
       await advanceStreamToPhase(contracts.stream, "active", timeParams);
 
       // First subscription: 100 tokens
       const subscriptionAmount1 = Amounts.DEFAULT_SUBSCRIPTION;
-      const expectedFee1 = (subscriptionAmount1 * subscriptionFeeRatio.value) / 1000000n;
+      const expectedFee1 = (subscriptionAmount1 * subscriptionFeeRatio) / 1000000n;
       const expectedSubscriptionAmount1 = subscriptionAmount1 - expectedFee1;
 
       await subscribeAndSync(contracts.stream, accounts.subscriber1, subscriptionAmount1, contracts.inSupplyToken);
 
       // Second subscription: 200 tokens
       const subscriptionAmount2 = ethers.parseEther("200");
-      const expectedFee2 = (subscriptionAmount2 * subscriptionFeeRatio.value) / 1000000n;
+      const expectedFee2 = (subscriptionAmount2 * subscriptionFeeRatio) / 1000000n;
       const expectedSubscriptionAmount2 = subscriptionAmount2 - expectedFee2;
 
       const tokenForBalance = contracts.inSupplyToken || "native";

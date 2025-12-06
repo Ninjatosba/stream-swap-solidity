@@ -39,6 +39,7 @@ interface FactoryConfig {
   streamCreationFee: number;
   streamCreationFeeToken: string;
   exitFeeRatio: DecimalStruct;
+  subscriptionFeeRatio: DecimalStruct;
   minWaitingDuration: number;
   minBootstrappingDuration: number;
   minStreamDuration: number;
@@ -80,6 +81,7 @@ export class StreamFixtureBuilder {
     streamCreationFee: 0,
     streamCreationFeeToken: ethers.ZeroAddress,
     exitFeeRatio: { value: 1e5 }, // 1%
+    subscriptionFeeRatio: { value: 0n }, // Default to zero
     minWaitingDuration: 1,
     minBootstrappingDuration: 1,
     minStreamDuration: 1,
@@ -158,6 +160,11 @@ export class StreamFixtureBuilder {
 
   public exitRatio(ratio: number): StreamFixtureBuilder {
     this.factoryConfig.exitFeeRatio = { value: ratio };
+    return this;
+  }
+
+  public subscriptionFeeRatio(ratio: bigint): StreamFixtureBuilder {
+    this.factoryConfig.subscriptionFeeRatio = { value: ratio };
     return this;
   }
 
@@ -326,7 +333,7 @@ export class StreamFixtureBuilder {
           streamCreationFee: self.factoryConfig.streamCreationFee,
           streamCreationFeeToken: feeTokenAddress,
           exitFeeRatio: self.factoryConfig.exitFeeRatio,
-          subscriptionFeeRatio: { value: 0n }, // Default to zero for all tests
+          subscriptionFeeRatio: self.factoryConfig.subscriptionFeeRatio,
           minWaitingDuration: self.factoryConfig.minWaitingDuration,
           minBootstrappingDuration: self.factoryConfig.minBootstrappingDuration,
           minStreamDuration: self.factoryConfig.minStreamDuration,
