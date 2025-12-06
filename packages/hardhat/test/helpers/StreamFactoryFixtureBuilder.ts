@@ -231,6 +231,7 @@ export class StreamFactoryFixtureBuilder {
           streamCreationFee: config.streamCreationFee,
           streamCreationFeeToken: useNativeTokenFee ? ethers.ZeroAddress : await feeToken.getAddress(),
           exitFeeRatio: config.ExitFeeRatio,
+          subscriptionFeeRatio: { value: 0n }, // Default to zero for all tests
           minWaitingDuration: config.minWaitingDuration,
           minBootstrappingDuration: config.minBootstrappingDuration,
           minStreamDuration: config.minStreamDuration,

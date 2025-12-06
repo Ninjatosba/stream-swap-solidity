@@ -270,18 +270,31 @@ abstract contract StreamCore is IStreamErrors, IStreamEvents, UUPSUpgradeable {
             }
         }
 
+        // Calculate and collect subscription fee
+        IStreamFactoryParams factoryContract = IStreamFactoryParams(STREAM_FACTORY_ADDRESS);
+        StreamFactoryTypes.Params memory factoryParams = factoryContract.getParams();
+        uint256 subscriptionAmount = amountIn;
+        
+        if (factoryParams.subscriptionFeeRatio.value > 0) {
+            (uint256 feeAmount, uint256 remainingAmount) = StreamMathLib.calculateExitFee(amountIn, factoryParams.subscriptionFeeRatio);
+            if (feeAmount > 0) {
+                TransferLib.transferFunds(streamTokens.inSupplyToken, address(this), factoryParams.feeCollector, feeAmount);
+            }
+            subscriptionAmount = remainingAmount;
+        }
+
         // Sync position with latest stream state
         position = StreamMathLib.syncPosition(position, state.distIndex, state.shares, state.inSupply, block.timestamp);
 
-        // Calculate shares before any state changes
-        uint256 newShares = StreamMathLib.computeSharesAmount(amountIn, false, state.inSupply, state.shares);
+        // Calculate shares before any state changes (using subscriptionAmount after fee deduction)
+        uint256 newShares = StreamMathLib.computeSharesAmount(subscriptionAmount, false, state.inSupply, state.shares);
 
-        // Update position
-        position.inBalance += amountIn;
+        // Update position (using subscriptionAmount after fee deduction)
+        position.inBalance += subscriptionAmount;
         position.shares += newShares;
 
-        // Update stream state
-        state.inSupply += amountIn;
+        // Update stream state (using subscriptionAmount after fee deduction)
+        state.inSupply += subscriptionAmount;
         state.shares += newShares;
 
         // Save all states

@@ -326,6 +326,7 @@ export class StreamFixtureBuilder {
           streamCreationFee: self.factoryConfig.streamCreationFee,
           streamCreationFeeToken: feeTokenAddress,
           exitFeeRatio: self.factoryConfig.exitFeeRatio,
+          subscriptionFeeRatio: { value: 0n }, // Default to zero for all tests
           minWaitingDuration: self.factoryConfig.minWaitingDuration,
           minBootstrappingDuration: self.factoryConfig.minBootstrappingDuration,
           minStreamDuration: self.factoryConfig.minStreamDuration,

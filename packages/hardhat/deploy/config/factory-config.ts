@@ -5,6 +5,7 @@ import { DecimalStruct } from "../../typechain-types/src/StreamCore";
 
 export interface FactoryConfig {
     ExitFeeRatio: DecimalStruct;
+    SubscriptionFeeRatio: DecimalStruct;
     feeCollector: string;
     protocolAdmin: string;
     minWaitingDuration: number;
@@ -22,6 +23,9 @@ export const createFactoryConfig = (
 ): FactoryConfig => ({
     ExitFeeRatio: {
         value: 10000, // 1% fee
+    },
+    SubscriptionFeeRatio: {
+        value: 0, // Default to zero for all tests
     },
     feeCollector: deployer,
     minWaitingDuration: 1, // 1 block for hardhat testing
@@ -46,7 +50,9 @@ export const createProductionFactoryConfig = (
         ExitFeeRatio: {
             value: 45000, // 4.5% fee
         },
-
+        SubscriptionFeeRatio: {
+            value: 0, // Default to zero (can be updated later)
+        },
         streamCreationFee: parseEther("100"), // 100 native token
     });
 
