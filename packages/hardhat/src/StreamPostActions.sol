@@ -85,8 +85,8 @@ contract StreamPostActions is StreamCore {
 
             if (poolInSupplyAmount > 0) {
                 _createPoolAndAddLiquidity(
-                    streamTokens.inSupplyToken,
-                    streamTokens.outSupplyToken,
+                    streamTokens.inToken.tokenAddress,
+                    streamTokens.outToken.tokenAddress,
                     poolInSupplyAmount,
                     poolOutSupplyAmount,
                     postStreamActions.poolInfo.dexType,
@@ -100,12 +100,12 @@ contract StreamPostActions is StreamCore {
         if (postStreamActions.creatorVesting.isVestingEnabled && adjustedCreatorRevenue > 0) {
             _createCreatorVesting(adjustedCreatorRevenue);
         } else if (adjustedCreatorRevenue > 0) {
-            TransferLib.transferFunds(streamTokens.inSupplyToken, address(this), creator, adjustedCreatorRevenue);
+            TransferLib.transferFunds(streamTokens.inToken.tokenAddress, address(this), creator, adjustedCreatorRevenue);
         }
 
         // Transfer any remaining output tokens to creator
         if (outRemaining > 0) {
-            TransferLib.transferFunds(streamTokens.outSupplyToken, address(this), creator, outRemaining);
+            TransferLib.transferFunds(streamTokens.outToken.tokenAddress, address(this), creator, outRemaining);
         }
         return adjustedCreatorRevenue;
     }
@@ -116,14 +116,14 @@ contract StreamPostActions is StreamCore {
     function _onExitSuccess(address user, uint256 purchased, uint256 inRefunded) internal override {
         // Refund unused input tokens
         if (inRefunded > 0) {
-            TransferLib.transferFunds(streamTokens.inSupplyToken, address(this), user, inRefunded);
+            TransferLib.transferFunds(streamTokens.inToken.tokenAddress, address(this), user, inRefunded);
         }
 
         // Vest or transfer purchased output tokens
         if (postStreamActions.beneficiaryVesting.isVestingEnabled && purchased > 0) {
             _createBeneficiaryVesting(user, purchased);
         } else if (purchased > 0) {
-            TransferLib.transferFunds(streamTokens.outSupplyToken, address(this), user, purchased);
+            TransferLib.transferFunds(streamTokens.outToken.tokenAddress, address(this), user, purchased);
         }
     }
 
@@ -152,7 +152,7 @@ contract StreamPostActions is StreamCore {
         );
 
         (uint256 refundedOut, uint256 refundedIn) =
-            PoolOps.mapRefundsToInOut(createdPoolInfo, streamTokens.inSupplyToken, streamTokens.outSupplyToken);
+            PoolOps.mapRefundsToInOut(createdPoolInfo, streamTokens.inToken.tokenAddress, streamTokens.outToken.tokenAddress);
 
         emit PoolCreated(
             address(this),
@@ -169,20 +169,20 @@ contract StreamPostActions is StreamCore {
 
     function _createBeneficiaryVesting(address beneficiary, uint256 amount) internal {
         IVestingFactory vestingFactory = IVestingFactory(factoryParamsSnapshot.vestingFactoryAddress);
-        IERC20(streamTokens.outSupplyToken).approve(factoryParamsSnapshot.vestingFactoryAddress, amount);
+        IERC20(streamTokens.outToken.tokenAddress).approve(factoryParamsSnapshot.vestingFactoryAddress, amount);
         address vestingAddress = vestingFactory.createVestingWalletWithTokens(
-            beneficiary, uint64(block.timestamp), postStreamActions.beneficiaryVesting.vestingDuration, streamTokens.outSupplyToken, amount
+            beneficiary, uint64(block.timestamp), postStreamActions.beneficiaryVesting.vestingDuration, streamTokens.outToken.tokenAddress, amount
         );
-        emit BeneficiaryVestingCreated(beneficiary, vestingAddress, postStreamActions.beneficiaryVesting.vestingDuration, streamTokens.outSupplyToken, amount);
+        emit BeneficiaryVestingCreated(beneficiary, vestingAddress, postStreamActions.beneficiaryVesting.vestingDuration, streamTokens.outToken.tokenAddress, amount);
     }
 
     function _createCreatorVesting(uint256 amount) internal {
         IVestingFactory vestingFactory = IVestingFactory(factoryParamsSnapshot.vestingFactoryAddress);
-        IERC20(streamTokens.inSupplyToken).approve(factoryParamsSnapshot.vestingFactoryAddress, amount);
+        IERC20(streamTokens.inToken.tokenAddress).approve(factoryParamsSnapshot.vestingFactoryAddress, amount);
         address vestingAddress = vestingFactory.createVestingWalletWithTokens(
-            creator, uint64(block.timestamp), postStreamActions.creatorVesting.vestingDuration, streamTokens.inSupplyToken, amount
+            creator, uint64(block.timestamp), postStreamActions.creatorVesting.vestingDuration, streamTokens.inToken.tokenAddress, amount
         );
-        emit CreatorVestingCreated(creator, vestingAddress, postStreamActions.creatorVesting.vestingDuration, streamTokens.inSupplyToken, amount);
+        emit CreatorVestingCreated(creator, vestingAddress, postStreamActions.creatorVesting.vestingDuration, streamTokens.inToken.tokenAddress, amount);
     }
 }
 

@@ -6,6 +6,8 @@ interface IStreamFactoryEvents {
         address indexed streamFactoryAddress,
         address streamOutToken,
         address streamInToken,
+        uint8 inTokenDecimals,
+        uint8 outTokenDecimals,
         address streamAddress,
         address creator,
         address positionStorageAddress,

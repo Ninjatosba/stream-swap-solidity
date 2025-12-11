@@ -52,6 +52,8 @@ export class StreamFactoryFixtureBuilder {
   private useNativeInputToken: boolean = false;
   private enablePoolCreationFlag: boolean = false;
   private forkBlock?: number;
+  private inTokenDecimalsValue: number = 18;
+  private outTokenDecimalsValue: number = 18;
 
   // Method to set stream creation fee
   public fee(amount: bigint): StreamFactoryFixtureBuilder {
@@ -118,6 +120,20 @@ export class StreamFactoryFixtureBuilder {
     return this;
   }
 
+  // Method to set input token decimals
+  public inTokenDecimals(decimals: number): StreamFactoryFixtureBuilder {
+    if (decimals < 0 || decimals > 18) throw new Error("Decimals must be between 0 and 18");
+    this.inTokenDecimalsValue = decimals;
+    return this;
+  }
+
+  // Method to set output token decimals
+  public outTokenDecimals(decimals: number): StreamFactoryFixtureBuilder {
+    if (decimals < 0 || decimals > 18) throw new Error("Decimals must be between 0 and 18");
+    this.outTokenDecimalsValue = decimals;
+    return this;
+  }
+
   // Build method that returns the fixture function
   public build(): () => Promise<StreamFactoryFixture> {
     // Store the current configuration in variables that will be captured in the closure
@@ -134,6 +150,8 @@ export class StreamFactoryFixtureBuilder {
     const useNativeInputToken = this.useNativeInputToken;
 
     const initialSupply = this.initialTokenSupply;
+    const inTokenDecimals = this.inTokenDecimalsValue;
+    const outTokenDecimals = this.outTokenDecimalsValue;
     const self = this;
 
     // Return the fixture function
@@ -153,22 +171,23 @@ export class StreamFactoryFixtureBuilder {
           await ethers.provider.send("hardhat_setNextBlockBaseFeePerGas", ["0x0"]);
         } catch { }
 
-        // Deploy token contracts
-        const InSupplyToken = await ethers.getContractFactory("ERC20Mock");
-        const inSupplyToken = await InSupplyToken.deploy("InSupply Token", "IN");
+        // Deploy token contracts with configurable decimals
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const ERC20MockFactory = await ethers.getContractFactory("ERC20Mock") as any;
+        const inSupplyToken = (await ERC20MockFactory.deploy("InSupply Token", "IN", inTokenDecimals)) as ERC20Mock;
         await inSupplyToken.waitForDeployment();
 
-        const OutSupplyToken = await ethers.getContractFactory("ERC20Mock");
-        const outSupplyToken = await OutSupplyToken.deploy("OutSupply Token", "OUT");
+        const outSupplyToken = (await ERC20MockFactory.deploy("OutSupply Token", "OUT", outTokenDecimals)) as ERC20Mock;
         await outSupplyToken.waitForDeployment();
 
-        const FeeToken = await ethers.getContractFactory("ERC20Mock");
-        const feeToken = await FeeToken.deploy("Fee Token", "FEE");
+        const feeToken = (await ERC20MockFactory.deploy("Fee Token", "FEE", 18)) as ERC20Mock;
         await feeToken.waitForDeployment();
 
-        // Mint tokens to the creator
-        await inSupplyToken.mint(creator.address, initialSupply);
-        await outSupplyToken.mint(creator.address, initialSupply);
+        // Mint tokens to the creator (adjust for decimals)
+        const inSupplyAmount = initialSupply / (10n ** BigInt(18 - inTokenDecimals));
+        const outSupplyAmount = initialSupply / (10n ** BigInt(18 - outTokenDecimals));
+        await inSupplyToken.mint(creator.address, inSupplyAmount);
+        await outSupplyToken.mint(creator.address, outSupplyAmount);
         await feeToken.mint(creator.address, ethers.parseEther("1000000000"));
 
         // Optionally deploy pool wrappers on fork

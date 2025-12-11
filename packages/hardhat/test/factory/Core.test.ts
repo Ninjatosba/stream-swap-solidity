@@ -52,7 +52,7 @@ describe("StreamFactoryCore", function () {
 
             // Deploy mock contracts for testing
             const ERC20Mock = await ethers.getContractFactory("ERC20Mock");
-            mockToken = await ERC20Mock.deploy("Mock Token", "MOCK");
+            mockToken = await ERC20Mock.deploy("Mock Token", "MOCK", 18);
             await mockToken.waitForDeployment();
 
             // No pool router by default

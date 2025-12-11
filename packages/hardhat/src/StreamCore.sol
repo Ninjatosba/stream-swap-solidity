@@ -118,7 +118,9 @@ abstract contract StreamCore is IStreamErrors, IStreamEvents, UUPSUpgradeable {
      */
     function initialize(
         StreamTypes.CreateStreamMessage memory createStreamMessage,
-        address storageAddress
+        address storageAddress,
+        uint8 inTokenDecimals,
+        uint8 outTokenDecimals
     ) external virtual onlyOnce {
         if (storageAddress == address(0)) revert InvalidPositionStorageAddress();
         
@@ -150,8 +152,14 @@ abstract contract StreamCore is IStreamErrors, IStreamEvents, UUPSUpgradeable {
         
         // Initialize stream tokens
         streamTokens = StreamTypes.StreamTokens({
-            inSupplyToken: createStreamMessage.inSupplyToken,
-            outSupplyToken: createStreamMessage.outSupplyToken
+            inToken: StreamTypes.Token({
+                tokenAddress: createStreamMessage.inSupplyToken,
+                decimals: inTokenDecimals
+            }),
+            outToken: StreamTypes.Token({
+                tokenAddress: createStreamMessage.outSupplyToken,
+                decimals: outTokenDecimals
+            })
         });
         
         // Initialize stream metadata
@@ -203,10 +211,10 @@ abstract contract StreamCore is IStreamErrors, IStreamEvents, UUPSUpgradeable {
      * @param inRefunded Amount of input tokens refunded
      */
     function _onExitSuccess(address user, uint256 purchased, uint256 inRefunded) internal virtual {
-        TransferLib.transferFunds(streamTokens.outSupplyToken, address(this), user, purchased);
+        TransferLib.transferFunds(streamTokens.outToken.tokenAddress, address(this), user, purchased);
         
         if (inRefunded > 0) {
-            TransferLib.transferFunds(streamTokens.inSupplyToken, address(this), user, inRefunded);
+            TransferLib.transferFunds(streamTokens.inToken.tokenAddress, address(this), user, inRefunded);
         }
     }
 
@@ -216,7 +224,7 @@ abstract contract StreamCore is IStreamErrors, IStreamEvents, UUPSUpgradeable {
      * @param totalRefund Amount of input tokens to refund
      */
     function _onExitRefund(address user, uint256 totalRefund) internal virtual {
-        TransferLib.transferFunds(streamTokens.inSupplyToken, address(this), user, totalRefund);
+        TransferLib.transferFunds(streamTokens.inToken.tokenAddress, address(this), user, totalRefund);
     }
 
     /**
@@ -225,10 +233,10 @@ abstract contract StreamCore is IStreamErrors, IStreamEvents, UUPSUpgradeable {
      * @param outRemaining Remaining output tokens
      */
     function _afterFinalizeSuccess(uint256 creatorRevenue, uint256 outRemaining) internal virtual returns (uint256 adjustedCreatorRevenue) {
-        TransferLib.transferFunds(streamTokens.inSupplyToken, address(this), creator, creatorRevenue);
+        TransferLib.transferFunds(streamTokens.inToken.tokenAddress, address(this), creator, creatorRevenue);
         
         if (outRemaining > 0) {
-            TransferLib.transferFunds(streamTokens.outSupplyToken, address(this), creator, outRemaining);
+            TransferLib.transferFunds(streamTokens.outToken.tokenAddress, address(this), creator, outRemaining);
         }
         return creatorRevenue;
     }
@@ -238,7 +246,7 @@ abstract contract StreamCore is IStreamErrors, IStreamEvents, UUPSUpgradeable {
      * @param outSupply Amount of output tokens to return
      */
     function _afterFinalizeRefund(uint256 outSupply) internal virtual {
-        TransferLib.transferFunds(streamTokens.outSupplyToken, address(this), creator, outSupply);
+        TransferLib.transferFunds(streamTokens.outToken.tokenAddress, address(this), creator, outSupply);
     }
 
     // ============ Core Stream Functions ============
@@ -282,7 +290,7 @@ abstract contract StreamCore is IStreamErrors, IStreamEvents, UUPSUpgradeable {
         if (factoryParamsSnapshot.subscriptionFeeRatio.value > 0) {
             (uint256 feeAmount, uint256 remainingAmount) = StreamMathLib.calculateExitFee(amountIn, factoryParamsSnapshot.subscriptionFeeRatio);
             if (feeAmount > 0) {
-                TransferLib.transferFunds(streamTokens.inSupplyToken, address(this), factoryParamsSnapshot.feeCollector, feeAmount);
+                TransferLib.transferFunds(streamTokens.inToken.tokenAddress, address(this), factoryParamsSnapshot.feeCollector, feeAmount);
             }
             subscriptionAmount = remainingAmount;
         }
@@ -328,9 +336,9 @@ abstract contract StreamCore is IStreamErrors, IStreamEvents, UUPSUpgradeable {
      * @param amountIn Amount of input tokens to subscribe with
      */
     function subscribe(uint256 amountIn, bytes32[] calldata merkleProof) external {
-        if (streamTokens.inSupplyToken == address(0)) revert InvalidInputToken();
+        if (streamTokens.inToken.tokenAddress == address(0)) revert InvalidInputToken();
         // Pull funds (ERC20)
-        TransferLib.transferFunds(streamTokens.inSupplyToken, msg.sender, address(this), amountIn);
+        TransferLib.transferFunds(streamTokens.inToken.tokenAddress, msg.sender, address(this), amountIn);
         _subscribeCore(amountIn, merkleProof);
     }
 
@@ -339,7 +347,7 @@ abstract contract StreamCore is IStreamErrors, IStreamEvents, UUPSUpgradeable {
      * @param amountIn Amount of native tokens to subscribe with
      */
     function subscribeWithNativeToken(uint256 amountIn, bytes32[] calldata merkleProof) external payable {
-        if (streamTokens.inSupplyToken != address(0)) revert InvalidInputToken();
+        if (streamTokens.inToken.tokenAddress != address(0)) revert InvalidInputToken();
         // Pull funds (native)
         TransferLib.transferFunds(address(0), msg.sender, address(this), amountIn);
         _subscribeCore(amountIn, merkleProof);
@@ -359,15 +367,15 @@ abstract contract StreamCore is IStreamErrors, IStreamEvents, UUPSUpgradeable {
         bytes calldata signature,
         bytes32[] calldata merkleProof
     ) external {
-        if (streamTokens.inSupplyToken == address(0)) revert InvalidInputToken();
-        if (permitSingle.details.token != streamTokens.inSupplyToken) revert InvalidAmount();
+        if (streamTokens.inToken.tokenAddress == address(0)) revert InvalidInputToken();
+        if (permitSingle.details.token != streamTokens.inToken.tokenAddress) revert InvalidAmount();
         if (permitSingle.details.amount < uint160(amountIn)) revert InvalidAmount();
         if (permitSingle.spender != address(this)) revert InvalidAmount();
         if (permitSingle.sigDeadline < block.timestamp) revert InvalidAmount();
 
         IPermit2 permit2 = IPermit2(PERMIT2);
         permit2.permit(owner, permitSingle, signature);
-        permit2.transferFrom(owner, address(this), uint160(amountIn), streamTokens.inSupplyToken);
+        permit2.transferFrom(owner, address(this), uint160(amountIn), streamTokens.inToken.tokenAddress);
         _subscribeCore(amountIn, merkleProof);
     }
 
@@ -443,7 +451,7 @@ abstract contract StreamCore is IStreamErrors, IStreamEvents, UUPSUpgradeable {
         );
 
         // Transfer tokens
-        TransferLib.transferFunds(streamTokens.inSupplyToken, address(this), msg.sender, withdrawAmount);
+        TransferLib.transferFunds(streamTokens.inToken.tokenAddress, address(this), msg.sender, withdrawAmount);
         
         // Call withdrawal hook
         _onWithdraw(msg.sender, withdrawAmount);
@@ -541,7 +549,7 @@ abstract contract StreamCore is IStreamErrors, IStreamEvents, UUPSUpgradeable {
             saveStream(state);
 
             // External calls last
-            TransferLib.transferFunds(streamTokens.inSupplyToken, address(this), feeCollector, feeAmount);
+            TransferLib.transferFunds(streamTokens.inToken.tokenAddress, address(this), feeCollector, feeAmount);
             
             // Call hook for final distribution
             uint256 adjustedCreatorRevenue = _afterFinalizeSuccess(creatorRevenue, outRemaining);
@@ -582,7 +590,7 @@ abstract contract StreamCore is IStreamErrors, IStreamEvents, UUPSUpgradeable {
         saveStreamStatus(status);
 
         emit StreamCancelled(address(this), creator, amountToTransfer, uint8(status));
-        TransferLib.transferFunds(streamTokens.outSupplyToken, address(this), creator, amountToTransfer);
+        TransferLib.transferFunds(streamTokens.outToken.tokenAddress, address(this), creator, amountToTransfer);
     }
 
     /**
@@ -613,7 +621,7 @@ abstract contract StreamCore is IStreamErrors, IStreamEvents, UUPSUpgradeable {
         emit StreamCancelled(address(this), creator, amountToTransfer, uint8(status));
 
         // External call last
-        TransferLib.transferFunds(streamTokens.outSupplyToken, address(this), creator, amountToTransfer);
+        TransferLib.transferFunds(streamTokens.outToken.tokenAddress, address(this), creator, amountToTransfer);
     }
 
     /**
@@ -719,7 +727,12 @@ abstract contract StreamCore is IStreamErrors, IStreamEvents, UUPSUpgradeable {
             return state;
         }
 
-        state = StreamMathLib.calculateUpdatedState(state, diff);
+        state = StreamMathLib.calculateUpdatedState(
+            state,
+            diff,
+            streamTokens.inToken.decimals,
+            streamTokens.outToken.decimals
+        );
         state.lastUpdated = block.timestamp;
 
         emit StreamStateUpdated(

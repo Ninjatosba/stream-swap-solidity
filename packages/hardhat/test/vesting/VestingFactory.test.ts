@@ -8,8 +8,8 @@ describe("VestingFactory", function () {
         const [deployer, beneficiary, tokenOwner] = await ethers.getSigners();
 
         // Deploy mock token
-        const MockToken = await ethers.getContractFactory("ERC20Mock");
-        const mockToken = await MockToken.deploy("Mock Token", "MTK");
+        const MockToken = await ethers.getContractFactory("ERC20Mock") as any;
+        const mockToken = await MockToken.deploy("Mock Token", "MTK", 18);
         await mockToken.mint(tokenOwner.address, ethers.parseEther("1000"));
 
         // Deploy VestingFactory

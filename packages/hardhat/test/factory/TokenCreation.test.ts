@@ -373,7 +373,7 @@ describe("TokenCreationWithStream", function () {
 
             // Create an unaccepted token
             const ERC20Mock = await ethers.getContractFactory("ERC20Mock");
-            const unacceptedToken = await ERC20Mock.deploy("Unaccepted", "UNA");
+            const unacceptedToken = await ERC20Mock.deploy("Unaccepted", "UNA", 18);
             await unacceptedToken.waitForDeployment();
 
             const now = Math.floor(Date.now() / 1000);

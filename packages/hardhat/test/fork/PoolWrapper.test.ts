@@ -24,8 +24,8 @@ describe("PoolWrapper (fork)", function () {
 
         // Deploy two local ERC20 mocks to act as tokens
         const ERC20Mock = await ethers.getContractFactory("ERC20Mock");
-        const tokenA = await ERC20Mock.deploy("TokenA", "TKA");
-        const tokenB = await ERC20Mock.deploy("TokenB", "TKB");
+        const tokenA = await ERC20Mock.deploy("TokenA", "TKA", 18);
+        const tokenB = await ERC20Mock.deploy("TokenB", "TKB", 18);
         await tokenA.waitForDeployment();
         await tokenB.waitForDeployment();
 

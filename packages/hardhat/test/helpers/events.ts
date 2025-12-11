@@ -3,6 +3,9 @@ import { ContractTransactionReceipt } from "ethers";
 
 // Event interfaces for common stream events
 export const EventInterfaces = {
+  StreamCreated: new ethers.Interface([
+    "event StreamCreated(address indexed streamFactoryAddress, address streamOutToken, address streamInToken, uint8 inTokenDecimals, uint8 outTokenDecimals, address streamAddress, address creator, address positionStorageAddress, uint256 streamOutAmount, uint256 poolOutSupplyAmount, string dexType, bool isCreatorVestingEnabled, bool isBeneficiaryVestingEnabled, uint64 creatorVestingDuration, uint64 beneficiaryVestingDuration, uint256 bootstrappingStartTime, uint256 streamStartTime, uint256 streamEndTime, uint256 threshold, string metadataIpfsHash, string tosVersion, bytes32 whitelistRoot, uint16 streamId)"
+  ]),
   PoolCreated: new ethers.Interface([
     "event PoolCreated(address indexed streamAddress, address indexed poolAddress, address token0, address token1, uint256 amount0, uint256 amount1, uint256 refundedAmount0, uint256 refundedAmount1, address indexed creator)"
   ]),
@@ -16,10 +19,37 @@ export const EventInterfaces = {
 
 // Event topics for log filtering
 export const EventTopics = {
+  StreamCreated: ethers.id("StreamCreated(address,address,address,uint8,uint8,address,address,address,uint256,uint256,string,bool,bool,uint64,uint64,uint256,uint256,uint256,uint256,string,string,bytes32,uint16)"),
   PoolCreated: ethers.id("PoolCreated(address,address,address,address,uint256,uint256,uint256,uint256,address)"),
   FinalizedStreamed: ethers.id("FinalizedStreamed(address,address,uint256,uint256,uint256)"),
   VestingWalletCreated: ethers.id("VestingWalletCreated(address,address,uint64,uint64,address,uint256)"),
 };
+
+export interface StreamCreatedEvent {
+  streamFactoryAddress: string;
+  streamOutToken: string;
+  streamInToken: string;
+  inTokenDecimals: number;
+  outTokenDecimals: number;
+  streamAddress: string;
+  creator: string;
+  positionStorageAddress: string;
+  streamOutAmount: bigint;
+  poolOutSupplyAmount: bigint;
+  dexType: string;
+  isCreatorVestingEnabled: boolean;
+  isBeneficiaryVestingEnabled: boolean;
+  creatorVestingDuration: bigint;
+  beneficiaryVestingDuration: bigint;
+  bootstrappingStartTime: bigint;
+  streamStartTime: bigint;
+  streamEndTime: bigint;
+  threshold: bigint;
+  metadataIpfsHash: string;
+  tosVersion: string;
+  whitelistRoot: string;
+  streamId: bigint;
+}
 
 export interface PoolCreatedEvent {
   streamAddress: string;
@@ -79,6 +109,52 @@ export async function getPoolCreatedEvent(
     refundedAmount0: parsed.args.refundedAmount0,
     refundedAmount1: parsed.args.refundedAmount1,
     creator: parsed.args.creator,
+  };
+}
+
+/**
+ * Get StreamCreated event from a transaction receipt
+ */
+export async function getStreamCreatedEvent(
+  receipt: ContractTransactionReceipt,
+  streamFactoryAddress: string
+): Promise<StreamCreatedEvent | null> {
+  const logs = await ethers.provider.getLogs({
+    address: streamFactoryAddress,
+    fromBlock: receipt.blockNumber,
+    toBlock: receipt.blockNumber,
+    topics: [EventTopics.StreamCreated]
+  });
+
+  if (logs.length === 0) return null;
+
+  const parsed = EventInterfaces.StreamCreated.parseLog(logs[0]);
+  if (!parsed) return null;
+
+  return {
+    streamFactoryAddress: parsed.args.streamFactoryAddress,
+    streamOutToken: parsed.args.streamOutToken,
+    streamInToken: parsed.args.streamInToken,
+    inTokenDecimals: parsed.args.inTokenDecimals,
+    outTokenDecimals: parsed.args.outTokenDecimals,
+    streamAddress: parsed.args.streamAddress,
+    creator: parsed.args.creator,
+    positionStorageAddress: parsed.args.positionStorageAddress,
+    streamOutAmount: parsed.args.streamOutAmount,
+    poolOutSupplyAmount: parsed.args.poolOutSupplyAmount,
+    dexType: parsed.args.dexType,
+    isCreatorVestingEnabled: parsed.args.isCreatorVestingEnabled,
+    isBeneficiaryVestingEnabled: parsed.args.isBeneficiaryVestingEnabled,
+    creatorVestingDuration: parsed.args.creatorVestingDuration,
+    beneficiaryVestingDuration: parsed.args.beneficiaryVestingDuration,
+    bootstrappingStartTime: parsed.args.bootstrappingStartTime,
+    streamStartTime: parsed.args.streamStartTime,
+    streamEndTime: parsed.args.streamEndTime,
+    threshold: parsed.args.threshold,
+    metadataIpfsHash: parsed.args.metadataIpfsHash,
+    tosVersion: parsed.args.tosVersion,
+    whitelistRoot: parsed.args.whitelistRoot,
+    streamId: parsed.args.streamId,
   };
 }
 

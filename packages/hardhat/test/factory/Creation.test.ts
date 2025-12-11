@@ -2,6 +2,7 @@ import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { expect } from "chai";
 import { ethers } from "hardhat";
 import { streamFactory } from "../helpers/StreamFactoryFixtureBuilder";
+import { getStreamCreatedEvent } from "../helpers/events";
 import { StreamTypes } from "../../typechain-types/src/StreamCore";
 import { Errors, Durations } from "../types";
 
@@ -162,7 +163,7 @@ describe("StreamCreation", function () {
 
             // Create a new token that's not in the accepted list
             const ERC20Mock = await ethers.getContractFactory("ERC20Mock");
-            const unacceptedToken = await ERC20Mock.deploy("Unaccepted Token", "UNA");
+            const unacceptedToken = await ERC20Mock.deploy("Unaccepted Token", "UNA", 18);
             await unacceptedToken.waitForDeployment();
 
             const now = Math.floor(Date.now() / 1000);
@@ -754,41 +755,36 @@ describe("StreamCreation", function () {
             const receipt = await tx.wait();
             expect(receipt).to.not.be.null;
 
-            // Find the StreamCreated event
-            const streamCreatedEvent = receipt!.logs.find((log: StreamTypes.CreateStreamMessageStruct) => {
-                try {
-                    const parsed = fixture.contracts.streamFactory.interface.parseLog(log);
-                    return parsed?.name === "StreamCreated";
-                } catch {
-                    return false;
-                }
-            });
-
-            expect(streamCreatedEvent).to.not.be.undefined;
-
-            // Parse the event to verify the parameters
-            const parsedEvent = fixture.contracts.streamFactory.interface.parseLog(streamCreatedEvent!);
+            const factoryAddress = await fixture.contracts.streamFactory.getAddress();
+            const parsedEvent = await getStreamCreatedEvent(receipt!, factoryAddress);
             expect(parsedEvent).to.not.be.null;
-            expect(parsedEvent!.args[0]).to.equal(await fixture.contracts.streamFactory.getAddress()); // factory
-            expect(parsedEvent!.args[1]).to.equal(createStreamMessage.outSupplyToken); // outSupplyToken
-            expect(parsedEvent!.args[2]).to.equal(createStreamMessage.inSupplyToken); // inSupplyToken
-            expect(parsedEvent!.args[3]).to.not.equal(ethers.ZeroAddress); // stream address
-            expect(parsedEvent!.args[4]).to.equal(fixture.accounts.creator.address); // creator
-            expect(parsedEvent!.args[5]).to.not.equal(ethers.ZeroAddress); // positionStorage address
-            expect(parsedEvent!.args[6]).to.equal(createStreamMessage.streamOutAmount); // streamOutAmount
-            expect(parsedEvent!.args[7]).to.equal(createStreamMessage.poolInfo.poolOutSupplyAmount); // poolOutSupplyAmount
-            expect(parsedEvent!.args[8]).to.equal("V2"); // dexType string for 0
-            expect(parsedEvent!.args[9]).to.equal(createStreamMessage.creatorVesting.isVestingEnabled); // isCreatorVestingEnabled
-            expect(parsedEvent!.args[10]).to.equal(createStreamMessage.beneficiaryVesting.isVestingEnabled); // isBeneficiaryVestingEnabled
-            expect(parsedEvent!.args[11]).to.equal(createStreamMessage.creatorVesting.vestingDuration); // creatorVestingDuration
-            expect(parsedEvent!.args[12]).to.equal(createStreamMessage.beneficiaryVesting.vestingDuration); // beneficiaryVestingDuration
-            expect(parsedEvent!.args[13]).to.equal(createStreamMessage.bootstrappingStartTime); // bootstrappingStartTime
-            expect(parsedEvent!.args[14]).to.equal(createStreamMessage.streamStartTime); // streamStartTime
-            expect(parsedEvent!.args[15]).to.equal(createStreamMessage.streamEndTime); // streamEndTime
-            expect(parsedEvent!.args[16]).to.equal(createStreamMessage.threshold); // threshold
-            expect(parsedEvent!.args[17]).to.equal(createStreamMessage.metadata.ipfsHash); // ipfsHash
-            expect(parsedEvent!.args[18]).to.equal(createStreamMessage.tosVersion); // tosVersion
-            expect(parsedEvent!.args[19]).to.equal(currentStreamId); // streamId
+
+            const inDecimals = await fixture.contracts.inSupplyToken.decimals();
+            const outDecimals = await fixture.contracts.outSupplyToken.decimals();
+
+            expect(parsedEvent!.streamFactoryAddress).to.equal(factoryAddress);
+            expect(parsedEvent!.streamOutToken).to.equal(createStreamMessage.outSupplyToken);
+            expect(parsedEvent!.streamInToken).to.equal(createStreamMessage.inSupplyToken);
+            expect(parsedEvent!.inTokenDecimals).to.equal(inDecimals);
+            expect(parsedEvent!.outTokenDecimals).to.equal(outDecimals);
+            expect(parsedEvent!.streamAddress).to.not.equal(ethers.ZeroAddress);
+            expect(parsedEvent!.creator).to.equal(fixture.accounts.creator.address);
+            expect(parsedEvent!.positionStorageAddress).to.not.equal(ethers.ZeroAddress);
+            expect(parsedEvent!.streamOutAmount).to.equal(createStreamMessage.streamOutAmount);
+            expect(parsedEvent!.poolOutSupplyAmount).to.equal(createStreamMessage.poolInfo.poolOutSupplyAmount);
+            expect(parsedEvent!.dexType).to.equal("V2");
+            expect(parsedEvent!.isCreatorVestingEnabled).to.equal(createStreamMessage.creatorVesting.isVestingEnabled);
+            expect(parsedEvent!.isBeneficiaryVestingEnabled).to.equal(createStreamMessage.beneficiaryVesting.isVestingEnabled);
+            expect(parsedEvent!.creatorVestingDuration).to.equal(createStreamMessage.creatorVesting.vestingDuration);
+            expect(parsedEvent!.beneficiaryVestingDuration).to.equal(createStreamMessage.beneficiaryVesting.vestingDuration);
+            expect(parsedEvent!.bootstrappingStartTime).to.equal(createStreamMessage.bootstrappingStartTime);
+            expect(parsedEvent!.streamStartTime).to.equal(createStreamMessage.streamStartTime);
+            expect(parsedEvent!.streamEndTime).to.equal(createStreamMessage.streamEndTime);
+            expect(parsedEvent!.threshold).to.equal(createStreamMessage.threshold);
+            expect(parsedEvent!.metadataIpfsHash).to.equal(createStreamMessage.metadata.ipfsHash);
+            expect(parsedEvent!.tosVersion).to.equal(createStreamMessage.tosVersion);
+            expect(parsedEvent!.whitelistRoot).to.equal(createStreamMessage.whitelistRoot);
+            expect(parsedEvent!.streamId).to.equal(currentStreamId);
         });
 
         it("should increment stream ID correctly", async function () {

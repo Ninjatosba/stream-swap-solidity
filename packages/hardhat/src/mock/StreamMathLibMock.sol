@@ -35,9 +35,11 @@ contract StreamMathLibMock {
 
     function calculateUpdatedState(
         StreamTypes.StreamState memory state,
-        Decimal memory diff
+        Decimal memory diff,
+        uint8 inTokenDecimals,
+        uint8 outTokenDecimals
     ) external pure returns (StreamTypes.StreamState memory) {
-        return StreamMathLib.calculateUpdatedState(state, diff);
+        return StreamMathLib.calculateUpdatedState(state, diff, inTokenDecimals, outTokenDecimals);
     }
 
     function computeSharesAmount(

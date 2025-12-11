@@ -47,7 +47,7 @@ const deployTokens: DeployFunction = async function (hre: HardhatRuntimeEnvironm
     const inTokenDeployment = await deploy("InToken", {
       from: deployer,
       contract: "ERC20Mock",
-      args: ["ssUSD MONAD", "SSUSD"],
+      args: ["ssUSD MONAD", "SSUSD", 18],
       log: true,
       autoMine: true,
     });
@@ -59,7 +59,7 @@ const deployTokens: DeployFunction = async function (hre: HardhatRuntimeEnvironm
     const outTokenDeployment = await deploy("OutToken", {
       from: deployer,
       contract: "ERC20Mock",
-      args: ["StreamOutToken", "STO"],
+      args: ["StreamOutToken", "STO", 18],
       log: true,
       autoMine: true,
     });
