@@ -78,7 +78,20 @@ describe("Finalize with Pool Creation (fork)", function () {
     // Get price from the V2 pool
     const pool = await ethers.getContractAt("IUniswapV2Pair", poolEvent!.poolAddress);
     const reserves = await pool.getReserves();
-    const price = Number(reserves.reserve1) / Number(reserves.reserve0);
+    const token0 = await pool.token0();
+    const token1 = await pool.token1();
+    const outToken = await contracts.outSupplyToken.getAddress();
+    const inToken = await contracts.inSupplyToken.getAddress();
+
+    // Calculate price as OUT per IN, adjusting for token ordering in the pair
+    let price: number;
+    if (token0 === outToken && token1 === inToken) {
+      price = Number(reserves.reserve0) / Number(reserves.reserve1);
+    } else if (token0 === inToken && token1 === outToken) {
+      price = Number(reserves.reserve1) / Number(reserves.reserve0);
+    } else {
+      throw new Error("Unexpected token ordering in V2 pair");
+    }
 
     expect(price).to.be.closeTo(1.111, 0.001);
   });
@@ -129,13 +142,26 @@ describe("Finalize with Pool Creation (fork)", function () {
 
     // Get price from the v3 pool
     const pool = await ethers.getContractAt("IUniswapV3Pool", poolEvent!.poolAddress);
+    const { token0, token1 } = poolEvent!;
+    const outToken = await contracts.outSupplyToken.getAddress();
+    const inToken = await contracts.inSupplyToken.getAddress();
     const slot0 = await pool.slot0();
     const sqrtPriceX96 = slot0.sqrtPriceX96;
 
-    // Convert sqrtPriceX96 to readable price
-    const price = 1 / (Number(sqrtPriceX96) / (2 ** 96)) ** 2;
+    // priceToken1PerToken0 = (token1/token0)
+    const priceToken1PerToken0 = (Number(sqrtPriceX96) / 2 ** 96) ** 2;
+    let priceOutPerIn: number;
+    if (token0 === outToken && token1 === inToken) {
+      // priceToken1PerToken0 = in/out -> invert to get out per in
+      priceOutPerIn = priceToken1PerToken0;
+    } else if (token0 === inToken && token1 === outToken) {
+      // priceToken1PerToken0 = out/in -> invert
+      priceOutPerIn = 1 / priceToken1PerToken0;
+    } else {
+      throw new Error("Unexpected token ordering in V3 pool");
+    }
 
-    expect(price).to.be.closeTo(1.111, 0.001);
+    expect(priceOutPerIn).to.be.closeTo(1.111, 0.001);
   });
 
   it("Should handle finalize with Pool Aerodrome creation", async function () {
@@ -185,7 +211,19 @@ describe("Finalize with Pool Creation (fork)", function () {
     // Get price from the Aerodrome pool
     const pool = await ethers.getContractAt("IAerodromePool", poolEvent!.poolAddress);
     const reserves = await pool.getReserves();
-    const price = Number(reserves[1]) / Number(reserves[0]);
+    const token0 = await pool.token0();
+    const token1 = await pool.token1();
+    const outToken = await contracts.outSupplyToken.getAddress();
+    const inToken = await contracts.inSupplyToken.getAddress();
+
+    let price: number;
+    if (token0 === outToken && token1 === inToken) {
+      price = Number(reserves[0]) / Number(reserves[1]);
+    } else if (token0 === inToken && token1 === outToken) {
+      price = Number(reserves[1]) / Number(reserves[0]);
+    } else {
+      throw new Error("Unexpected token ordering in Aerodrome pool");
+    }
 
     expect(price).to.be.closeTo(1.111, 0.001);
   });

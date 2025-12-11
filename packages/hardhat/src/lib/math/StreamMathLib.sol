@@ -109,14 +109,45 @@ library StreamMathLib {
     }
 
     /**
+     * @dev Normalizes an amount from one decimal scale to another
+     * @param amount Raw token amount
+     * @param fromDecimals Source token decimals
+     * @param toDecimals Target decimals (typically 18 for normalization)
+     * @return normalizedAmount Amount normalized to target decimals
+     */
+    function normalizeAmount(
+        uint256 amount,
+        uint8 fromDecimals,
+        uint8 toDecimals
+    ) internal pure returns (uint256 normalizedAmount) {
+        if (fromDecimals == toDecimals) {
+            return amount;
+        }
+        
+        if (fromDecimals < toDecimals) {
+            // Scale up: multiply by 10^(toDecimals - fromDecimals)
+            uint256 scaleFactor = 10 ** (toDecimals - fromDecimals);
+            return amount * scaleFactor;
+        } else {
+            // Scale down: divide by 10^(fromDecimals - toDecimals)
+            uint256 scaleFactor = 10 ** (fromDecimals - toDecimals);
+            return amount / scaleFactor;
+        }
+    }
+
+    /**
      * @dev Calculates updated stream state based on time difference
      * @param state Current stream state
      * @param diff Time difference in seconds
+     * @param inTokenDecimals Decimals of the input token
+     * @param outTokenDecimals Decimals of the output token
      * @return Updated stream state
      */
     function calculateUpdatedState(
         StreamTypes.StreamState memory state,
-        Decimal memory diff
+        Decimal memory diff,
+        uint8 inTokenDecimals,
+        uint8 outTokenDecimals
     ) internal pure returns (StreamTypes.StreamState memory) {
         // Create a copy of the state to avoid modifying the input
         StreamTypes.StreamState memory newState = state;
@@ -144,8 +175,14 @@ library StreamMathLib {
                     newState.shares
                 );
                 newState.distIndex = DecimalMath.add(newState.distIndex, distIndexIncrementAmount);
-                // Update current streamed price
-                newState.currentStreamedPrice = DecimalMath.fromRatio(spentIn, newDistributionBalance);
+                
+                // Normalize amounts to same scale (18 decimals) before calculating price
+                // This ensures price calculation is correct when tokens have different decimals
+                uint256 normalizedSpentIn = normalizeAmount(spentIn, inTokenDecimals, 18);
+                uint256 normalizedDistributionBalance = normalizeAmount(newDistributionBalance, outTokenDecimals, 18);
+                
+                // Update current streamed price (normalized to 18 decimals)
+                newState.currentStreamedPrice = DecimalMath.fromRatio(normalizedSpentIn, normalizedDistributionBalance);
             }
         }
         return newState;

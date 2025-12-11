@@ -11,7 +11,9 @@ import { IPermit2 } from "./IPermit2.sol";
 interface IStream is IStreamEvents, IStreamErrors {
     function initialize(
         StreamTypes.CreateStreamMessage memory createStreamMessage,
-        address positionStorageAddress
+        address positionStorageAddress,
+        uint8 inTokenDecimals,
+        uint8 outTokenDecimals
     ) external;
 
     function withdraw(uint256 cap) external;

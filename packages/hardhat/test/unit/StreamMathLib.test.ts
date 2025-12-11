@@ -176,6 +176,9 @@ describe("StreamMathLib", function () {
   });
 
   describe("calculateUpdatedState", function () {
+    const inTokenDecimals = 18;
+    const outTokenDecimals = 18;
+
     it("should not update state if diff is 0", async function () {
       const state: StreamTypes.StreamStateStruct = {
         shares: ethers.parseUnits("1", 18), // 1e18
@@ -196,7 +199,7 @@ describe("StreamMathLib", function () {
       const diff = {
         value: 0,
       };
-      const result = await mockContract.calculateUpdatedState(state, diff);
+      const result = await mockContract.calculateUpdatedState(state, diff, inTokenDecimals, outTokenDecimals);
 
       expect(result.shares).to.equal(state.shares);
       expect(result.inSupply).to.equal(state.inSupply);
@@ -226,7 +229,7 @@ describe("StreamMathLib", function () {
       const diff = {
         value: ethers.parseUnits("0.5", 6),
       }; // 0.5e18
-      const result = await mockContract.calculateUpdatedState(state, diff);
+      const result = await mockContract.calculateUpdatedState(state, diff, inTokenDecimals, outTokenDecimals);
 
       expect(result.shares).to.equal(state.shares);
       expect(result.inSupply).to.equal(state.inSupply);
@@ -257,7 +260,7 @@ describe("StreamMathLib", function () {
       const diff = {
         value: ethers.parseUnits("0.5", 6),
       };
-      const result = await mockContract.calculateUpdatedState(state, diff);
+      const result = await mockContract.calculateUpdatedState(state, diff, inTokenDecimals, outTokenDecimals);
 
       // Should spend 50% of inSupply: 500 tokens
       expect(result.spentIn).to.equal(ethers.parseUnits("500", 18));
@@ -292,7 +295,7 @@ describe("StreamMathLib", function () {
       const diff = {
         value: ethers.parseUnits("1", 6),
       };
-      const result = await mockContract.calculateUpdatedState(state, diff);
+      const result = await mockContract.calculateUpdatedState(state, diff, inTokenDecimals, outTokenDecimals);
 
       // Should spend 100% of inSupply: 1000 tokens
       expect(result.spentIn).to.equal(ethers.parseUnits("1000", 18));

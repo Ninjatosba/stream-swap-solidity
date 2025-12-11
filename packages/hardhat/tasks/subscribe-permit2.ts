@@ -105,7 +105,7 @@ task("subscribe-permit2", "Subscribe to a stream using Permit2")
             // Get in token address from stream (via StreamCore ABI)
             const core = (await ethers.getContractAt("StreamCore", taskArgs.stream)) as unknown as StreamCore;
             const streamTokens = await core.streamTokens();
-            const inTokenAddress = streamTokens.inSupplyToken;
+            const inTokenAddress = streamTokens.inToken.tokenAddress;
             console.log(`In token address: ${inTokenAddress}`);
 
             // Get in token contract

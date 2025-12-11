@@ -59,9 +59,14 @@ library StreamTypes {
         uint256 lastUpdated;
     }
 
+    struct Token {
+        address tokenAddress;
+        uint8 decimals;
+    }
+
     struct StreamTokens {
-        address inSupplyToken;
-        address outSupplyToken;
+        Token inToken;
+        Token outToken;
     }
 
     struct VestingInfo {

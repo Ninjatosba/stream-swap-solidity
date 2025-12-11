@@ -100,6 +100,8 @@ export class StreamFixtureBuilder {
   private whitelistAddresses?: string[];
   private whitelistRoot?: string;
   private whitelistProofGetter?: (address: string) => string[];
+  private inTokenDecimalsValue: number = 18;
+  private outTokenDecimalsValue: number = 18;
   // Time configuration methods
   public timeParams(waitSeconds: number, bootstrappingDuration: number, streamDuration: number): StreamFixtureBuilder {
     this.timeConfig = { waitSeconds, bootstrappingDuration, streamDuration };
@@ -188,6 +190,20 @@ export class StreamFixtureBuilder {
     return this.tokens(ethers.ZeroAddress);
   }
 
+  // Method to set input token decimals
+  public inTokenDecimals(decimals: number): StreamFixtureBuilder {
+    if (decimals < 0 || decimals > 18) throw new Error("Decimals must be between 0 and 18");
+    this.inTokenDecimalsValue = decimals;
+    return this;
+  }
+
+  // Method to set output token decimals
+  public outTokenDecimals(decimals: number): StreamFixtureBuilder {
+    if (decimals < 0 || decimals > 18) throw new Error("Decimals must be between 0 and 18");
+    this.outTokenDecimalsValue = decimals;
+    return this;
+  }
+
   public whitelist(...addresses: string[]): StreamFixtureBuilder {
     if (addresses.length === 0) {
       throw new Error("Whitelist must contain at least one address");
@@ -248,25 +264,25 @@ export class StreamFixtureBuilder {
         let inSupplyToken: any;
         let inSupplyTokenAddress: string;
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const ERC20MockFactory = await ethers.getContractFactory("ERC20Mock") as any;
+
         if (self.inSupplyTokenAddress === ethers.ZeroAddress) {
           // Native token
           inSupplyTokenAddress = ethers.ZeroAddress;
           inSupplyToken = null;
         } else {
-          // ERC20 token
-          const InSupplyToken = await ethers.getContractFactory("ERC20Mock");
-          inSupplyToken = await InSupplyToken.deploy("StreamInSupply Token", "IN");
+          // ERC20 token with configurable decimals
+          inSupplyToken = await ERC20MockFactory.deploy("StreamInSupply Token", "IN", self.inTokenDecimalsValue);
           inSupplyTokenAddress = self.inSupplyTokenAddress ?? await inSupplyToken.getAddress();
         }
 
-        // Deploy outSupply token (always ERC20)
-        const OutSupplyToken = await ethers.getContractFactory("ERC20Mock");
-        const outSupplyToken = await OutSupplyToken.deploy("StreamOutSupply Token", "OUT");
+        // Deploy outSupply token (always ERC20) with configurable decimals
+        const outSupplyToken = await ERC20MockFactory.deploy("StreamOutSupply Token", "OUT", self.outTokenDecimalsValue);
         const outSupplyTokenAddress = self.outSupplyTokenAddress ?? await outSupplyToken.getAddress();
 
-        // Deploy fee token (always ERC20)
-        const FeeToken = await ethers.getContractFactory("ERC20Mock");
-        const feeToken = await FeeToken.deploy("Fee Token", "FEE");
+        // Deploy fee token (always ERC20, always 18 decimals)
+        const feeToken = await ERC20MockFactory.deploy("Fee Token", "FEE", 18);
         const feeTokenAddress = self.feeTokenAddress ?? await feeToken.getAddress();
 
         // Deploy Permit2 at the hardcoded address

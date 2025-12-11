@@ -21,6 +21,7 @@ import { DecimalMath, Decimal } from "./lib/math/DecimalMath.sol";
 import { ITokenFactory } from "./interfaces/ITokenFactory.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { IPoolRouter } from "./interfaces/IPoolRouter.sol";
+import { TokenDecimals } from "./lib/TokenDecimals.sol";
 
 contract StreamFactory is IStreamFactoryEvents, IStreamFactoryErrors {
     using TransferLib for address;
@@ -274,7 +275,10 @@ contract StreamFactory is IStreamFactoryEvents, IStreamFactoryErrors {
         address streamAddr = address(proxy);
 
         PositionStorage positionStorage = new PositionStorage(streamAddr);
-        IStream(streamAddr).initialize(msg_, address(positionStorage));
+        uint8 inTokenDecimals = TokenDecimals.getDecimals(msg_.inSupplyToken);
+        uint8 outTokenDecimals = TokenDecimals.getDecimals(msg_.outSupplyToken);
+
+        IStream(streamAddr).initialize(msg_, address(positionStorage), inTokenDecimals, outTokenDecimals);
 
         uint256 totalOut = msg_.streamOutAmount + msg_.poolInfo.poolOutSupplyAmount;
         TransferLib.transferFunds(msg_.outSupplyToken, address(this), streamAddr, totalOut);
@@ -287,6 +291,8 @@ contract StreamFactory is IStreamFactoryEvents, IStreamFactoryErrors {
             address(this),
             msg_.outSupplyToken,
             msg_.inSupplyToken,
+            inTokenDecimals,
+            outTokenDecimals,
             streamAddr,
             msg_.creator,
             address(positionStorage),
