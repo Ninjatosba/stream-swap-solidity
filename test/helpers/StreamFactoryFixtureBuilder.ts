@@ -170,12 +170,11 @@ export class StreamFactoryFixtureBuilder {
         // Only enable fork if explicitly requested
         if (self.useForkFlag) {
           await enableMainnetFork(self.forkBlock);
+          // On fork, set a reasonable base fee to match mainnet levels and avoid fee errors
+          await ethers.provider.send("hardhat_setNextBlockBaseFeePerGas", ["0x0"]); // 0 - disable EIP-1559 fee checking
         } else {
           await disableFork();
-        }
-        // Stabilize base fee to avoid EIP-1559 underpricing during deployments
-        // Skip on fork - not needed and may cause issues with EDR
-        if (!self.useForkFlag) {
+          // Stabilize base fee to avoid EIP-1559 underpricing during deployments
           try {
             await ethers.provider.send("hardhat_setNextBlockBaseFeePerGas", ["0x0"]);
           } catch { }

@@ -21,7 +21,7 @@
     "lint-staged": "eslint",
     "test": "REPORT_GAS=true hardhat test",
     "test:fast": "REPORT_GAS=true npx hardhat test test/unit/*.test.ts test/stream/*.test.ts test/factory/*.test.ts test/vesting/*.test.ts",
-    "test:fork": "REPORT_GAS=true npx hardhat test test/fork/*.test.ts",
+    "test:fork": "MAINNET_FORKING_ENABLED=true REPORT_GAS=true npx hardhat test test/fork/*.test.ts",
     "coverage": "hardhat coverage",
     "verify": "hardhat etherscan-verify",
     "mint-tokens": "hardhat mint-tokens",

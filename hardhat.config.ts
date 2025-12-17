@@ -80,9 +80,10 @@ const config: HardhatUserConfig = {
     hardhat: {
       forking: {
         url: `https://eth-mainnet.alchemyapi.io/v2/${providerApiKey}`,
-        enabled: false,
+        enabled: process.env.MAINNET_FORKING_ENABLED === 'true',
         blockNumber: 19525330,
       },
+
       mining: {
         auto: true,
         interval: 0,

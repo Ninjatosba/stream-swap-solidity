@@ -259,16 +259,14 @@ export class StreamFixtureBuilder {
         // Only enable fork if explicitly requested
         if (self.useForkFlag) {
           await enableMainnetFork(self.forkBlock, self.network);
+          // On fork, set a reasonable base fee to match mainnet levels and avoid fee errors
+          await ethers.provider.send("hardhat_setNextBlockBaseFeePerGas", ["0x0"]); // 0 - disable EIP-1559 fee checking
         } else {
           await disableFork();
+          // Stabilize base fee to avoid EIP-1559 underpricing during deployments
+          await ethers.provider.send("hardhat_setNextBlockBaseFeePerGas", ["0x0"]);
         }
-        // Stabilize base fee to avoid EIP-1559 underpricing during deployments
-        // Skip on fork - not needed and may cause issues with EDR
-        if (!self.useForkFlag) {
-          try {
-            await ethers.provider.send("hardhat_setNextBlockBaseFeePerGas", ["0x0"]);
-          } catch { }
-        }
+
 
         // Get signers
         const [deployer, creator, subscriber1, subscriber2, subscriber3, subscriber4, protocolAdmin, feeCollector] =
