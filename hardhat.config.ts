@@ -18,6 +18,7 @@ import "./tasks/exit-stream";
 import "./tasks/withdraw";
 import "./tasks/get-stream-status";
 import "./tasks/update-accepted-tokens";
+import "./tasks/update-subscription-fee";
 
 // Optional Alchemy API key. Tests or networks that need it will check at runtime.
 const providerApiKey = process.env.ALCHEMY_API_KEY || "";
