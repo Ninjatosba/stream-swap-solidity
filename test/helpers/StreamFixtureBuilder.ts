@@ -5,7 +5,10 @@ import fs from "fs";
 import path from "path";
 import { DecimalStruct, StreamTypes } from "../../typechain-types/src/StreamCore";
 import { disableFork, enableMainnetFork } from "./fork";
-import { deployAerodromePoolWrapperFork, deployV2PoolWrapperFork, deployV3PoolWrapperFork } from "./poolWrappers";
+import {
+  deployAerodromePoolWrapperFork, deployV2PoolWrapperFork, deployV3PoolWrapperFork,
+  deployAerodromePoolWrapperMock, deployV2PoolWrapperMock, deployV3PoolWrapperMock
+} from "./poolWrappers";
 import { StreamFactoryTypes } from "../../typechain-types/src/StreamFactory";
 import { buildMerkleWhitelist } from "./merkle";
 
@@ -94,6 +97,7 @@ export class StreamFixtureBuilder {
 
   private nowSeconds?: number;
   private enablePoolCreationFlag: boolean = false;
+  private useForkFlag: boolean = false;
   private selectedDexType: 0 | 1 = 0; // 0: V2, 1: V3
   private forkBlock?: number;
   private network?: string;
@@ -221,9 +225,15 @@ export class StreamFixtureBuilder {
     return this;
   }
 
-  // Pool creation toggle (defaults to false)
+  // Pool creation toggle (uses mock wrappers unless useFork is also enabled)
   public enablePoolCreation(enabled: boolean): StreamFixtureBuilder {
     this.enablePoolCreationFlag = enabled;
+    return this;
+  }
+
+  // Enable fork mode (required for real DEX integration tests)
+  public useFork(enabled: boolean = true): StreamFixtureBuilder {
+    this.useForkFlag = enabled;
     return this;
   }
 
@@ -233,10 +243,11 @@ export class StreamFixtureBuilder {
     return this;
   }
 
-  // Optionally pin fork block for reproducibility
+  // Optionally pin fork block for reproducibility (also enables fork mode)
   public forkDetails(blockNumber?: number, network?: string): StreamFixtureBuilder {
     this.forkBlock = blockNumber;
     this.network = network;
+    this.useForkFlag = true;
     return this;
   }
 
@@ -245,16 +256,19 @@ export class StreamFixtureBuilder {
     const self = this;
     return async function deployStreamFixture() {
       try {
-        // Reset or enable fork depending on pool creation flag
-        if (self.enablePoolCreationFlag) {
+        // Only enable fork if explicitly requested
+        if (self.useForkFlag) {
           await enableMainnetFork(self.forkBlock, self.network);
         } else {
           await disableFork();
         }
         // Stabilize base fee to avoid EIP-1559 underpricing during deployments
-        try {
-          await ethers.provider.send("hardhat_setNextBlockBaseFeePerGas", ["0x0"]);
-        } catch { }
+        // Skip on fork - not needed and may cause issues with EDR
+        if (!self.useForkFlag) {
+          try {
+            await ethers.provider.send("hardhat_setNextBlockBaseFeePerGas", ["0x0"]);
+          } catch { }
+        }
 
         // Get signers
         const [deployer, creator, subscriber1, subscriber2, subscriber3, subscriber4, protocolAdmin, feeCollector] =
@@ -264,7 +278,6 @@ export class StreamFixtureBuilder {
         let inSupplyToken: any;
         let inSupplyTokenAddress: string;
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const ERC20MockFactory = await ethers.getContractFactory("ERC20Mock") as any;
 
         if (self.inSupplyTokenAddress === ethers.ZeroAddress) {
@@ -285,25 +298,33 @@ export class StreamFixtureBuilder {
         const feeToken = await ERC20MockFactory.deploy("Fee Token", "FEE", 18);
         const feeTokenAddress = self.feeTokenAddress ?? await feeToken.getAddress();
 
-        // Deploy Permit2 at the hardcoded address
+        // Deploy Permit2 at the hardcoded address (skip on fork - it exists on mainnet)
         const PERMIT2_ADDRESS = "0x000000000022D473030F116dDEE9F6B43aC78BA3";
+        if (!self.useForkFlag) {
+          // Read Permit2 bytecode from file
+          const permit2BytecodePath = path.join(__dirname, "../../permit2_bytecode.txt");
+          const permit2Bytecode = fs.readFileSync(permit2BytecodePath, "utf8").trim();
 
-        // Read Permit2 bytecode from file
-        const permit2BytecodePath = path.join(__dirname, "../../../../permit2_bytecode.txt");
-        const permit2Bytecode = fs.readFileSync(permit2BytecodePath, "utf8").trim();
+          // Deploy Permit2 at the hardcoded address using setCode
+          await ethers.provider.send("hardhat_setCode", [PERMIT2_ADDRESS, permit2Bytecode]);
+        }
 
-        // Deploy Permit2 at the hardcoded address using setCode
-        await ethers.provider.send("hardhat_setCode", [PERMIT2_ADDRESS, permit2Bytecode]);
-
-        // Optionally deploy pool wrappers on fork
+        // Optionally deploy pool wrappers
         let v2PoolWrapperAddress: string = ethers.ZeroAddress;
         let v3PoolWrapperAddress: string = ethers.ZeroAddress;
         let aerodromePoolWrapperAddress: string = ethers.ZeroAddress;
         let poolRouterAddress: string = ethers.ZeroAddress;
         if (self.enablePoolCreationFlag) {
-          const { wrapperAddress: v2Addr } = await deployV2PoolWrapperFork();
-          const { wrapperAddress: v3Addr } = await deployV3PoolWrapperFork(3000);
-          const { wrapperAddress: aerodromeAddr } = await deployAerodromePoolWrapperFork();
+          // Use real wrappers on fork, mock wrappers otherwise
+          const { wrapperAddress: v2Addr } = self.useForkFlag
+            ? await deployV2PoolWrapperFork()
+            : await deployV2PoolWrapperMock();
+          const { wrapperAddress: v3Addr } = self.useForkFlag
+            ? await deployV3PoolWrapperFork(3000)
+            : await deployV3PoolWrapperMock(3000);
+          const { wrapperAddress: aerodromeAddr } = self.useForkFlag
+            ? await deployAerodromePoolWrapperFork()
+            : await deployAerodromePoolWrapperMock();
           v2PoolWrapperAddress = v2Addr;
           v3PoolWrapperAddress = v3Addr;
           aerodromePoolWrapperAddress = aerodromeAddr;

@@ -582,7 +582,7 @@ describe("StreamCreation", function () {
         });
 
         it("should revert if creator vesting is enabled but duration is zero", async function () {
-            const fixture = await loadFixture(streamFactory().enablePoolCreation(true).build());
+            const fixture = await loadFixture(streamFactory().build());
 
             const now = Math.floor(Date.now() / 1000);
             const createStreamMessage: StreamTypes.CreateStreamMessageStruct = {
@@ -606,7 +606,7 @@ describe("StreamCreation", function () {
                     vestingDuration: 0,
                 },
                 poolInfo: {
-                    poolOutSupplyAmount: ethers.parseEther("100"),
+                    poolOutSupplyAmount: 0n, // No pool - this test is about vesting validation
                     dexType: 0,
                     extra: "0x",
                 },

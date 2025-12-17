@@ -21,6 +21,7 @@ describe("Finalize with Pool Creation (fork)", function () {
         .streamOut(streamOutAmount)
         .poolOutSupply(poolOutSupplyAmount)
         .enablePoolCreation(true)
+        .useFork(true)
         .dex("v2")
         .build()
     );
@@ -39,6 +40,7 @@ describe("Finalize with Pool Creation (fork)", function () {
         .setThreshold(Amounts.DEFAULT_THRESHOLD)
         .enablePoolCreation(true)
         .dex("v2")
+        .useFork(true)
         .build()
     );
 
@@ -104,6 +106,7 @@ describe("Finalize with Pool Creation (fork)", function () {
         .setThreshold(Amounts.DEFAULT_THRESHOLD)
         .enablePoolCreation(true)
         .dex("v3")
+        .useFork(true)
         .build()
     );
 
@@ -172,6 +175,7 @@ describe("Finalize with Pool Creation (fork)", function () {
         .setThreshold(Amounts.DEFAULT_THRESHOLD)
         .enablePoolCreation(true)
         .forkDetails(undefined, "baseAerodrome")
+        .useFork(true)
         .build()
     );
 

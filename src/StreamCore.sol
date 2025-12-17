@@ -26,8 +26,6 @@ import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils
 import { IPermit2 } from "./interfaces/IPermit2.sol";
 import { MerkleProof } from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 
-import "hardhat/console.sol";
-
 abstract contract StreamCore is IStreamErrors, IStreamEvents, UUPSUpgradeable {
     // ============ State Variables ============
     // All storage must be defined here for upgrade compatibility

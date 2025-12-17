@@ -4,7 +4,7 @@ import { ERC20Mock, PoolWrapper, PoolRouter } from "../../typechain-types";
 import { DecimalStruct } from "../../typechain-types/src/StreamCore";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 import { disableFork, enableMainnetFork } from "./fork";
-import { deployV2PoolWrapperFork, deployV3PoolWrapperFork } from "./poolWrappers";
+import { deployV2PoolWrapperFork, deployV3PoolWrapperFork, deployV2PoolWrapperMock, deployV3PoolWrapperMock } from "./poolWrappers";
 import { StreamFactoryTypes } from "../../typechain-types/src/StreamFactory";
 
 export interface StreamFactoryFixture {
@@ -51,6 +51,7 @@ export class StreamFactoryFixtureBuilder {
   private useNativeTokenFee: boolean = false;
   private useNativeInputToken: boolean = false;
   private enablePoolCreationFlag: boolean = false;
+  private useForkFlag: boolean = false;
   private forkBlock?: number;
   private inTokenDecimalsValue: number = 18;
   private outTokenDecimalsValue: number = 18;
@@ -108,15 +109,22 @@ export class StreamFactoryFixtureBuilder {
     return this;
   }
 
-  // Enable pool creation on fork (deploy real wrappers)
+  // Enable pool creation (uses mock wrappers unless useFork is also enabled)
   public enablePoolCreation(enabled: boolean): StreamFactoryFixtureBuilder {
     this.enablePoolCreationFlag = enabled;
     return this;
   }
 
-  // Optionally pin fork block
+  // Enable fork mode (required for real DEX integration tests)
+  public useFork(enabled: boolean = true): StreamFactoryFixtureBuilder {
+    this.useForkFlag = enabled;
+    return this;
+  }
+
+  // Optionally pin fork block (also enables fork mode)
   public forkAt(blockNumber?: number): StreamFactoryFixtureBuilder {
     this.forkBlock = blockNumber;
+    this.useForkFlag = true;
     return this;
   }
 
@@ -159,17 +167,19 @@ export class StreamFactoryFixtureBuilder {
       const [creator, feeCollector, protocolAdmin] = await ethers.getSigners();
 
       try {
-        // Only enable fork if pool creation is requested
-        if (self.enablePoolCreationFlag) {
+        // Only enable fork if explicitly requested
+        if (self.useForkFlag) {
           await enableMainnetFork(self.forkBlock);
-        }
-        else {
+        } else {
           await disableFork();
         }
         // Stabilize base fee to avoid EIP-1559 underpricing during deployments
-        try {
-          await ethers.provider.send("hardhat_setNextBlockBaseFeePerGas", ["0x0"]);
-        } catch { }
+        // Skip on fork - not needed and may cause issues with EDR
+        if (!self.useForkFlag) {
+          try {
+            await ethers.provider.send("hardhat_setNextBlockBaseFeePerGas", ["0x0"]);
+          } catch { }
+        }
 
         // Deploy token contracts with configurable decimals
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -190,7 +200,7 @@ export class StreamFactoryFixtureBuilder {
         await outSupplyToken.mint(creator.address, outSupplyAmount);
         await feeToken.mint(creator.address, ethers.parseEther("1000000000"));
 
-        // Optionally deploy pool wrappers on fork
+        // Optionally deploy pool wrappers
         let v2WrapperAddress = ethers.ZeroAddress;
         let v3WrapperAddress = ethers.ZeroAddress;
         let aerodromeWrapperAddress = ethers.ZeroAddress;
@@ -199,8 +209,13 @@ export class StreamFactoryFixtureBuilder {
         let aerodromePoolWrapper: PoolWrapper | undefined = undefined;
         let poolRouterAddress: string = ethers.ZeroAddress;
         if (self.enablePoolCreationFlag) {
-          const v2 = await deployV2PoolWrapperFork();
-          const v3 = await deployV3PoolWrapperFork(3000);
+          // Use real wrappers on fork, mock wrappers otherwise
+          const v2 = self.useForkFlag
+            ? await deployV2PoolWrapperFork()
+            : await deployV2PoolWrapperMock();
+          const v3 = self.useForkFlag
+            ? await deployV3PoolWrapperFork(3000)
+            : await deployV3PoolWrapperMock(3000);
           v2WrapperAddress = v2.wrapperAddress;
           v3WrapperAddress = v3.wrapperAddress;
           v2PoolWrapper = await ethers.getContractAt("PoolWrapper", v2WrapperAddress) as unknown as PoolWrapper;
