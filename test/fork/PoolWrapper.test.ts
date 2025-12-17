@@ -13,18 +13,18 @@ describe("PoolWrapper (fork)", function () {
         return { token0: tokenB, token1: tokenA, amount0Desired: amountB, amount1Desired: amountA };
     }
     async function poolFixture(network?: string) {
-        // Enable fork and stabilize base fee
+        // Enable fork for the specified network
         await enableMainnetFork(undefined, network);
-
-        // log network
-        console.log("Network:", await ethers.provider.getNetwork());
+        // Note: Don't call hardhat_setNextBlockBaseFeePerGas on fork - EDR doesn't support it
+        // We use explicit gas overrides in deployments instead
+        const gasOverrides = { maxFeePerGas: ethers.parseUnits("100", "gwei"), maxPriorityFeePerGas: ethers.parseUnits("1", "gwei") };
 
         const [deployer, liquidityProvider, other] = await ethers.getSigners();
 
         // Deploy two local ERC20 mocks to act as tokens
         const ERC20Mock = await ethers.getContractFactory("ERC20Mock");
-        const tokenA = await ERC20Mock.deploy("TokenA", "TKA", 18);
-        const tokenB = await ERC20Mock.deploy("TokenB", "TKB", 18);
+        const tokenA = await ERC20Mock.deploy("TokenA", "TKA", 18, gasOverrides);
+        const tokenB = await ERC20Mock.deploy("TokenB", "TKB", 18, gasOverrides);
         await tokenA.waitForDeployment();
         await tokenB.waitForDeployment();
 

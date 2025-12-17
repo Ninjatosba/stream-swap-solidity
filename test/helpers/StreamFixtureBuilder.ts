@@ -259,8 +259,8 @@ export class StreamFixtureBuilder {
         // Only enable fork if explicitly requested
         if (self.useForkFlag) {
           await enableMainnetFork(self.forkBlock, self.network);
-          // On fork, set a reasonable base fee to match mainnet levels and avoid fee errors
-          await ethers.provider.send("hardhat_setNextBlockBaseFeePerGas", ["0x0"]); // 0 - disable EIP-1559 fee checking
+          // Note: Don't call hardhat_setNextBlockBaseFeePerGas on fork - EDR doesn't support it
+          // Gas overrides are used in poolWrappers.ts instead
         } else {
           await disableFork();
           // Stabilize base fee to avoid EIP-1559 underpricing during deployments

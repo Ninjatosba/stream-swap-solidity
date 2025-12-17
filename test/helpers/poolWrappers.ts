@@ -65,8 +65,9 @@ export async function deployV3PoolWrapperFork(feeTier: number = 3000): Promise<V
 }
 
 export async function deployAerodromePoolWrapperFork(stable: boolean = false): Promise<AerodromeWrapperFixtureResult> {
+    const gasOverrides = { maxFeePerGas: ethers.parseUnits("100", "gwei"), maxPriorityFeePerGas: ethers.parseUnits("1", "gwei") };
     const Wrapper = await ethers.getContractFactory("AerodromePoolWrapper");
-    const wrapper = await Wrapper.deploy(AERODROME_FACTORY, AERODROME_ROUTER, stable);
+    const wrapper = await Wrapper.deploy(AERODROME_FACTORY, AERODROME_ROUTER, stable, { ...gasOverrides });
     await wrapper.waitForDeployment();
 
     return {
