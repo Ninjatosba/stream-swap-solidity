@@ -22,11 +22,11 @@ StreamSwap on EVM is fully modular and upgradeable. The core pieces are:
 
 | Contract | Description |
 |----------|-------------|
-| [`StreamFactory.sol`](packages/hardhat/src/StreamFactory.sol) | Creates new streams and stores global protocol parameters (fees, accepted tokens, etc.). |
-| [`Stream.sol`](packages/hardhat/src/Stream.sol) | Minimal-proxy clone that holds the logic for a single stream (subscriptions, distribution, exits, finalisation). |
-| [`PoolWrapper.sol`](packages/hardhat/src/PoolWrapper.sol) | Helper that interfaces with an external AMM (e.g. Uniswap-V2 router) to seed post-sale liquidity. |
-| [`PositionStorage.sol`](packages/hardhat/src/storage/PositionStorage.sol) | ERC-721 style storage of per-user positions for gas-efficient bookkeeping. |
-| [`VestingFactory.sol`](packages/hardhat/src/VestingFactory.sol) | Deploys linear vesting contracts for creators and/or beneficiaries when enabled. |
+| [`StreamFactory.sol`](src/StreamFactory.sol) | Creates new streams and stores global protocol parameters (fees, accepted tokens, etc.). |
+| [`StreamCore.sol`](src/StreamCore.sol), [`StreamBasic.sol`](src/StreamBasic.sol), [`StreamPostActions.sol`](src/StreamPostActions.sol) | Core stream logic with different feature sets (basic vs advanced with vesting/pools). |
+| [`PoolWrapper.sol`](src/PoolWrapper.sol) | Helper that interfaces with external AMMs (Uniswap V2/V3, Aerodrome) to seed post-sale liquidity. |
+| [`PositionStorage.sol`](src/storage/PositionStorage.sol) | ERC-721 style storage of per-user positions for gas-efficient bookkeeping. |
+| [`VestingFactory.sol`](src/VestingFactory.sol) | Deploys linear vesting contracts for creators and/or beneficiaries when enabled. |
 | **Libraries & Interfaces** | Math utilities, custom errors and typed structs that keep byte-code size minimal.
 
 A high-level diagram is shown below (simplified – one Stream instance illustrated):
@@ -82,12 +82,12 @@ Here are the most common actions you can perform, with examples for both the CLI
 
 | Action | CLI Command (for quick tests) | JavaScript Integration |
 | :--- | :--- | :--- |
-| **Create a Stream** | `yarn hardhat create-stream` | `const tx = await streamFactory.createStream(params);`<br/>*See parameter reference below.* |
-| **Subscribe** | `yarn hardhat subscribe --stream <addr> --amount 1.0` | `const tx = await stream.subscribe(ethers.parseEther("1.0"));` |
-| **Withdraw** | `yarn hardhat withdraw --stream <addr> --amount 0.5` | `const tx = await stream.withdraw(ethers.parseEther("0.5"));` |
-| **Exit** | `yarn hardhat exit-stream --stream <addr>` | `const tx = await stream.exitStream();` |
-| **Finalize** | `yarn hardhat finalize-stream --stream <addr>` | `const tx = await stream.finalizeStream();` |
-| **Check Status** | `yarn hardhat get-stream-status --stream <addr>` | `const status = await stream.getStreamStatus();` |
+| **Create a Stream** | `yarn create-stream` | `const tx = await streamFactory.createStream(params);`<br/>*See parameter reference below.* |
+| **Subscribe** | `yarn subscribe --stream <addr> --amount 1.0` | `const tx = await stream.subscribe(ethers.parseEther("1.0"));` |
+| **Withdraw** | `yarn withdraw --stream <addr> --amount 0.5` | `const tx = await stream.withdraw(ethers.parseEther("0.5"));` |
+| **Exit** | `yarn exit-stream --stream <addr>` | `const tx = await stream.exitStream();` |
+| **Finalize** | `yarn finalize-stream --stream <addr>` | `const tx = await stream.finalizeStream();` |
+| **Check Status** | `yarn get-stream-status --stream <addr>` | `const status = await stream.getStreamStatus();` |
 
 ---
 
@@ -95,7 +95,7 @@ Here are the most common actions you can perform, with examples for both the CLI
 
 ### Prerequisites
 
-*   Node ≥ 18.x
+*   Node ≥ 18.18.0
 *   Yarn Classic (v1) or pnpm
 
 ### Install & Compile
@@ -117,7 +117,7 @@ yarn chain
 yarn deploy
 
 # 3. Run unit & integration tests
-yarn hardhat:test
+yarn test
 ```
 
 ---
@@ -174,16 +174,17 @@ yarn hardhat verify --network sepolia DEPLOYED_ADDRESS ...constructor_args
 
 | Network | StreamFactory |
 |---------|---------------|
-| Sepolia | `0x1F73322A6637380DAfBc8449526d466aAf712202` |
-| Monad Testnet | `0x2B3Db98aC7De966AE2422b26FB887870633C6E28` |
+| Sepolia | `0x6111D0a8E71cc27a2Af70A41965409ceDf11d960` |
+| Base Sepolia | `0x0012D05976DfD6383432146Dd9970bA7BC7dc733` |
+| Monad Mainnet | `0x2B3Db98aC7De966AE2422b26FB887870633C6E28` |
 | Hyperliquid Testnet | `0xa2bc94F53F7eC7C73EC13BB771dcbfb0DCEDe47B` |
 
 > **Note**: addresses may change – always check the latest release artifacts.
 ---
 
-## Audit
+## Security
 
-A third-party security audit is scheduled for Q3 2025. Results will be published here once available.
+Third-party security audits are conducted regularly. Audit reports are available in the [audits](./audits/) directory when completed.
 
 ---
 
