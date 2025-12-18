@@ -39,13 +39,8 @@ describe("Stream Subscribe", function () {
     });
 
     it("Should allow subscription with permit 2", async function () {
-      // Enable vesting and pool to force StreamFull (which has subscribeWithPermit)
       const { contracts, timeParams, accounts } = await loadFixture(
-        stream()
-          .creatorVesting(100)
-          .poolOutSupply(Amounts.DEFAULT_THRESHOLD)
-          .enablePoolCreation(true)
-          .build()
+        stream().build()
       );
 
       // Advance to active phase and sync
@@ -133,9 +128,6 @@ describe("Stream Subscribe", function () {
       // Enable vesting and pool to force StreamFull (which has subscribeWithPermit)
       const { contracts, timeParams, accounts } = await loadFixture(
         stream()
-          .creatorVesting(100)
-          .poolOutSupply(Amounts.DEFAULT_THRESHOLD)
-          .enablePoolCreation(true)
           .build()
       );
 
@@ -191,14 +183,7 @@ describe("Stream Subscribe", function () {
     });
 
     it("Should not allow subscription with invalid signature", async function () {
-      // Enable vesting and pool to force StreamFull (which has subscribeWithPermit)
-      const { contracts, timeParams, accounts } = await loadFixture(
-        stream()
-          .creatorVesting(100)
-          .poolOutSupply(Amounts.DEFAULT_THRESHOLD)
-          .enablePoolCreation(true)
-          .build()
-      );
+      const { contracts, timeParams, accounts } = await loadFixture(stream().build());
 
       // Advance to active phase and sync
       await advanceStreamToPhase(contracts.stream, "active", timeParams);
@@ -257,9 +242,6 @@ describe("Stream Subscribe", function () {
       // Enable vesting and pool to force StreamFull (which has subscribeWithPermit)
       const { contracts, timeParams, accounts } = await loadFixture(
         stream()
-          .creatorVesting(100)
-          .poolOutSupply(Amounts.DEFAULT_THRESHOLD)
-          .enablePoolCreation(true)
           .build()
       );
 

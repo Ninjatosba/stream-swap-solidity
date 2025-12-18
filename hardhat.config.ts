@@ -18,6 +18,7 @@ import "./tasks/exit-stream";
 import "./tasks/withdraw";
 import "./tasks/get-stream-status";
 import "./tasks/update-accepted-tokens";
+import "./tasks/update-subscription-fee";
 
 // Optional Alchemy API key. Tests or networks that need it will check at runtime.
 const providerApiKey = process.env.ALCHEMY_API_KEY || "";
@@ -58,7 +59,7 @@ const config: HardhatUserConfig = {
   },
   defaultNetwork: "hardhat",
   mocha: {
-    timeout: 100000, // 100 seconds max for running tests
+    timeout: 100000,
   },
   namedAccounts: {
     deployer: {
@@ -76,21 +77,18 @@ const config: HardhatUserConfig = {
     },
   },
   networks: {
-    // View the networks that are pre-configured.
-    // If the network you are looking for is not here you can add new network settings
     hardhat: {
-      // Forking is disabled by default; tests can enable via hardhat_reset
       forking: {
         url: `https://eth-mainnet.alchemyapi.io/v2/${providerApiKey}`,
-        enabled: false,
+        enabled: process.env.MAINNET_FORKING_ENABLED === 'true',
         blockNumber: 19525330,
       },
+
       mining: {
         auto: true,
-        interval: 0, // Add a 1 second interval between blocks
+        interval: 0,
       },
       accounts: {
-        // Higher balance for coverage runs (instrumented contracts are expensive)
         accountsBalance: "1000000000000000000000000", // 1M ETH
       },
     },

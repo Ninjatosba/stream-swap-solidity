@@ -5,11 +5,13 @@ export async function enableMainnetFork(blockNumber?: number, network?: string) 
     if (!apiKey) throw new Error("Missing ALCHEMY_API_KEY for fork");
     let jsonRpcUrl = `https://eth-mainnet.g.alchemy.com/v2/${apiKey}`;
 
-    if (network === "base") {
+    if (network === "base" || network === "baseAerodrome") {
         jsonRpcUrl = `https://base-mainnet.g.alchemy.com/v2/${apiKey}`;
     } else if (network === "baseSepolia") {
         jsonRpcUrl = `https://base-sepolia.g.alchemy.com/v2/${apiKey}`;
     }
+    // Always reset to ensure fork is properly enabled (even if env var is set,
+    // a previous test's after() hook may have called disableFork())
     await ethers.provider.send("hardhat_reset", [
         {
             forking: {
@@ -18,15 +20,6 @@ export async function enableMainnetFork(blockNumber?: number, network?: string) 
             },
         },
     ]);
-
-    // Stabilize EIP-1559 base fee to avoid tx rejections in tests
-    // Set next block base fee to 0 and mine one block
-    try {
-        await ethers.provider.send("hardhat_setNextBlockBaseFeePerGas", ["0x0"]);
-        await ethers.provider.send("hardhat_mine", ["0x1"]);
-    } catch (_) {
-        // Ignore if method not supported by older Hardhat versions
-    }
 }
 
 export async function disableFork() {

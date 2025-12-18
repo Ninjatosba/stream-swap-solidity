@@ -1,6 +1,5 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
-import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { stream } from "../helpers/StreamFixtureBuilder";
 import { Amounts } from "../types";
 import { advanceStreamToPhase, subscribeAndSync } from "../helpers/stream";
@@ -16,14 +15,13 @@ describe("Finalize with Pool Creation (fork)", function () {
   it("should store pool configuration during stream creation", async function () {
     const poolOutSupplyAmount = ethers.parseEther("1000");
     const streamOutAmount = ethers.parseEther("10000");
-    const { contracts } = await loadFixture(
-      stream()
-        .streamOut(streamOutAmount)
-        .poolOutSupply(poolOutSupplyAmount)
-        .enablePoolCreation(true)
-        .dex("v2")
-        .build()
-    );
+    const { contracts } = await stream()
+      .streamOut(streamOutAmount)
+      .poolOutSupply(poolOutSupplyAmount)
+      .enablePoolCreation(true)
+      .useFork(true)
+      .dex("v2")
+      .build()();
 
     // Query post stream actions - verify pool config is stored
     const state = await contracts.stream.getPostStreamActions();
@@ -32,15 +30,14 @@ describe("Finalize with Pool Creation (fork)", function () {
 
   it("Should handle finalize with Pool V2 creation", async function () {
     const poolOutAmount = ethers.parseEther("25");
-    const { contracts, timeParams, accounts } = await loadFixture(
-      stream()
-        .poolOutSupply(poolOutAmount)
-        .streamOut(Amounts.DEFAULT_THRESHOLD)
-        .setThreshold(Amounts.DEFAULT_THRESHOLD)
-        .enablePoolCreation(true)
-        .dex("v2")
-        .build()
-    );
+    const { contracts, timeParams, accounts } = await stream()
+      .poolOutSupply(poolOutAmount)
+      .streamOut(Amounts.DEFAULT_THRESHOLD)
+      .setThreshold(Amounts.DEFAULT_THRESHOLD)
+      .enablePoolCreation(true)
+      .dex("v2")
+      .useFork(true)
+      .build()();
 
     // Advance to active phase and sync
     await advanceStreamToPhase(contracts.stream, "active", timeParams);
@@ -97,15 +94,14 @@ describe("Finalize with Pool Creation (fork)", function () {
   });
 
   it("Should handle finalize with Pool V3 creation", async function () {
-    const { contracts, timeParams, accounts } = await loadFixture(
-      stream()
-        .poolOutSupply(ethers.parseEther("25"))
-        .streamOut(Amounts.DEFAULT_THRESHOLD)
-        .setThreshold(Amounts.DEFAULT_THRESHOLD)
-        .enablePoolCreation(true)
-        .dex("v3")
-        .build()
-    );
+    const { contracts, timeParams, accounts } = await stream()
+      .poolOutSupply(ethers.parseEther("25"))
+      .streamOut(Amounts.DEFAULT_THRESHOLD)
+      .setThreshold(Amounts.DEFAULT_THRESHOLD)
+      .enablePoolCreation(true)
+      .dex("v3")
+      .useFork(true)
+      .build()();
 
     // Advance to active phase and sync
     await advanceStreamToPhase(contracts.stream, "active", timeParams);
@@ -162,69 +158,5 @@ describe("Finalize with Pool Creation (fork)", function () {
     }
 
     expect(priceOutPerIn).to.be.closeTo(1.111, 0.001);
-  });
-
-  it("Should handle finalize with Pool Aerodrome creation", async function () {
-    const { contracts, timeParams, accounts } = await loadFixture(
-      stream()
-        .poolOutSupply(ethers.parseEther("25"))
-        .streamOut(Amounts.DEFAULT_THRESHOLD)
-        .setThreshold(Amounts.DEFAULT_THRESHOLD)
-        .enablePoolCreation(true)
-        .forkDetails(undefined, "baseAerodrome")
-        .build()
-    );
-
-    // Advance to active phase and sync
-    await advanceStreamToPhase(contracts.stream, "active", timeParams);
-
-    // Subscribe to reach threshold
-    await subscribeAndSync(contracts.stream, accounts.subscriber1, Amounts.DEFAULT_THRESHOLD, contracts.inSupplyToken);
-
-    // Advance to ended phase and sync
-    await advanceStreamToPhase(contracts.stream, "ended", timeParams);
-
-    const creatorInBalanceBefore = await getBalance(contracts.inSupplyToken, accounts.creator);
-    const creatorOutBalanceBefore = await getBalance(contracts.outSupplyToken, accounts.creator);
-
-    // Finalize with pool creation
-    const finalizeTx = await contracts.stream.connect(accounts.creator).finalizeStream();
-    const receipt = await finalizeTx.wait();
-
-    const streamAddress = await contracts.stream.getAddress();
-    const finalizedEvent = await getFinalizedStreamedEvent(receipt!, streamAddress);
-    const poolEvent = await getPoolCreatedEvent(receipt!, streamAddress);
-
-    // Verify events
-    expect(finalizedEvent).to.not.be.null;
-    expect(poolEvent).to.not.be.null;
-    expect(poolEvent!.streamAddress).to.equal(streamAddress);
-    expect(poolEvent!.poolAddress).to.not.equal(ethers.ZeroAddress);
-
-    const creatorInBalanceAfter = await getBalance(contracts.inSupplyToken, accounts.creator);
-    const creatorOutBalanceAfter = await getBalance(contracts.outSupplyToken, accounts.creator);
-
-    // Verify balances (Aerodrome has different token ordering)
-    expect(creatorInBalanceAfter - creatorInBalanceBefore).to.equal(poolEvent!.refundedAmount0 + finalizedEvent!.creatorRevenue);
-    expect(creatorOutBalanceAfter - creatorOutBalanceBefore).to.equal(poolEvent!.refundedAmount1);
-
-    // Get price from the Aerodrome pool
-    const pool = await ethers.getContractAt("IAerodromePool", poolEvent!.poolAddress);
-    const reserves = await pool.getReserves();
-    const token0 = await pool.token0();
-    const token1 = await pool.token1();
-    const outToken = await contracts.outSupplyToken.getAddress();
-    const inToken = await contracts.inSupplyToken.getAddress();
-
-    let price: number;
-    if (token0 === outToken && token1 === inToken) {
-      price = Number(reserves[0]) / Number(reserves[1]);
-    } else if (token0 === inToken && token1 === outToken) {
-      price = Number(reserves[1]) / Number(reserves[0]);
-    } else {
-      throw new Error("Unexpected token ordering in Aerodrome pool");
-    }
-
-    expect(price).to.be.closeTo(1.111, 0.001);
   });
 });

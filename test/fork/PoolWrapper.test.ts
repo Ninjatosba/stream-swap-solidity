@@ -1,6 +1,5 @@
 import { assert, expect } from "chai";
 import { ethers } from "hardhat";
-import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { enableMainnetFork } from "../helpers/fork";
 import { deployAerodromePoolWrapperFork, deployV2PoolWrapperFork, deployV3PoolWrapperFork } from "../helpers/poolWrappers";
 import { PoolWrapperTypes } from "../../typechain-types/src/PoolWrapper";
@@ -14,18 +13,18 @@ describe("PoolWrapper (fork)", function () {
         return { token0: tokenB, token1: tokenA, amount0Desired: amountB, amount1Desired: amountA };
     }
     async function poolFixture(network?: string) {
-        // Enable fork and stabilize base fee
+        // Enable fork for the specified network
         await enableMainnetFork(undefined, network);
-
-        // log network
-        console.log("Network:", await ethers.provider.getNetwork());
+        // Note: Don't call hardhat_setNextBlockBaseFeePerGas on fork - EDR doesn't support it
+        // We use explicit gas overrides in deployments instead
+        const gasOverrides = { maxFeePerGas: ethers.parseUnits("100", "gwei"), maxPriorityFeePerGas: ethers.parseUnits("1", "gwei") };
 
         const [deployer, liquidityProvider, other] = await ethers.getSigners();
 
         // Deploy two local ERC20 mocks to act as tokens
         const ERC20Mock = await ethers.getContractFactory("ERC20Mock");
-        const tokenA = await ERC20Mock.deploy("TokenA", "TKA", 18);
-        const tokenB = await ERC20Mock.deploy("TokenB", "TKB", 18);
+        const tokenA = await ERC20Mock.deploy("TokenA", "TKA", 18, gasOverrides);
+        const tokenB = await ERC20Mock.deploy("TokenB", "TKB", 18, gasOverrides);
         await tokenA.waitForDeployment();
         await tokenB.waitForDeployment();
 
@@ -58,7 +57,7 @@ describe("PoolWrapper (fork)", function () {
 
     describe("V2", function () {
         it("creates a new pool and adds liquidity", async function () {
-            const { tokens, v2, accounts } = await loadFixture(poolFixture);
+            const { tokens, v2, accounts } = await poolFixture();
 
             const amount0 = ethers.parseEther("10");
             const amount1 = ethers.parseEther("10");
@@ -84,7 +83,7 @@ describe("PoolWrapper (fork)", function () {
         });
 
         it("reuses existing pool on subsequent calls", async function () {
-            const { tokens, v2, accounts } = await loadFixture(poolFixture);
+            const { tokens, v2, accounts } = await poolFixture();
 
             const amount0 = ethers.parseEther("5");
             const amount1 = ethers.parseEther("5");
@@ -113,7 +112,7 @@ describe("PoolWrapper (fork)", function () {
         });
 
         it("reverts on insufficient wrapper balance", async function () {
-            const { tokens, v2 } = await loadFixture(poolFixture);
+            const { tokens, v2 } = await poolFixture();
             const amount0 = ethers.parseEther("1");
             const amount1 = ethers.parseEther("10000000"); // exceed pre-funded balance
             const a = await tokens.tokenA.getAddress();
@@ -131,7 +130,7 @@ describe("PoolWrapper (fork)", function () {
 
     describe("V3", function () {
         it("creates a new v3 pool and adds full-range liquidity", async function () {
-            const { tokens, v3, accounts } = await loadFixture(poolFixture);
+            const { tokens, v3, accounts } = await poolFixture();
 
             const amount0 = ethers.parseEther("10");
             const amount1 = ethers.parseEther("10");
@@ -156,7 +155,7 @@ describe("PoolWrapper (fork)", function () {
         });
 
         it("reverts on zero amounts", async function () {
-            const { tokens, v3 } = await loadFixture(poolFixture);
+            const { tokens, v3 } = await poolFixture();
             const a = await tokens.tokenA.getAddress();
             const b = await tokens.tokenB.getAddress();
             const sorted = sortForMsg(a, b, 0n, ethers.parseEther("1"));
