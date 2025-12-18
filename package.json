@@ -19,7 +19,7 @@
     "lint": "eslint './*.ts' './deploy/**/*.ts' './scripts/**/*.ts' './test/**/*.ts'",
     "lint:sol": "npx solhint 'src/**/*.sol'",
     "lint-staged": "eslint",
-    "test": "REPORT_GAS=true hardhat test",
+    "test": "MAINNET_FORKING_ENABLED=true REPORT_GAS=true hardhat test",
     "test:fast": "REPORT_GAS=true npx hardhat test test/unit/*.test.ts test/stream/*.test.ts test/factory/*.test.ts test/vesting/*.test.ts",
     "test:fork": "MAINNET_FORKING_ENABLED=true REPORT_GAS=true npx hardhat test test/fork/*.test.ts",
     "coverage": "hardhat coverage",
