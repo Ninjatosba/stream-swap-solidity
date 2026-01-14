@@ -3,6 +3,7 @@
 [![GitHub tag](https://img.shields.io/github/v/tag/StreamSwapProtocol/streamswap-solidity?label=Latest%20version&logo=github)](https://github.com/StreamSwapProtocol/streamswap-solidity/releases/latest)
 ![GitHub](https://img.shields.io/github/license/StreamSwapProtocol/streamswap-solidity)
 ![X (formerly Twitter) Follow](https://img.shields.io/twitter/follow/StreamSwap_io)
+[![Live App](https://img.shields.io/badge/Live%20App-evm.streamswap.io-blue)](https://evm.streamswap.io)
 
 ![StreamSwap banner](https://i.imgur.com/P7hF5uG.png)
 
